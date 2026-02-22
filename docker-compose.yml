@@ -1,0 +1,91 @@
+version: '3.8'
+
+services:
+  goclaw:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: goclaw
+    restart: unless-stopped
+    ports:
+      - "8080:8080"   # HTTP API
+      - "9090:9090"   # gRPC
+      - "9091:9091"   # Metrics
+    volumes:
+      - ./config/config.local.yaml:/app/config.yaml:ro
+    environment:
+      - GOCLAW_ENV=production
+    networks:
+      - goclaw-network
+    depends_on:
+      - redis
+      - consul
+
+  # Optional: Redis for distributed state storage
+  redis:
+    image: redis:7-alpine
+    container_name: goclaw-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis-data:/data
+    networks:
+      - goclaw-network
+
+  # Optional: Consul for service discovery
+  consul:
+    image: consul:1.16
+    container_name: goclaw-consul
+    restart: unless-stopped
+    ports:
+      - "8500:8500"
+    environment:
+      - CONSUL_BIND_INTERFACE=eth0
+    command: agent -server -ui -node=server-1 -bootstrap-expect=1 -client=0.0.0.0
+    volumes:
+      - consul-data:/consul/data
+    networks:
+      - goclaw-network
+
+  # Optional: Prometheus for metrics collection
+  prometheus:
+    image: prom/prometheus:v2.47.0
+    container_name: goclaw-prometheus
+    restart: unless-stopped
+    ports:
+      - "9092:9090"
+    volumes:
+      - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+    networks:
+      - goclaw-network
+
+  # Optional: Grafana for visualization
+  grafana:
+    image: grafana/grafana:10.1.0
+    container_name: goclaw-grafana
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+    volumes:
+      - grafana-data:/var/lib/grafana
+    networks:
+      - goclaw-network
+    depends_on:
+      - prometheus
+
+volumes:
+  redis-data:
+  consul-data:
+  prometheus-data:
+  grafana-data:
+
+networks:
+  goclaw-network:
+    driver: bridge

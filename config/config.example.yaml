@@ -1,0 +1,83 @@
+# Goclaw Configuration Example
+
+# Application metadata
+app:
+  name: goclaw
+  version: "0.1.0"
+  environment: development  # development, staging, production
+
+# Server configuration
+server:
+  host: "0.0.0.0"
+  port: 8080
+  
+  # gRPC configuration
+  grpc:
+    port: 9090
+    maxConcurrentStreams: 1000
+    
+  # HTTP/REST API configuration
+  http:
+    readTimeout: 30s
+    writeTimeout: 30s
+    idleTimeout: 120s
+    maxHeaderBytes: 1048576  # 1MB
+
+# Logging configuration
+log:
+  level: info  # debug, info, warn, error
+  format: json  # json, text
+  output: stdout  # stdout, stderr, or file path
+  
+# Agent orchestration configuration
+orchestration:
+  # Maximum number of concurrent agents
+  maxAgents: 1000
+  
+  # Task queue configuration
+  queue:
+    type: memory  # memory, redis
+    size: 10000
+    
+  # Scheduler configuration
+  scheduler:
+    type: round-robin  # round-robin, priority, load-balanced
+    checkInterval: 5s
+    
+# Cluster configuration (for distributed mode)
+cluster:
+  enabled: false
+  nodeId: "node-1"
+  
+  # Service discovery
+  discovery:
+    type: consul  # consul, etcd, kubernetes
+    address: "localhost:8500"
+    
+  # Gossip protocol configuration
+  gossip:
+    bindPort: 7946
+    advertiseAddr: ""
+    
+# Storage configuration
+storage:
+  type: memory  # memory, redis, etcd
+  
+  # Redis configuration (when type is redis)
+  redis:
+    address: "localhost:6379"
+    password: ""
+    db: 0
+    
+# Metrics and monitoring
+metrics:
+  enabled: true
+  path: /metrics
+  port: 9091
+  
+# Tracing configuration
+tracing:
+  enabled: false
+  type: jaeger  # jaeger, zipkin
+  endpoint: "http://localhost:14268/api/traces"
+  sampleRate: 0.1

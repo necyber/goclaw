@@ -1,32 +1,121 @@
 # If you prefer the allow list template instead of the deny list, see community template:
 # https://github.com/github/gitignore/blob/main/community/Golang/Go.AllowList.gitignore
-#
+
+# ================================================
 # Binaries for programs and plugins
+# ================================================
 *.exe
 *.exe~
 *.dll
 *.so
 *.dylib
+*.bin
 
+# ================================================
 # Test binary, built with `go test -c`
+# ================================================
 *.test
 
-# Code coverage profiles and other test artifacts
+# ================================================
+# Output of the go coverage tool, specifically when used with LiteIDE
+# ================================================
 *.out
 coverage.*
 *.coverprofile
 profile.cov
+coverage.html
+coverage.xml
+*.cov
 
-# Dependency directories (remove the comment below to include it)
+# ================================================
+# Dependency directories (uncomment to include)
+# ================================================
 # vendor/
 
+# ================================================
 # Go workspace file
+# ================================================
 go.work
 go.work.sum
 
-# env file
+# ================================================
+# Environment files
+# ================================================
 .env
+.env.local
+.env.*.local
+.env.development
+.env.test
+.env.production
 
-# Editor/IDE
-# .idea/
-# .vscode/
+# ================================================
+# IDE - JetBrains
+# ================================================
+.idea/
+*.iml
+*.iws
+*.ipr
+out/
+
+# ================================================
+# IDE - VS Code
+# ================================================
+.vscode/
+*.code-workspace
+.history/
+
+# ================================================
+# IDE - Vim/Emacs
+# ================================================
+*~
+*.swp
+*.swo
+*.swn
+*.bak
+\#*\#
+.\#*
+
+# ================================================
+# OS generated files
+# ================================================
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+
+# ================================================
+# Build outputs
+# ================================================
+/bin/
+/dist/
+/build/
+/out/
+/release/
+
+# ================================================
+# Log files
+# ================================================
+*.log
+logs/
+/log/
+
+# ================================================
+# Temporary files
+# ================================================
+/tmp/
+*.tmp
+*.temp
+
+# ================================================
+# Project specific
+# ================================================
+/config.yaml
+/config.yml
+/config.local.yaml
+/config.local.yml
+/secrets.yaml
+/secrets.yml
