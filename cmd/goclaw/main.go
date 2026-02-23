@@ -4,19 +4,26 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 	"time"
 
+	"github.com/goclaw/goclaw/config"
+	"github.com/goclaw/goclaw/pkg/logger"
 	"github.com/goclaw/goclaw/pkg/version"
 )
 
 var (
-	configPath  = flag.String("config", "config.yaml", "Path to configuration file")
+	configPath = flag.String("config", "", "Path to configuration file")
 	versionFlag = flag.Bool("version", false, "Print version information")
 	helpFlag    = flag.Bool("help", false, "Print help information")
+
+	// CLI overrides
+	appName     = flag.String("app-name", "", "Override app name")
+	serverPort  = flag.Int("port", 0, "Override server port")
+	logLevel    = flag.String("log-level", "", "Override log level")
+	debugMode   = flag.Bool("debug", false, "Enable debug mode")
 )
 
 func main() {
@@ -34,17 +41,37 @@ func main() {
 		os.Exit(0)
 	}
 
-	// Setup logger
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelInfo,
-	}))
-	slog.SetDefault(logger)
+	// Build CLI overrides map
+	overrides := buildOverrides()
 
-	logger.Info("Starting Goclaw",
+	// Load configuration
+	cfg, err := config.Load(*configPath, overrides)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Failed to load configuration:\n%s\n", err)
+		os.Exit(1)
+	}
+
+	// Initialize logger with configuration
+	logCfg := &logger.Config{
+		Level:  logger.ParseLevel(cfg.Log.Level),
+		Format: cfg.Log.Format,
+		Output: cfg.Log.Output,
+	}
+	if cfg.App.Debug || *debugMode {
+		logCfg.Level = logger.DebugLevel
+	}
+	log := logger.New(logCfg)
+	logger.SetGlobal(log)
+
+	log.Info("Starting Goclaw",
 		"version", version.Version,
 		"buildTime", version.BuildTime,
 		"gitCommit", version.GitCommit,
+		"app", cfg.App.Name,
+		"environment", cfg.App.Environment,
 	)
+
+	log.Debug("Configuration loaded", "config", cfg.String())
 
 	// Create root context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())
@@ -59,31 +86,57 @@ func main() {
 	//     ConfigPath: *configPath,
 	// })
 	// if err := engine.Start(ctx); err != nil {
-	//     logger.Error("Failed to start engine", "error", err)
+	//     log.Error("Failed to start engine", "error", err)
 	//     os.Exit(1)
 	// }
 
-	logger.Info("Goclaw is running", "config", *configPath)
-	logger.Info("Press Ctrl+C to stop")
+	log.Info("Goclaw is running",
+		"http_port", cfg.Server.Port,
+		"grpc_port", cfg.Server.GRPC.Port,
+		"metrics_port", cfg.Metrics.Port,
+	)
+	log.Info("Press Ctrl+C to stop")
 
 	// Wait for shutdown signal
 	select {
 	case sig := <-sigChan:
-		logger.Info("Received shutdown signal", "signal", sig)
+		log.Info("Received shutdown signal", "signal", sig)
 	case <-ctx.Done():
-		logger.Info("Context cancelled")
+		log.Info("Context cancelled")
 	}
 
 	// Graceful shutdown
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
+	_ = shutdownCtx // Reserved for graceful engine shutdown (Phase 2)
+
+	log.Info("Shutting down gracefully...")
 
 	// TODO: Stop the engine gracefully
 	// if err := engine.Stop(shutdownCtx); err != nil {
-	//     logger.Error("Error during shutdown", "error", err)
+	//     log.Error("Error during shutdown", "error", err)
 	// }
 
-	logger.Info("Goclaw stopped gracefully")
+	log.Info("Goclaw stopped gracefully")
+}
+
+func buildOverrides() map[string]interface{} {
+	overrides := make(map[string]interface{})
+
+	if *appName != "" {
+		overrides["app.name"] = *appName
+	}
+	if *serverPort != 0 {
+		overrides["server.port"] = *serverPort
+	}
+	if *logLevel != "" {
+		overrides["log.level"] = *logLevel
+	}
+	if *debugMode {
+		overrides["app.debug"] = true
+	}
+
+	return overrides
 }
 
 func printVersion() {
@@ -99,4 +152,9 @@ func printHelp() {
 	fmt.Printf("Usage: goclaw [options]\n\n")
 	fmt.Printf("Options:\n")
 	flag.PrintDefaults()
+	fmt.Printf("\nExamples:\n")
+	fmt.Printf("  goclaw                                    # Run with default config\n")
+	fmt.Printf("  goclaw -config config.yaml                # Use specific config file\n")
+	fmt.Printf("  goclaw -port 9090 -log-level debug        # Override specific options\n")
+	fmt.Printf("  goclaw -version                           # Print version info\n")
 }
