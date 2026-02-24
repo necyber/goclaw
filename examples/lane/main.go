@@ -14,7 +14,7 @@ import (
 )
 
 func main() {
-	fmt.Println("=== Lane Queue System Example ===\n")
+	fmt.Println("=== Lane Queue System Example ===")
 
 	// Example 1: Basic Lane Usage
 	basicExample()

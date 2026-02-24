@@ -62,11 +62,12 @@ type WorkflowResult struct {
 
 // Engine is the core orchestration engine.
 type Engine struct {
-	cfg         *config.Config
-	logger      appLogger
-	laneManager *lane.Manager
-	scheduler   *Scheduler
-	state       atomic.Int32
+	cfg           *config.Config
+	logger        appLogger
+	laneManager   *lane.Manager
+	scheduler     *Scheduler
+	workflowStore *WorkflowStore
+	state         atomic.Int32
 }
 
 // New creates a new Engine from the given configuration and logger.
@@ -78,8 +79,9 @@ func New(cfg *config.Config, logger appLogger) (*Engine, error) {
 		logger = &nopLogger{}
 	}
 	e := &Engine{
-		cfg:    cfg,
-		logger: logger,
+		cfg:           cfg,
+		logger:        logger,
+		workflowStore: NewWorkflowStore(),
 	}
 	e.state.Store(int32(stateIdle))
 	return e, nil

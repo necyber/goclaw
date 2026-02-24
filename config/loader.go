@@ -200,14 +200,16 @@ func (l *Loader) fillDefaults() error {
 	
 	// Server defaults
 	setIfZero("server.host", defaults.Server.Host)
+	setIfZero("server.port", defaults.Server.Port)
 	setIfZero("server.grpc.port", defaults.Server.GRPC.Port)
 	setIfZero("server.grpc.max_concurrent_streams", defaults.Server.GRPC.MaxConcurrentStreams)
 	setIfZero("server.http.read_timeout", defaults.Server.HTTP.ReadTimeout)
 	setIfZero("server.http.write_timeout", defaults.Server.HTTP.WriteTimeout)
 	setIfZero("server.http.idle_timeout", defaults.Server.HTTP.IdleTimeout)
 	setIfZero("server.http.max_header_bytes", defaults.Server.HTTP.MaxHeaderBytes)
-	
+
 	// Log defaults
+	setIfZero("log.level", defaults.Log.Level)
 	setIfZero("log.format", defaults.Log.Format)
 	setIfZero("log.output", defaults.Log.Output)
 	

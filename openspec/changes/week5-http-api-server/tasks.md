@@ -67,33 +67,33 @@
 ## 阶段 2: 引擎集成
 
 ### 2.1 引擎接口扩展
-- [ ] 在 `pkg/engine/engine.go` 中添加工作流管理方法
-  - [ ] `SubmitWorkflow(ctx, req) (string, error)`
-  - [ ] `GetWorkflowStatus(ctx, id) (*WorkflowStatus, error)`
-  - [ ] `ListWorkflows(ctx, filter) ([]*WorkflowStatus, int, error)`
-  - [ ] `CancelWorkflow(ctx, id) error`
-  - [ ] `GetTaskResult(ctx, workflowID, taskID) (*TaskResult, error)`
-- [ ] 添加健康检查方法
-  - [ ] `IsHealthy() bool`
-  - [ ] `IsReady() bool`
-  - [ ] `GetStatus() *EngineStatus`
+- [x] 在 `pkg/engine/engine.go` 中添加工作流管理方法
+  - [x] `SubmitWorkflow(ctx, req) (string, error)`
+  - [x] `GetWorkflowStatus(ctx, id) (*WorkflowStatus, error)`
+  - [x] `ListWorkflows(ctx, filter) ([]*WorkflowStatus, int, error)`
+  - [x] `CancelWorkflow(ctx, id) error`
+  - [x] `GetTaskResult(ctx, workflowID, taskID) (*TaskResult, error)`
+- [x] 添加健康检查方法
+  - [x] `IsHealthy() bool`
+  - [x] `IsReady() bool`
+  - [x] `GetStatus() *EngineStatus`
 
 ### 2.2 工作流状态管理
-- [ ] 创建 `pkg/engine/workflow.go`
-- [ ] 定义 `Workflow` 结构（ID, Name, Status, Tasks, Metadata）
-- [ ] 定义 `WorkflowStatus` 结构
-- [ ] 定义 `TaskStatus` 结构
-- [ ] 实现工作流状态转换逻辑
-- [ ] 添加线程安全的工作流存储（使用 sync.RWMutex）
-- [ ] 实现工作流 CRUD 操作
+- [x] 创建 `pkg/engine/workflow.go`
+- [x] 定义 `Workflow` 结构（ID, Name, Status, Tasks, Metadata）
+- [x] 定义 `WorkflowStatus` 结构
+- [x] 定义 `TaskStatus` 结构
+- [x] 实现工作流状态转换逻辑
+- [x] 添加线程安全的工作流存储（使用 sync.RWMutex）
+- [x] 实现工作流 CRUD 操作
 
 ### 2.3 数据模型定义
-- [ ] 创建 `pkg/api/models/workflow.go`
-- [ ] 定义 `WorkflowRequest` 结构（带验证标签）
-- [ ] 定义 `WorkflowResponse` 结构
-- [ ] 定义 `TaskDefinition` 结构
-- [ ] 定义 `WorkflowFilter` 结构（用于列表查询）
-- [ ] 添加 JSON 序列化标签
+- [x] 创建 `pkg/api/models/workflow.go`
+- [x] 定义 `WorkflowRequest` 结构（带验证标签）
+- [x] 定义 `WorkflowResponse` 结构
+- [x] 定义 `TaskDefinition` 结构
+- [x] 定义 `WorkflowFilter` 结构（用于列表查询）
+- [x] 添加 JSON 序列化标签
 
 ## 阶段 3: API 处理器实现
 
