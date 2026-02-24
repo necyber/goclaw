@@ -71,10 +71,10 @@ out/
 .qwen/
 .kimi/
 .opencode/
-openspec/
-pkg/
 .codex/
 .claude/
+
+pkg/mod/
 
 # ================================================
 # IDE - Vim/Emacs
