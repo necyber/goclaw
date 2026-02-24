@@ -4,6 +4,7 @@ go 1.23
 
 require (
 	github.com/go-playground/validator/v10 v10.18.0
+	github.com/google/uuid v1.4.0
 	github.com/knadh/koanf/parsers/json v0.1.0
 	github.com/knadh/koanf/parsers/yaml v0.1.0
 	github.com/knadh/koanf/providers/confmap v0.1.0

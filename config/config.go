@@ -61,6 +61,9 @@ type ServerConfig struct {
 
 	// HTTP is the HTTP server configuration.
 	HTTP HTTPConfig `mapstructure:"http"`
+
+	// CORS is the CORS configuration.
+	CORS CORSConfig `mapstructure:"cors"`
 }
 
 // GRPCConfig holds gRPC-specific settings.
@@ -74,6 +77,9 @@ type GRPCConfig struct {
 
 // HTTPConfig holds HTTP-specific settings.
 type HTTPConfig struct {
+	// Enabled enables the HTTP server.
+	Enabled bool `mapstructure:"enabled"`
+
 	// ReadTimeout is the maximum duration for reading the entire request.
 	ReadTimeout time.Duration `mapstructure:"read_timeout"`
 
@@ -83,8 +89,35 @@ type HTTPConfig struct {
 	// IdleTimeout is the maximum amount of time to wait for the next request.
 	IdleTimeout time.Duration `mapstructure:"idle_timeout"`
 
+	// ShutdownTimeout is the maximum duration to wait for graceful shutdown.
+	ShutdownTimeout time.Duration `mapstructure:"shutdown_timeout"`
+
 	// MaxHeaderBytes limits the size of request headers.
 	MaxHeaderBytes int `mapstructure:"max_header_bytes"`
+}
+
+// CORSConfig holds CORS settings.
+type CORSConfig struct {
+	// Enabled enables CORS support.
+	Enabled bool `mapstructure:"enabled"`
+
+	// AllowedOrigins is the list of allowed origins.
+	AllowedOrigins []string `mapstructure:"allowed_origins"`
+
+	// AllowedMethods is the list of allowed HTTP methods.
+	AllowedMethods []string `mapstructure:"allowed_methods"`
+
+	// AllowedHeaders is the list of allowed headers.
+	AllowedHeaders []string `mapstructure:"allowed_headers"`
+
+	// ExposedHeaders is the list of headers exposed to the client.
+	ExposedHeaders []string `mapstructure:"exposed_headers"`
+
+	// AllowCredentials indicates whether credentials are allowed.
+	AllowCredentials bool `mapstructure:"allow_credentials"`
+
+	// MaxAge is the maximum age of CORS preflight cache in seconds.
+	MaxAge int `mapstructure:"max_age"`
 }
 
 // LogConfig holds logging settings.
