@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/goclaw/goclaw/config"
+	"github.com/goclaw/goclaw/pkg/engine"
 	"github.com/goclaw/goclaw/pkg/logger"
 	"github.com/goclaw/goclaw/pkg/version"
 )
@@ -81,14 +82,16 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
-	// TODO: Initialize and start the orchestration engine
-	// engine := engine.New(engine.Config{
-	//     ConfigPath: *configPath,
-	// })
-	// if err := engine.Start(ctx); err != nil {
-	//     log.Error("Failed to start engine", "error", err)
-	//     os.Exit(1)
-	// }
+	// Initialize and start the orchestration engine.
+	eng, err := engine.New(cfg, log)
+	if err != nil {
+		log.Error("Failed to create engine", "error", err)
+		os.Exit(1)
+	}
+	if err := eng.Start(ctx); err != nil {
+		log.Error("Failed to start engine", "error", err)
+		os.Exit(1)
+	}
 
 	log.Info("Goclaw is running",
 		"http_port", cfg.Server.Port,
@@ -108,14 +111,10 @@ func main() {
 	// Graceful shutdown
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
-	_ = shutdownCtx // Reserved for graceful engine shutdown (Phase 2)
-
-	log.Info("Shutting down gracefully...")
-
-	// TODO: Stop the engine gracefully
-	// if err := engine.Stop(shutdownCtx); err != nil {
-	//     log.Error("Error during shutdown", "error", err)
-	// }
+	// Stop the engine gracefully.
+	if err := eng.Stop(shutdownCtx); err != nil {
+		log.Error("Error during shutdown", "error", err)
+	}
 
 	log.Info("Goclaw stopped gracefully")
 }
