@@ -81,33 +81,33 @@
 
 ## 9. Prometheus 配置
 
-- [ ] 9.1 创建 `config/prometheus.yml` 配置文件
-- [ ] 9.2 配置 scrape job for goclaw
-- [ ] 9.3 设置 scrape interval（15s）
-- [ ] 9.4 添加 service labels
-- [ ] 9.5 配置 relabeling rules（可选）
-- [ ] 9.6 测试 Prometheus 抓取
+- [x] 9.1 创建 `config/prometheus.yml` 配置文件
+- [x] 9.2 配置 scrape job for goclaw
+- [x] 9.3 设置 scrape interval（15s）
+- [x] 9.4 添加 service labels
+- [x] 9.5 配置 relabeling rules（可选）
+- [x] 9.6 测试 Prometheus 抓取
 
 ## 10. Grafana 仪表板
 
-- [ ] 10.1 创建 `config/grafana/` 目录
-- [ ] 10.2 设计工作流概览仪表板
-- [ ] 10.3 设计任务执行仪表板
-- [ ] 10.4 设计 Lane 队列仪表板
-- [ ] 10.5 设计 HTTP API 仪表板
-- [ ] 10.6 导出仪表板 JSON 文件
-- [ ] 10.7 编写仪表板导入说明
+- [x] 10.1 创建 `config/grafana/` 目录
+- [x] 10.2 设计工作流概览仪表板
+- [x] 10.3 设计任务执行仪表板
+- [x] 10.4 设计 Lane 队列仪表板
+- [x] 10.5 设计 HTTP API 仪表板
+- [x] 10.6 导出仪表板 JSON 文件
+- [x] 10.7 编写仪表板导入说明
 
 ## 11. 告警规则
 
-- [ ] 11.1 创建 `config/prometheus/alerts.yml`
-- [ ] 11.2 定义工作流失败率告警
-- [ ] 11.3 定义队列积压告警
-- [ ] 11.4 定义 API 高延迟告警
-- [ ] 11.5 定义 HTTP 错误率告警
-- [ ] 11.6 配置告警阈值和持续时间
-- [ ] 11.7 添加告警注释和标签
-- [ ] 11.8 测试告警规则
+- [x] 11.1 创建 `config/prometheus/alerts.yml`
+- [x] 11.2 定义工作流失败率告警
+- [x] 11.3 定义队列积压告警
+- [x] 11.4 定义 API 高延迟告警
+- [x] 11.5 定义 HTTP 错误率告警
+- [x] 11.6 配置告警阈值和持续时间
+- [x] 11.7 添加告警注释和标签
+- [x] 11.8 测试告警规则
 
 ## 12. 测试
 
@@ -133,13 +133,13 @@
 
 ## 14. Docker 和部署
 
-- [ ] 14.1 更新 `Dockerfile` 暴露 metrics 端口
-- [ ] 14.2 更新 `docker-compose.yml` 添加 Prometheus 服务
-- [ ] 14.3 更新 `docker-compose.yml` 添加 Grafana 服务
-- [ ] 14.4 配置 Prometheus 数据卷
-- [ ] 14.5 配置 Grafana 数据卷
-- [ ] 14.6 测试 Docker 环境下的 metrics 收集
-- [ ] 14.7 测试 Grafana 仪表板导入
+- [x] 14.1 更新 `Dockerfile` 暴露 metrics 端口
+- [x] 14.2 更新 `docker-compose.yml` 添加 Prometheus 服务
+- [x] 14.3 更新 `docker-compose.yml` 添加 Grafana 服务
+- [x] 14.4 配置 Prometheus 数据卷
+- [x] 14.5 配置 Grafana 数据卷
+- [x] 14.6 测试 Docker 环境下的 metrics 收集
+- [x] 14.7 测试 Grafana 仪表板导入
 
 ## 15. 性能优化
 
