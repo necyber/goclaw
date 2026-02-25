@@ -21,22 +21,22 @@
 
 ## 3. Badger 存储实现
 
-- [ ] 3.1 添加 Badger 依赖到 go.mod (`github.com/dgraph-io/badger/v4`)
-- [ ] 3.2 创建 `pkg/storage/badger` 包
-- [ ] 3.3 定义 `BadgerStorage` 结构和配置
-- [ ] 3.4 实现 Open/Close 生命周期方法
-- [ ] 3.5 实现 key 生成函数（workflow, task, index keys）
-- [ ] 3.6 实现 JSON 序列化/反序列化辅助函数
-- [ ] 3.7 实现 SaveWorkflow（带事务）
-- [ ] 3.8 实现 GetWorkflow
-- [ ] 3.9 实现 ListWorkflows（带前缀扫描和过滤）
-- [ ] 3.10 实现 DeleteWorkflow（级联删除 tasks）
-- [ ] 3.11 实现 SaveTask
-- [ ] 3.12 实现 GetTask
-- [ ] 3.13 实现 ListTasks
-- [ ] 3.14 实现索引维护（status, created time）
-- [ ] 3.15 添加错误处理和类型转换
-- [ ] 3.16 编写 BadgerStorage 单元测试
+- [x] 3.1 添加 Badger 依赖到 go.mod (`github.com/dgraph-io/badger/v4`)
+- [x] 3.2 创建 `pkg/storage/badger` 包
+- [x] 3.3 定义 `BadgerStorage` 结构和配置
+- [x] 3.4 实现 Open/Close 生命周期方法
+- [x] 3.5 实现 key 生成函数（workflow, task, index keys）
+- [x] 3.6 实现 JSON 序列化/反序列化辅助函数
+- [x] 3.7 实现 SaveWorkflow（带事务）
+- [x] 3.8 实现 GetWorkflow
+- [x] 3.9 实现 ListWorkflows（带前缀扫描和过滤）
+- [x] 3.10 实现 DeleteWorkflow（级联删除 tasks）
+- [x] 3.11 实现 SaveTask
+- [x] 3.12 实现 GetTask
+- [x] 3.13 实现 ListTasks
+- [x] 3.14 实现索引维护（status, created time）
+- [x] 3.15 添加错误处理和类型转换
+- [x] 3.16 编写 BadgerStorage 单元测试
 
 ## 4. 存储配置
 
