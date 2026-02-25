@@ -23,7 +23,7 @@ RUN CGO_ENABLED=0 GOOS=linux go build -ldflags="-w -s" -o goclaw ./cmd/goclaw/ma
 FROM alpine:3.19
 
 # Install runtime dependencies
-RUN apk add --no-cache ca-certificates tzdata
+RUN apk add --no-cache ca-certificates tzdata wget
 
 # Create non-root user
 RUN adduser -D -u 1000 goclaw
@@ -48,7 +48,7 @@ EXPOSE 8080 9090 9091
 
 # Health check
 HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD ./goclaw -help || exit 1
+    CMD wget --no-verbose --tries=1 --spider http://localhost:8080/health || exit 1
 
 # Run the application
 ENTRYPOINT ["./goclaw"]
