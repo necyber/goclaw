@@ -6,6 +6,7 @@ import (
 	"os"
 	"sync"
 	"testing"
+	"time"
 
 	dgbadger "github.com/dgraph-io/badger/v4"
 	"github.com/goclaw/goclaw/config"
@@ -224,5 +225,141 @@ func TestMemoryFootprint_10K(t *testing.T) {
 	}
 	if bm.Len() != 10000 {
 		t.Errorf("expected 10000 docs, got %d", bm.Len())
+	}
+}
+
+// --- 3.11 向量检索性能基准测试 ---
+
+func BenchmarkVectorSearch_100(b *testing.B) {
+	idx := NewVectorIndex(128)
+	for i := 0; i < 100; i++ {
+		idx.AddVector(fmt.Sprintf("e%d", i), "s1", makeVec(128, float32(i)))
+	}
+	query := makeVec(128, 50)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		idx.Search(query, 10, "s1")
+	}
+}
+
+func BenchmarkVectorAdd(b *testing.B) {
+	idx := NewVectorIndex(128)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		idx.AddVector(fmt.Sprintf("e%d", i), "s1", makeVec(128, float32(i)))
+	}
+}
+
+func BenchmarkVectorDelete(b *testing.B) {
+	idx := NewVectorIndex(128)
+	for i := 0; i < b.N; i++ {
+		idx.AddVector(fmt.Sprintf("e%d", i), "s1", makeVec(128, float32(i)))
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		idx.DeleteVector(fmt.Sprintf("e%d", i))
+	}
+}
+
+func BenchmarkVectorSaveLoad(b *testing.B) {
+	idx := NewVectorIndex(128)
+	for i := 0; i < 1000; i++ {
+		idx.AddVector(fmt.Sprintf("e%d", i), "s1", makeVec(128, float32(i)))
+	}
+	path := b.TempDir() + "/vectors.bin"
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		idx.Save(path)
+		idx2 := NewVectorIndex(128)
+		idx2.Load(path)
+	}
+}
+
+// --- 4.12 BM25 性能基准测试 ---
+
+func BenchmarkBM25IndexDocument(b *testing.B) {
+	idx := NewBM25Index(1.5, 0.75)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		idx.IndexDocument(fmt.Sprintf("e%d", i), "s1", fmt.Sprintf("document about topic %d with various keywords and content for benchmarking", i))
+	}
+}
+
+func BenchmarkBM25RemoveDocument(b *testing.B) {
+	idx := NewBM25Index(1.5, 0.75)
+	for i := 0; i < b.N; i++ {
+		idx.IndexDocument(fmt.Sprintf("e%d", i), "s1", fmt.Sprintf("document about topic %d with content", i))
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		idx.RemoveDocument(fmt.Sprintf("e%d", i))
+	}
+}
+
+func BenchmarkBM25Search_100(b *testing.B) {
+	idx := NewBM25Index(1.5, 0.75)
+	for i := 0; i < 100; i++ {
+		idx.IndexDocument(fmt.Sprintf("e%d", i), "s1", fmt.Sprintf("document about topic %d with various keywords and content", i))
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		idx.Search("topic keywords content", 10, "s1")
+	}
+}
+
+// --- 6.12 衰减性能测试 ---
+
+func BenchmarkDecayEntries_100(b *testing.B) {
+	dm := NewDecayManager(0.1, 24.0, 1<<63-1)
+	entries := make([]*MemoryEntry, 100)
+	for i := range entries {
+		entries[i] = &MemoryEntry{
+			ID:         fmt.Sprintf("e%d", i),
+			SessionID:  "s1",
+			Strength:   1.0,
+			Stability:  24.0,
+			LastReview: time.Now().Add(-time.Duration(i) * time.Hour),
+		}
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		// Reset entries for each iteration
+		for _, e := range entries {
+			e.Strength = 1.0
+		}
+		dm.DecayEntries(entries)
+	}
+}
+
+func BenchmarkDecayEntries_10K(b *testing.B) {
+	dm := NewDecayManager(0.1, 24.0, 1<<63-1)
+	entries := make([]*MemoryEntry, 10000)
+	for i := range entries {
+		entries[i] = &MemoryEntry{
+			ID:         fmt.Sprintf("e%d", i),
+			SessionID:  "s1",
+			Strength:   1.0,
+			Stability:  24.0,
+			LastReview: time.Now().Add(-time.Duration(i%48) * time.Hour),
+		}
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		for _, e := range entries {
+			e.Strength = 1.0
+		}
+		dm.DecayEntries(entries)
+	}
+}
+
+func BenchmarkBoostStrength(b *testing.B) {
+	dm := NewDecayManager(0.1, 24.0, 1<<63-1)
+	entry := &MemoryEntry{
+		ID: "e1", SessionID: "s1", Strength: 0.5, Stability: 24.0,
+		LastReview: time.Now().Add(-12 * time.Hour),
+	}
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		dm.BoostStrength(entry)
 	}
 }

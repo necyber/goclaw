@@ -96,3 +96,62 @@ func TestCosineSimilarity(t *testing.T) {
 		})
 	}
 }
+
+func TestVectorIndex_SaveLoad(t *testing.T) {
+	idx := NewVectorIndex(3)
+	idx.AddVector("a", "s1", []float32{1, 0, 0})
+	idx.AddVector("b", "s2", []float32{0, 1, 0})
+	idx.AddVector("c", "s1", []float32{0.5, 0.5, 0})
+
+	tmpFile := t.TempDir() + "/vectors.bin"
+
+	// Save
+	if err := idx.Save(tmpFile); err != nil {
+		t.Fatalf("Save failed: %v", err)
+	}
+
+	// Load into new index
+	idx2 := NewVectorIndex(3)
+	if err := idx2.Load(tmpFile); err != nil {
+		t.Fatalf("Load failed: %v", err)
+	}
+
+	if idx2.Len() != 3 {
+		t.Errorf("expected 3 vectors after load, got %d", idx2.Len())
+	}
+
+	// Verify search still works
+	ids, scores, err := idx2.Search([]float32{1, 0, 0}, 1, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ids) != 1 || ids[0] != "a" {
+		t.Errorf("expected 'a' as top result, got %v", ids)
+	}
+	if math.Abs(scores[0]-1.0) > 0.001 {
+		t.Errorf("expected score ~1.0, got %f", scores[0])
+	}
+
+	// Verify session filter works after load
+	ids, _, err = idx2.Search([]float32{1, 0, 0}, 10, "s2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(ids) != 1 || ids[0] != "b" {
+		t.Errorf("expected only 'b' from session s2, got %v", ids)
+	}
+}
+
+func TestVectorIndex_LoadDimensionMismatch(t *testing.T) {
+	idx := NewVectorIndex(3)
+	idx.AddVector("a", "s1", []float32{1, 0, 0})
+
+	tmpFile := t.TempDir() + "/vectors.bin"
+	idx.Save(tmpFile)
+
+	idx2 := NewVectorIndex(5) // different dimension
+	err := idx2.Load(tmpFile)
+	if err == nil {
+		t.Fatal("expected dimension mismatch error on load")
+	}
+}

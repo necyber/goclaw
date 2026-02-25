@@ -1,8 +1,11 @@
 package memory
 
 import (
+	"encoding/binary"
 	"fmt"
+	"io"
 	"math"
+	"os"
 	"sort"
 	"sync"
 )
@@ -117,6 +120,115 @@ func (v *VectorIndex) Len() int {
 	v.mu.RLock()
 	defer v.mu.RUnlock()
 	return len(v.vectors)
+}
+
+// Save persists the vector index to a file.
+// Format: [dimension:uint32][count:uint32] then for each entry:
+// [idLen:uint16][id:bytes][sidLen:uint16][sid:bytes][vector:float32*dim]
+func (v *VectorIndex) Save(path string) error {
+	v.mu.RLock()
+	defer v.mu.RUnlock()
+
+	f, err := os.Create(path)
+	if err != nil {
+		return fmt.Errorf("vector: save failed: %w", err)
+	}
+	defer f.Close()
+
+	// Header
+	if err := binary.Write(f, binary.LittleEndian, uint32(v.dimension)); err != nil {
+		return err
+	}
+	if err := binary.Write(f, binary.LittleEndian, uint32(len(v.vectors))); err != nil {
+		return err
+	}
+
+	for id, vec := range v.vectors {
+		sid := v.sessions[id]
+		// Write entry ID
+		if err := binary.Write(f, binary.LittleEndian, uint16(len(id))); err != nil {
+			return err
+		}
+		if _, err := f.Write([]byte(id)); err != nil {
+			return err
+		}
+		// Write session ID
+		if err := binary.Write(f, binary.LittleEndian, uint16(len(sid))); err != nil {
+			return err
+		}
+		if _, err := f.Write([]byte(sid)); err != nil {
+			return err
+		}
+		// Write vector
+		if err := binary.Write(f, binary.LittleEndian, vec); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Load restores the vector index from a file.
+func (v *VectorIndex) Load(path string) error {
+	v.mu.Lock()
+	defer v.mu.Unlock()
+
+	f, err := os.Open(path)
+	if err != nil {
+		return fmt.Errorf("vector: load failed: %w", err)
+	}
+	defer f.Close()
+
+	var dim, count uint32
+	if err := binary.Read(f, binary.LittleEndian, &dim); err != nil {
+		return err
+	}
+	if err := binary.Read(f, binary.LittleEndian, &count); err != nil {
+		return err
+	}
+
+	if int(dim) != v.dimension {
+		return fmt.Errorf("%w: file has %d, index expects %d", ErrDimensionMismatch, dim, v.dimension)
+	}
+
+	vectors := make(map[string][]float32, count)
+	sessions := make(map[string]string, count)
+
+	for i := uint32(0); i < count; i++ {
+		// Read entry ID
+		var idLen uint16
+		if err := binary.Read(f, binary.LittleEndian, &idLen); err != nil {
+			return err
+		}
+		idBuf := make([]byte, idLen)
+		if _, err := io.ReadFull(f, idBuf); err != nil {
+			return err
+		}
+		id := string(idBuf)
+
+		// Read session ID
+		var sidLen uint16
+		if err := binary.Read(f, binary.LittleEndian, &sidLen); err != nil {
+			return err
+		}
+		sidBuf := make([]byte, sidLen)
+		if _, err := io.ReadFull(f, sidBuf); err != nil {
+			return err
+		}
+		sid := string(sidBuf)
+
+		// Read vector
+		vec := make([]float32, dim)
+		if err := binary.Read(f, binary.LittleEndian, vec); err != nil {
+			return err
+		}
+
+		vectors[id] = vec
+		sessions[id] = sid
+	}
+
+	v.vectors = vectors
+	v.sessions = sessions
+	return nil
 }
 
 // cosineSimilarity calculates the cosine similarity between two vectors.
