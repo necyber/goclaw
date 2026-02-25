@@ -24,9 +24,9 @@
 
 ## 3. Interceptors
 
-- [ ] 3.1 Create `pkg/grpc/interceptors/` package structure
-- [ ] 3.2 Implement recovery interceptor with panic logging
-- [ ] 3.3 Implement request ID interceptor (generate/propagate)
+- [x] 3.1 Create `pkg/grpc/interceptors/` package structure
+- [x] 3.2 Implement recovery interceptor with panic logging
+- [x] 3.3 Implement request ID interceptor (generate/propagate)
 - [ ] 3.4 Implement authentication interceptor (token + mTLS)
 - [ ] 3.5 Implement authorization interceptor (role-based)
 - [ ] 3.6 Implement rate limiting interceptor

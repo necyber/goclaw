@@ -15,8 +15,22 @@ func DefaultConfig() *Config {
 			Host: "0.0.0.0",
 			Port: 8080,
 			GRPC: GRPCConfig{
-				Port:                 9090,
-				MaxConcurrentStreams: 1000,
+				Enabled:           false,
+				Port:              9090,
+				MaxConnections:    1000,
+				MaxRecvMsgSize:    4 * 1024 * 1024,  // 4MB
+				MaxSendMsgSize:    4 * 1024 * 1024,  // 4MB
+				EnableReflection:  false,
+				EnableHealthCheck: true,
+				Keepalive: GRPCKeepaliveConfig{
+					MaxIdleSeconds:      300,
+					MaxAgeSeconds:       3600,
+					MaxAgeGraceSeconds:  60,
+					TimeSeconds:         60,
+					TimeoutSeconds:      20,
+					MinTimeSeconds:      30,
+					PermitWithoutStream: false,
+				},
 			},
 			HTTP: HTTPConfig{
 				ReadTimeout:    30 * time.Second,

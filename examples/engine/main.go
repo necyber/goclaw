@@ -25,7 +25,11 @@ func main() {
 		},
 		Server: config.ServerConfig{
 			Port: 8080,
-			GRPC: config.GRPCConfig{Port: 9090, MaxConcurrentStreams: 100},
+			GRPC: config.GRPCConfig{
+				Enabled:        false,
+				Port:           9090,
+				MaxConnections: 100,
+			},
 		},
 		Log: config.LogConfig{
 			Level:  "info",
