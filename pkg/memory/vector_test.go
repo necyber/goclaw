@@ -147,7 +147,7 @@ func TestVectorIndex_LoadDimensionMismatch(t *testing.T) {
 	idx.AddVector("a", "s1", []float32{1, 0, 0})
 
 	tmpFile := t.TempDir() + "/vectors.bin"
-	idx.Save(tmpFile)
+	idx.Save(tmpFile) //nolint:errcheck
 
 	idx2 := NewVectorIndex(5) // different dimension
 	err := idx2.Load(tmpFile)

@@ -14,8 +14,8 @@ func TestHybridRetriever_VectorOnly(t *testing.T) {
 		"a": {ID: "a", SessionID: "s1", Content: "hello"},
 		"b": {ID: "b", SessionID: "s1", Content: "world"},
 	}
-	vi.AddVector("a", "s1", []float32{1, 0, 0})
-	vi.AddVector("b", "s1", []float32{0, 1, 0})
+	vi.AddVector("a", "s1", []float32{1, 0, 0}) //nolint:errcheck
+	vi.AddVector("b", "s1", []float32{0, 1, 0}) //nolint:errcheck
 
 	getEntry := func(id string) *MemoryEntry { return entries[id] }
 
@@ -68,8 +68,8 @@ func TestHybridRetriever_HybridMode(t *testing.T) {
 		"a": {ID: "a", SessionID: "s1", Content: "machine learning"},
 		"b": {ID: "b", SessionID: "s1", Content: "deep learning"},
 	}
-	vi.AddVector("a", "s1", []float32{1, 0, 0})
-	vi.AddVector("b", "s1", []float32{0.9, 0.1, 0})
+	vi.AddVector("a", "s1", []float32{1, 0, 0})          //nolint:errcheck
+	vi.AddVector("b", "s1", []float32{0.9, 0.1, 0})     //nolint:errcheck
 	bi.IndexDocument("a", "s1", entries["a"].Content)
 	bi.IndexDocument("b", "s1", entries["b"].Content)
 

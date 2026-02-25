@@ -44,9 +44,9 @@ func setupTestHub(t *testing.T) (*MemoryHub, func()) {
 	hub := NewMemoryHub(cfg, ts, nil)
 
 	cleanup := func() {
-		hub.Stop(context.Background())
-		db.Close()
-		os.RemoveAll(dir)
+		hub.Stop(context.Background()) //nolint:errcheck
+		db.Close()                     //nolint:errcheck
+		os.RemoveAll(dir)              //nolint:errcheck
 	}
 
 	return hub, cleanup
@@ -137,7 +137,9 @@ func TestHub_ForgetByThreshold(t *testing.T) {
 	// Get the entry and set low strength
 	entry, _ := hub.storage.Get(ctx, id)
 	entry.Strength = 0.05
-	hub.storage.Store(ctx, entry)
+	if err := hub.storage.Store(ctx, entry); err != nil {
+		t.Fatal(err)
+	}
 
 	// Also store a strong entry
 	hub.Memorize(ctx, "s1", "strong memory", nil, nil)

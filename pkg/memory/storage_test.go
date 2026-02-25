@@ -126,7 +126,9 @@ func TestTieredStorage_L1CachePromotion(t *testing.T) {
 	entry := &MemoryEntry{ID: "e1", SessionID: "s1", Content: "hello"}
 
 	// Store (goes to both L1 and L2)
-	ts.Store(ctx, entry)
+	if err := ts.Store(ctx, entry); err != nil {
+		t.Fatal(err)
+	}
 
 	// Clear L1 manually
 	ts.l1.Delete("e1")
@@ -156,7 +158,9 @@ func TestTieredStorage_Delete(t *testing.T) {
 
 	ctx := context.Background()
 	entry := &MemoryEntry{ID: "e1", SessionID: "s1", Content: "hello"}
-	ts.Store(ctx, entry)
+	if err := ts.Store(ctx, entry); err != nil {
+		t.Fatal(err)
+	}
 
 	if err := ts.Delete(ctx, "e1"); err != nil {
 		t.Fatal(err)
@@ -173,9 +177,9 @@ func TestTieredStorage_ListBySession(t *testing.T) {
 	defer cleanup()
 
 	ctx := context.Background()
-	ts.Store(ctx, &MemoryEntry{ID: "e1", SessionID: "s1", Content: "a"})
-	ts.Store(ctx, &MemoryEntry{ID: "e2", SessionID: "s1", Content: "b"})
-	ts.Store(ctx, &MemoryEntry{ID: "e3", SessionID: "s2", Content: "c"})
+	ts.Store(ctx, &MemoryEntry{ID: "e1", SessionID: "s1", Content: "a"}) //nolint:errcheck
+	ts.Store(ctx, &MemoryEntry{ID: "e2", SessionID: "s1", Content: "b"}) //nolint:errcheck
+	ts.Store(ctx, &MemoryEntry{ID: "e3", SessionID: "s2", Content: "c"}) //nolint:errcheck
 
 	entries, total, err := ts.ListBySession(ctx, "s1", 10, 0)
 	if err != nil {

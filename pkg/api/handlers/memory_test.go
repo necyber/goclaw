@@ -9,8 +9,8 @@ import (
 	"os"
 	"testing"
 
-	"github.com/go-chi/chi/v5"
 	dgbadger "github.com/dgraph-io/badger/v4"
+	"github.com/go-chi/chi/v5"
 	"github.com/goclaw/goclaw/config"
 	"github.com/goclaw/goclaw/pkg/memory"
 )
@@ -189,7 +189,7 @@ func TestMemoryHandler_DeleteMemory(t *testing.T) {
 	h.StoreMemory(w, req)
 
 	var storeResp memorizeResponse
-	json.NewDecoder(w.Body).Decode(&storeResp)
+	_ = json.NewDecoder(w.Body).Decode(&storeResp)
 
 	// Delete it
 	delBody, _ := json.Marshal(deleteRequest{IDs: []string{storeResp.ID}})
@@ -204,7 +204,7 @@ func TestMemoryHandler_DeleteMemory(t *testing.T) {
 	}
 
 	var delResp deleteResponse
-	json.NewDecoder(w.Body).Decode(&delResp)
+	_ = json.NewDecoder(w.Body).Decode(&delResp)
 	if delResp.Deleted != 1 {
 		t.Errorf("expected 1 deleted, got %d", delResp.Deleted)
 	}
@@ -251,7 +251,7 @@ func TestMemoryHandler_ListMemory(t *testing.T) {
 	}
 
 	var resp map[string]interface{}
-	json.NewDecoder(w.Body).Decode(&resp)
+	_ = json.NewDecoder(w.Body).Decode(&resp)
 	total, ok := resp["total"].(float64)
 	if !ok || int(total) != 3 {
 		t.Errorf("expected total=3, got %v", resp["total"])
@@ -281,7 +281,7 @@ func TestMemoryHandler_GetStats(t *testing.T) {
 	}
 
 	var stats memory.MemoryStats
-	json.NewDecoder(w.Body).Decode(&stats)
+	_ = json.NewDecoder(w.Body).Decode(&stats)
 	if stats.TotalEntries != 1 {
 		t.Errorf("expected 1 entry, got %d", stats.TotalEntries)
 	}
@@ -312,7 +312,7 @@ func TestMemoryHandler_DeleteSession(t *testing.T) {
 	}
 
 	var resp deleteResponse
-	json.NewDecoder(w.Body).Decode(&resp)
+	_ = json.NewDecoder(w.Body).Decode(&resp)
 	if resp.Deleted != 3 {
 		t.Errorf("expected 3 deleted, got %d", resp.Deleted)
 	}
@@ -341,7 +341,7 @@ func TestMemoryHandler_DeleteWeakMemories(t *testing.T) {
 	}
 
 	var resp deleteResponse
-	json.NewDecoder(w.Body).Decode(&resp)
+	_ = json.NewDecoder(w.Body).Decode(&resp)
 	if resp.Deleted != 1 {
 		t.Errorf("expected 1 deleted (threshold=2.0 should delete all), got %d", resp.Deleted)
 	}
@@ -370,7 +370,7 @@ func TestMemoryHandler_Integration_StoreQueryDelete(t *testing.T) {
 			t.Fatalf("store failed: %s", w.Body.String())
 		}
 		var resp memorizeResponse
-		json.NewDecoder(w.Body).Decode(&resp)
+		_ = json.NewDecoder(w.Body).Decode(&resp)
 		storedIDs = append(storedIDs, resp.ID)
 	}
 
@@ -380,7 +380,7 @@ func TestMemoryHandler_Integration_StoreQueryDelete(t *testing.T) {
 	w := httptest.NewRecorder()
 	h.GetStats(w, req)
 	var stats memory.MemoryStats
-	json.NewDecoder(w.Body).Decode(&stats)
+	_ = json.NewDecoder(w.Body).Decode(&stats)
 	if stats.TotalEntries != 3 {
 		t.Errorf("expected 3 entries, got %d", stats.TotalEntries)
 	}
@@ -410,7 +410,7 @@ func TestMemoryHandler_Integration_StoreQueryDelete(t *testing.T) {
 	req = withChiURLParam(req, "sessionID", "session-1")
 	w = httptest.NewRecorder()
 	h.GetStats(w, req)
-	json.NewDecoder(w.Body).Decode(&stats)
+	_ = json.NewDecoder(w.Body).Decode(&stats)
 	if stats.TotalEntries != 2 {
 		t.Errorf("expected 2 entries after delete, got %d", stats.TotalEntries)
 	}
@@ -429,7 +429,7 @@ func TestMemoryHandler_Integration_StoreQueryDelete(t *testing.T) {
 	req = withChiURLParam(req, "sessionID", "session-1")
 	w = httptest.NewRecorder()
 	h.GetStats(w, req)
-	json.NewDecoder(w.Body).Decode(&stats)
+	_ = json.NewDecoder(w.Body).Decode(&stats)
 	if stats.TotalEntries != 0 {
 		t.Errorf("expected 0 entries after session delete, got %d", stats.TotalEntries)
 	}
@@ -461,7 +461,7 @@ func TestMemoryHandler_Integration_SessionIsolation(t *testing.T) {
 	w = httptest.NewRecorder()
 	h.GetStats(w, req)
 	var stats memory.MemoryStats
-	json.NewDecoder(w.Body).Decode(&stats)
+	_ = json.NewDecoder(w.Body).Decode(&stats)
 	if stats.TotalEntries != 1 {
 		t.Errorf("session-1: expected 1 entry, got %d", stats.TotalEntries)
 	}
@@ -476,7 +476,7 @@ func TestMemoryHandler_Integration_SessionIsolation(t *testing.T) {
 	req = withChiURLParam(req, "sessionID", "session-2")
 	w = httptest.NewRecorder()
 	h.GetStats(w, req)
-	json.NewDecoder(w.Body).Decode(&stats)
+	_ = json.NewDecoder(w.Body).Decode(&stats)
 	if stats.TotalEntries != 1 {
 		t.Errorf("session-2: expected 1 entry after session-1 delete, got %d", stats.TotalEntries)
 	}

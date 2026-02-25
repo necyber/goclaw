@@ -43,14 +43,6 @@ type memorizeResponse struct {
 	ID string `json:"id"`
 }
 
-type queryRequest struct {
-	Query    string            `json:"query,omitempty"`
-	Vector   []float32         `json:"vector,omitempty"`
-	Mode     string            `json:"mode,omitempty"`
-	TopK     int               `json:"top_k,omitempty"`
-	Filters  map[string]string `json:"filters,omitempty"`
-}
-
 type deleteRequest struct {
 	IDs []string `json:"ids"`
 }

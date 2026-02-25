@@ -22,7 +22,7 @@ func setupBenchHub(b *testing.B) (*MemoryHub, func()) {
 	opts.Logger = nil
 	db, err := dgbadger.Open(opts)
 	if err != nil {
-		os.RemoveAll(dir)
+		os.RemoveAll(dir) //nolint:errcheck
 		b.Fatal(err)
 	}
 	cfg := &config.MemoryConfig{
@@ -34,8 +34,14 @@ func setupBenchHub(b *testing.B) (*MemoryHub, func()) {
 	l2 := NewL2Badger(db)
 	ts := NewTieredStorage(l1, l2)
 	hub := NewMemoryHub(cfg, ts, nil)
-	hub.Start(context.Background())
-	return hub, func() { hub.Stop(context.Background()); db.Close(); os.RemoveAll(dir) }
+	if err := hub.Start(context.Background()); err != nil {
+		b.Fatal(err)
+	}
+	return hub, func() {
+		hub.Stop(context.Background()) //nolint:errcheck
+		db.Close()                     //nolint:errcheck
+		os.RemoveAll(dir)              //nolint:errcheck
+	}
 }
 
 func makeVec(dim int, seed float32) []float32 {
@@ -49,11 +55,17 @@ func makeVec(dim int, seed float32) []float32 {
 // --- 13.7 并发安全测试 ---
 
 func TestHub_ConcurrentMemorize(t *testing.T) {
-	dir, _ := os.MkdirTemp("", "goclaw-conc-*")
-	defer os.RemoveAll(dir)
+	dir, err := os.MkdirTemp("", "goclaw-conc-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir) //nolint:errcheck
 	opts := dgbadger.DefaultOptions(dir)
 	opts.Logger = nil
-	db, _ := dgbadger.Open(opts)
+	db, err := dgbadger.Open(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer db.Close()
 
 	cfg := &config.MemoryConfig{
@@ -62,8 +74,10 @@ func TestHub_ConcurrentMemorize(t *testing.T) {
 		BM25: config.BM25Config{K1: 1.5, B: 0.75},
 	}
 	hub := NewMemoryHub(cfg, NewTieredStorage(NewL1Cache(100), NewL2Badger(db)), nil)
-	hub.Start(context.Background())
-	defer hub.Stop(context.Background())
+	if err := hub.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	defer hub.Stop(context.Background()) //nolint:errcheck
 
 	ctx := context.Background()
 	var wg sync.WaitGroup
@@ -93,11 +107,17 @@ func TestHub_ConcurrentMemorize(t *testing.T) {
 }
 
 func TestHub_ConcurrentRetrieve(t *testing.T) {
-	dir, _ := os.MkdirTemp("", "goclaw-conc-r-*")
-	defer os.RemoveAll(dir)
+	dir, err := os.MkdirTemp("", "goclaw-conc-r-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir) //nolint:errcheck
 	opts := dgbadger.DefaultOptions(dir)
 	opts.Logger = nil
-	db, _ := dgbadger.Open(opts)
+	db, err := dgbadger.Open(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
 	defer db.Close()
 
 	cfg := &config.MemoryConfig{
@@ -106,12 +126,16 @@ func TestHub_ConcurrentRetrieve(t *testing.T) {
 		BM25: config.BM25Config{K1: 1.5, B: 0.75},
 	}
 	hub := NewMemoryHub(cfg, NewTieredStorage(NewL1Cache(100), NewL2Badger(db)), nil)
-	hub.Start(context.Background())
-	defer hub.Stop(context.Background())
+	if err := hub.Start(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	defer hub.Stop(context.Background()) //nolint:errcheck
 
 	ctx := context.Background()
 	for i := 0; i < 20; i++ {
-		hub.Memorize(ctx, "s1", fmt.Sprintf("document about topic %d", i), []float32{float32(i), 0, 0}, nil)
+		if _, err := hub.Memorize(ctx, "s1", fmt.Sprintf("document about topic %d", i), []float32{float32(i), 0, 0}, nil); err != nil {
+			t.Fatal(err)
+		}
 	}
 
 	var wg sync.WaitGroup
@@ -139,24 +163,24 @@ func TestHub_ConcurrentRetrieve(t *testing.T) {
 func BenchmarkVectorSearch_1K(b *testing.B) {
 	idx := NewVectorIndex(128)
 	for i := 0; i < 1000; i++ {
-		idx.AddVector(fmt.Sprintf("e%d", i), "s1", makeVec(128, float32(i)))
+		_ = idx.AddVector(fmt.Sprintf("e%d", i), "s1", makeVec(128, float32(i)))
 	}
 	query := makeVec(128, 500)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		idx.Search(query, 10, "")
+		_, _, _ = idx.Search(query, 10, "")
 	}
 }
 
 func BenchmarkVectorSearch_10K(b *testing.B) {
 	idx := NewVectorIndex(128)
 	for i := 0; i < 10000; i++ {
-		idx.AddVector(fmt.Sprintf("e%d", i), "s1", makeVec(128, float32(i)))
+		_ = idx.AddVector(fmt.Sprintf("e%d", i), "s1", makeVec(128, float32(i)))
 	}
 	query := makeVec(128, 5000)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		idx.Search(query, 10, "")
+		_, _, _ = idx.Search(query, 10, "")
 	}
 }
 
@@ -188,7 +212,7 @@ func BenchmarkHubMemorize(b *testing.B) {
 	ctx := context.Background()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		hub.Memorize(ctx, "s1", fmt.Sprintf("content %d", i), makeVec(128, float32(i)), nil)
+		_, _ = hub.Memorize(ctx, "s1", fmt.Sprintf("content %d", i), makeVec(128, float32(i)), nil)
 	}
 }
 
@@ -197,11 +221,11 @@ func BenchmarkHubRetrieve(b *testing.B) {
 	defer cleanup()
 	ctx := context.Background()
 	for i := 0; i < 1000; i++ {
-		hub.Memorize(ctx, "s1", fmt.Sprintf("document about topic %d", i), makeVec(128, float32(i)), nil)
+		_, _ = hub.Memorize(ctx, "s1", fmt.Sprintf("document about topic %d", i), makeVec(128, float32(i)), nil)
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		hub.Retrieve(ctx, "s1", Query{Text: "document topic", TopK: 10})
+		_, _ = hub.Retrieve(ctx, "s1", Query{Text: "document topic", TopK: 10})
 	}
 }
 
@@ -215,11 +239,9 @@ func TestMemoryFootprint_10K(t *testing.T) {
 	bm := NewBM25Index(1.5, 0.75)
 	for i := 0; i < 10000; i++ {
 		id := fmt.Sprintf("e%d", i)
-		idx.AddVector(id, "s1", makeVec(128, float32(i)))
+		_ = idx.AddVector(id, "s1", makeVec(128, float32(i)))
 		bm.IndexDocument(id, "s1", fmt.Sprintf("document about topic %d with content", i))
 	}
-	// If we got here without OOM, the test passes.
-	// 10K entries * 128 dims * 4 bytes = ~5MB for vectors alone, well under 100MB target.
 	if idx.Len() != 10000 {
 		t.Errorf("expected 10000 vectors, got %d", idx.Len())
 	}
@@ -233,12 +255,12 @@ func TestMemoryFootprint_10K(t *testing.T) {
 func BenchmarkVectorSearch_100(b *testing.B) {
 	idx := NewVectorIndex(128)
 	for i := 0; i < 100; i++ {
-		idx.AddVector(fmt.Sprintf("e%d", i), "s1", makeVec(128, float32(i)))
+		_ = idx.AddVector(fmt.Sprintf("e%d", i), "s1", makeVec(128, float32(i)))
 	}
 	query := makeVec(128, 50)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		idx.Search(query, 10, "s1")
+		_, _, _ = idx.Search(query, 10, "s1")
 	}
 }
 
@@ -246,14 +268,14 @@ func BenchmarkVectorAdd(b *testing.B) {
 	idx := NewVectorIndex(128)
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		idx.AddVector(fmt.Sprintf("e%d", i), "s1", makeVec(128, float32(i)))
+		_ = idx.AddVector(fmt.Sprintf("e%d", i), "s1", makeVec(128, float32(i)))
 	}
 }
 
 func BenchmarkVectorDelete(b *testing.B) {
 	idx := NewVectorIndex(128)
 	for i := 0; i < b.N; i++ {
-		idx.AddVector(fmt.Sprintf("e%d", i), "s1", makeVec(128, float32(i)))
+		_ = idx.AddVector(fmt.Sprintf("e%d", i), "s1", makeVec(128, float32(i)))
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -264,14 +286,14 @@ func BenchmarkVectorDelete(b *testing.B) {
 func BenchmarkVectorSaveLoad(b *testing.B) {
 	idx := NewVectorIndex(128)
 	for i := 0; i < 1000; i++ {
-		idx.AddVector(fmt.Sprintf("e%d", i), "s1", makeVec(128, float32(i)))
+		_ = idx.AddVector(fmt.Sprintf("e%d", i), "s1", makeVec(128, float32(i)))
 	}
 	path := b.TempDir() + "/vectors.bin"
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		idx.Save(path)
+		_ = idx.Save(path)
 		idx2 := NewVectorIndex(128)
-		idx2.Load(path)
+		_ = idx2.Load(path)
 	}
 }
 
@@ -323,7 +345,6 @@ func BenchmarkDecayEntries_100(b *testing.B) {
 	}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		// Reset entries for each iteration
 		for _, e := range entries {
 			e.Strength = 1.0
 		}
