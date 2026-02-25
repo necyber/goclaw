@@ -10,6 +10,8 @@ import (
 	"time"
 
 	"github.com/goclaw/goclaw/config"
+	"github.com/goclaw/goclaw/pkg/api"
+	"github.com/goclaw/goclaw/pkg/api/handlers"
 	"github.com/goclaw/goclaw/pkg/engine"
 	"github.com/goclaw/goclaw/pkg/logger"
 	"github.com/goclaw/goclaw/pkg/version"
@@ -93,6 +95,26 @@ func main() {
 		os.Exit(1)
 	}
 
+	// Initialize HTTP server with handlers
+	workflowHandler := handlers.NewWorkflowHandler(eng, log)
+	healthHandler := handlers.NewHealthHandler(eng)
+
+	apiHandlers := &api.Handlers{
+		Workflow: workflowHandler,
+		Health:   healthHandler,
+	}
+
+	httpServer := api.NewHTTPServer(cfg, log, apiHandlers)
+
+	// Start HTTP server in a separate goroutine
+	serverErrChan := make(chan error, 1)
+	go func() {
+		log.Info("Starting HTTP server", "address", fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port))
+		if err := httpServer.Start(); err != nil {
+			serverErrChan <- err
+		}
+	}()
+
 	log.Info("Goclaw is running",
 		"http_port", cfg.Server.Port,
 		"grpc_port", cfg.Server.GRPC.Port,
@@ -100,10 +122,12 @@ func main() {
 	)
 	log.Info("Press Ctrl+C to stop")
 
-	// Wait for shutdown signal
+	// Wait for shutdown signal or server error
 	select {
 	case sig := <-sigChan:
 		log.Info("Received shutdown signal", "signal", sig)
+	case err := <-serverErrChan:
+		log.Error("HTTP server error", "error", err)
 	case <-ctx.Done():
 		log.Info("Context cancelled")
 	}
@@ -111,9 +135,17 @@ func main() {
 	// Graceful shutdown
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
 	defer shutdownCancel()
+
+	// Shutdown HTTP server first
+	log.Info("Shutting down HTTP server")
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		log.Error("Error shutting down HTTP server", "error", err)
+	}
+
 	// Stop the engine gracefully.
+	log.Info("Stopping engine")
 	if err := eng.Stop(shutdownCtx); err != nil {
-		log.Error("Error during shutdown", "error", err)
+		log.Error("Error during engine shutdown", "error", err)
 	}
 
 	log.Info("Goclaw stopped gracefully")
