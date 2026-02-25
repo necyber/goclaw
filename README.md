@@ -26,6 +26,7 @@ It provides a robust framework for building, deploying, and managing intelligent
 - 🚀 **High Performance** - Built with Go's concurrency model for maximum throughput
 - 🏗️ **Distributed Architecture** - Native support for cluster deployment and service discovery
 - 🔄 **Agent Orchestration** - Advanced workflow management and task scheduling
+- 🌐 **RESTful API** - Complete HTTP API with Swagger documentation
 - 📊 **Observability** - Built-in metrics, logging, and tracing support
 - 🔌 **Extensible** - Plugin architecture for custom agent behaviors
 - 🛡️ **Production Ready** - Comprehensive error handling and fault tolerance
@@ -61,24 +62,95 @@ package main
 import (
     "context"
     "github.com/goclaw/goclaw/pkg/engine"
+    "github.com/goclaw/goclaw/config"
+    "github.com/goclaw/goclaw/pkg/logger"
 )
 
 func main() {
-    // Create a new orchestration engine
-    eng := engine.New(engine.Config{
-        Name: "my-agent-cluster",
+    // Load configuration
+    cfg, err := config.Load("config.yaml", nil)
+    if err != nil {
+        panic(err)
+    }
+
+    // Initialize logger
+    log := logger.New(&logger.Config{
+        Level:  logger.InfoLevel,
+        Format: "json",
+        Output: "stdout",
     })
+
+    // Create orchestration engine
+    eng, err := engine.New(cfg, log)
+    if err != nil {
+        panic(err)
+    }
 
     // Start the engine
     ctx := context.Background()
     if err := eng.Start(ctx); err != nil {
         panic(err)
     }
-    defer eng.Stop()
+    defer eng.Stop(ctx)
 
-    // Your agent orchestration logic here
+    // HTTP API server is now running on port 8080
+    // Access Swagger UI at http://localhost:8080/swagger/index.html
 }
 ```
+
+### HTTP API
+
+Goclaw provides a complete RESTful API for workflow management:
+
+#### API Endpoints
+
+**Workflow Management:**
+- `POST /api/v1/workflows` - Submit a new workflow
+- `GET /api/v1/workflows` - List all workflows (with pagination)
+- `GET /api/v1/workflows/{id}` - Get workflow status
+- `POST /api/v1/workflows/{id}/cancel` - Cancel a workflow
+- `GET /api/v1/workflows/{id}/tasks/{tid}/result` - Get task result
+
+**Health Checks:**
+- `GET /health` - Liveness probe
+- `GET /ready` - Readiness probe
+- `GET /status` - Detailed status information
+
+**Documentation:**
+- `GET /swagger/index.html` - Interactive API documentation
+
+#### Quick API Example
+
+```bash
+# Submit a workflow
+curl -X POST http://localhost:8080/api/v1/workflows \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "data-processing",
+    "description": "Process customer data",
+    "tasks": [
+      {
+        "id": "task-1",
+        "name": "Fetch data",
+        "type": "http"
+      },
+      {
+        "id": "task-2",
+        "name": "Process data",
+        "type": "script",
+        "depends_on": ["task-1"]
+      }
+    ]
+  }'
+
+# Get workflow status
+curl http://localhost:8080/api/v1/workflows/{workflow-id}
+
+# List all workflows
+curl http://localhost:8080/api/v1/workflows?limit=10&offset=0
+```
+
+For more examples, see [docs/examples/curl-examples.md](docs/examples/curl-examples.md).
 
 ---
 
@@ -94,6 +166,7 @@ func main() {
 - 🚀 **高性能** - 基于 Go 的并发模型，实现最大吞吐量
 - 🏗️ **分布式架构** - 原生支持集群部署和服务发现
 - 🔄 **Agent 编排** - 高级工作流管理和任务调度
+- 🌐 **RESTful API** - 完整的 HTTP API 和 Swagger 文档
 - 📊 **可观测性** - 内置指标、日志和链路追踪支持
 - 🔌 **可扩展** - 插件化架构，支持自定义 Agent 行为
 - 🛡️ **生产就绪** - 完善的错误处理和容错机制
@@ -129,24 +202,95 @@ package main
 import (
     "context"
     "github.com/goclaw/goclaw/pkg/engine"
+    "github.com/goclaw/goclaw/config"
+    "github.com/goclaw/goclaw/pkg/logger"
 )
 
 func main() {
-    // 创建新的编排引擎
-    eng := engine.New(engine.Config{
-        Name: "my-agent-cluster",
+    // 加载配置
+    cfg, err := config.Load("config.yaml", nil)
+    if err != nil {
+        panic(err)
+    }
+
+    // 初始化日志
+    log := logger.New(&logger.Config{
+        Level:  logger.InfoLevel,
+        Format: "json",
+        Output: "stdout",
     })
+
+    // 创建编排引擎
+    eng, err := engine.New(cfg, log)
+    if err != nil {
+        panic(err)
+    }
 
     // 启动引擎
     ctx := context.Background()
     if err := eng.Start(ctx); err != nil {
         panic(err)
     }
-    defer eng.Stop()
+    defer eng.Stop(ctx)
 
-    // 在此编写您的 Agent 编排逻辑
+    // HTTP API 服务器现在运行在 8080 端口
+    // 访问 Swagger UI: http://localhost:8080/swagger/index.html
 }
 ```
+
+### HTTP API
+
+Goclaw 提供完整的 RESTful API 用于工作流管理：
+
+#### API 端点
+
+**工作流管理：**
+- `POST /api/v1/workflows` - 提交新工作流
+- `GET /api/v1/workflows` - 列出所有工作流（支持分页）
+- `GET /api/v1/workflows/{id}` - 获取工作流状态
+- `POST /api/v1/workflows/{id}/cancel` - 取消工作流
+- `GET /api/v1/workflows/{id}/tasks/{tid}/result` - 获取任务结果
+
+**健康检查：**
+- `GET /health` - 存活探针
+- `GET /ready` - 就绪探针
+- `GET /status` - 详细状态信息
+
+**文档：**
+- `GET /swagger/index.html` - 交互式 API 文档
+
+#### 快速 API 示例
+
+```bash
+# 提交工作流
+curl -X POST http://localhost:8080/api/v1/workflows \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "数据处理",
+    "description": "处理客户数据",
+    "tasks": [
+      {
+        "id": "task-1",
+        "name": "获取数据",
+        "type": "http"
+      },
+      {
+        "id": "task-2",
+        "name": "处理数据",
+        "type": "script",
+        "depends_on": ["task-1"]
+      }
+    ]
+  }'
+
+# 获取工作流状态
+curl http://localhost:8080/api/v1/workflows/{workflow-id}
+
+# 列出所有工作流
+curl http://localhost:8080/api/v1/workflows?limit=10&offset=0
+```
+
+更多示例请参见 [docs/examples/curl-examples.md](docs/examples/curl-examples.md)。
 
 ---
 
