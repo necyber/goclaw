@@ -13,8 +13,59 @@ server:
 
   # gRPC configuration
   grpc:
+    enabled: true
     port: 9090
     max_concurrent_streams: 1000
+    max_recv_msg_size: 4194304  # 4MB
+    max_send_msg_size: 4194304  # 4MB
+    keepalive_time: 120s
+    keepalive_timeout: 20s
+    max_connection_idle: 300s
+    max_connection_age: 0s  # 0 = unlimited
+    max_connection_age_grace: 0s
+
+    # TLS/mTLS configuration
+    tls:
+      enabled: false
+      cert_file: "./certs/server.crt"
+      key_file: "./certs/server.key"
+      ca_file: "./certs/ca.crt"
+      client_auth: false  # Enable for mTLS
+
+    # Server reflection (for grpcurl, grpc_cli)
+    reflection:
+      enabled: true
+
+    # Health check service
+    health_check:
+      enabled: true
+
+    # Interceptors
+    interceptors:
+      # Authentication
+      auth:
+        enabled: false
+        token_header: "authorization"
+        token_prefix: "Bearer"
+
+      # Rate limiting
+      rate_limit:
+        enabled: true
+        requests_per_second: 1000
+        burst: 2000
+
+      # Request logging
+      logging:
+        enabled: true
+        log_payloads: false  # Enable for debugging (may log sensitive data)
+
+      # Metrics collection
+      metrics:
+        enabled: true
+
+      # Distributed tracing
+      tracing:
+        enabled: false
 
   # HTTP/REST API configuration
   http:

@@ -173,6 +173,73 @@ Goclaw provides a complete RESTful API for workflow management:
 **Documentation:**
 - `GET /swagger/index.html` - Interactive API documentation
 
+### gRPC API
+
+Goclaw also provides a high-performance gRPC API (default port: 9090):
+
+#### Services
+
+**WorkflowService** - Core workflow operations
+- `SubmitWorkflow` - Submit new workflows
+- `ListWorkflows` - List workflows with pagination
+- `GetWorkflowStatus` - Get detailed workflow status
+- `CancelWorkflow` - Cancel running workflows
+- `GetTaskResult` - Retrieve task results
+
+**StreamingService** - Real-time updates
+- `WatchWorkflow` - Stream workflow state changes
+- `WatchTasks` - Stream task execution events
+- `StreamLogs` - Bidirectional log streaming
+
+**BatchService** - Bulk operations
+- `SubmitWorkflows` - Submit multiple workflows in parallel
+- `GetWorkflowStatuses` - Get statuses for multiple workflows
+- `CancelWorkflows` - Cancel multiple workflows
+- `GetTaskResults` - Get results for multiple tasks
+
+**AdminService** - Administrative operations
+- `GetEngineStatus` - Engine health and metrics
+- `UpdateConfig` - Dynamic configuration updates
+- `ManageCluster` - Cluster node management
+- `PauseWorkflows` / `ResumeWorkflows` - Workflow control
+- `PurgeWorkflows` - Clean up old workflows
+- `GetLaneStats` - Lane queue statistics
+- `ExportMetrics` - Export metrics in various formats
+- `GetDebugInfo` - Runtime profiling data
+
+#### Features
+
+- **TLS/mTLS Support** - Secure communication with certificate-based authentication
+- **Server Reflection** - Dynamic service discovery for tools like grpcurl
+- **Health Checks** - Standard gRPC health check protocol
+- **Interceptors** - Authentication, rate limiting, logging, metrics, tracing
+- **Connection Pooling** - Efficient connection management
+- **Automatic Retry** - Built-in retry logic with exponential backoff
+
+#### Go Client SDK
+
+```go
+import "github.com/goclaw/goclaw/pkg/grpc/client"
+
+// Create client
+c, err := client.NewClient("localhost:9090",
+    client.WithTimeout(30*time.Second),
+    client.WithTLS("./certs/ca.crt", "", ""),
+)
+defer c.Close()
+
+// Submit workflow
+workflowID, err := c.SubmitWorkflow(ctx, "my-workflow", tasks)
+
+// Watch workflow progress
+eventChan, errChan, err := c.WatchWorkflow(ctx, workflowID, 0)
+```
+
+For detailed examples, see:
+- [gRPC API Examples](docs/examples/grpc-examples.md)
+- [Client SDK Examples](docs/examples/client-sdk-examples.md)
+- [TLS/mTLS Setup](docs/examples/tls-setup.md)
+
 #### Quick API Example
 
 ```bash
