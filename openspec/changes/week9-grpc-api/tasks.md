@@ -77,19 +77,19 @@
 
 ## 7. Admin API
 
-- [ ] 7.1 Implement AdminService.GetEngineStatus handler
-- [ ] 7.2 Implement AdminService.UpdateConfig handler
-- [ ] 7.3 Implement AdminService.ManageCluster handler (list, add, remove nodes)
-- [ ] 7.4 Implement AdminService.PauseWorkflows handler
-- [ ] 7.5 Implement AdminService.ResumeWorkflows handler
-- [ ] 7.6 Implement AdminService.PurgeWorkflows handler
-- [ ] 7.7 Implement AdminService.GetLaneStats handler
-- [ ] 7.8 Implement AdminService.ExportMetrics handler
-- [ ] 7.9 Implement AdminService.GetDebugInfo handler (goroutines, heap, CPU)
-- [ ] 7.10 Add admin role verification for all admin handlers
-- [ ] 7.11 Add audit logging for admin operations
-- [ ] 7.12 Add confirmation flag for destructive operations
-- [ ] 7.13 Add unit tests for admin handlers
+- [x] 7.1 Implement AdminService.GetEngineStatus handler
+- [x] 7.2 Implement AdminService.UpdateConfig handler
+- [x] 7.3 Implement AdminService.ManageCluster handler (list, add, remove nodes)
+- [x] 7.4 Implement AdminService.PauseWorkflows handler
+- [x] 7.5 Implement AdminService.ResumeWorkflows handler
+- [x] 7.6 Implement AdminService.PurgeWorkflows handler
+- [x] 7.7 Implement AdminService.GetLaneStats handler
+- [x] 7.8 Implement AdminService.ExportMetrics handler
+- [x] 7.9 Implement AdminService.GetDebugInfo handler (goroutines, heap, CPU)
+- [x] 7.10 Add admin role verification for all admin handlers
+- [x] 7.11 Add audit logging for admin operations
+- [x] 7.12 Add confirmation flag for destructive operations
+- [x] 7.13 Add unit tests for admin handlers
 
 ## 8. Go Client SDK
 
@@ -119,9 +119,9 @@
 
 ## 10. Documentation and Examples
 
-- [ ] 10.1 Add gRPC configuration section to `config/config.example.yaml`
-- [ ] 10.2 Create `docs/examples/grpc-examples.md` with usage examples
-- [ ] 10.3 Create `docs/examples/client-sdk-examples.md` with SDK usage
-- [ ] 10.4 Update README.md with gRPC API section
-- [ ] 10.5 Add grpcurl examples for debugging
-- [ ] 10.6 Document TLS/mTLS certificate setup
+- [x] 10.1 Add gRPC configuration section to `config/config.example.yaml`
+- [x] 10.2 Create `docs/examples/grpc-examples.md` with usage examples
+- [x] 10.3 Create `docs/examples/client-sdk-examples.md` with SDK usage
+- [x] 10.4 Update README.md with gRPC API section
+- [x] 10.5 Add grpcurl examples for debugging
+- [x] 10.6 Document TLS/mTLS certificate setup
