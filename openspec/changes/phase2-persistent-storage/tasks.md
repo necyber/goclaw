@@ -11,13 +11,13 @@
 
 ## 2. 内存存储实现
 
-- [ ] 2.1 创建 `pkg/storage/memory` 包
-- [ ] 2.2 实现 `MemoryStorage` 结构（重构现有 WorkflowStore）
-- [ ] 2.3 实现 workflow CRUD 操作
-- [ ] 2.4 实现 task 持久化操作
-- [ ] 2.5 实现 ListWorkflows 带过滤和分页
-- [ ] 2.6 添加并发安全保护（sync.RWMutex）
-- [ ] 2.7 编写 MemoryStorage 单元测试
+- [x] 2.1 创建 `pkg/storage/memory` 包
+- [x] 2.2 实现 `MemoryStorage` 结构（重构现有 WorkflowStore）
+- [x] 2.3 实现 workflow CRUD 操作
+- [x] 2.4 实现 task 持久化操作
+- [x] 2.5 实现 ListWorkflows 带过滤和分页
+- [x] 2.6 添加并发安全保护（sync.RWMutex）
+- [x] 2.7 编写 MemoryStorage 单元测试
 
 ## 3. Badger 存储实现
 
