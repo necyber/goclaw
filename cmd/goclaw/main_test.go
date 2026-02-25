@@ -13,7 +13,43 @@ import (
 	"github.com/goclaw/goclaw/pkg/api/handlers"
 	"github.com/goclaw/goclaw/pkg/engine"
 	"github.com/goclaw/goclaw/pkg/logger"
+	"github.com/goclaw/goclaw/pkg/storage"
 )
+
+// mockStorage is a minimal mock implementation for testing
+type mockStorage struct{}
+
+func (m *mockStorage) SaveWorkflow(ctx context.Context, wf *storage.WorkflowState) error {
+	return nil
+}
+
+func (m *mockStorage) GetWorkflow(ctx context.Context, id string) (*storage.WorkflowState, error) {
+	return nil, &storage.NotFoundError{EntityType: "workflow", ID: id}
+}
+
+func (m *mockStorage) ListWorkflows(ctx context.Context, filter *storage.WorkflowFilter) ([]*storage.WorkflowState, int, error) {
+	return nil, 0, nil
+}
+
+func (m *mockStorage) DeleteWorkflow(ctx context.Context, id string) error {
+	return nil
+}
+
+func (m *mockStorage) SaveTask(ctx context.Context, workflowID string, task *storage.TaskState) error {
+	return nil
+}
+
+func (m *mockStorage) GetTask(ctx context.Context, workflowID, taskID string) (*storage.TaskState, error) {
+	return nil, &storage.NotFoundError{EntityType: "task", ID: taskID}
+}
+
+func (m *mockStorage) ListTasks(ctx context.Context, workflowID string) ([]*storage.TaskState, error) {
+	return nil, nil
+}
+
+func (m *mockStorage) Close() error {
+	return nil
+}
 
 func TestServerStartup(t *testing.T) {
 	// Create test configuration
@@ -56,7 +92,11 @@ func TestServerStartup(t *testing.T) {
 
 	// Create and start engine
 	ctx := context.Background()
-	eng, err := engine.New(cfg, log)
+
+	// Create in-memory storage for testing
+	store := &mockStorage{}
+
+	eng, err := engine.New(cfg, log, store)
 	if err != nil {
 		t.Fatalf("Failed to create engine: %v", err)
 	}
