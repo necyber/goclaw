@@ -93,18 +93,18 @@
 
 ## 8. Go Client SDK
 
-- [ ] 8.1 Create `pkg/grpc/client/` package structure
-- [ ] 8.2 Implement client initialization with connection options
-- [ ] 8.3 Add TLS/mTLS connection support
-- [ ] 8.4 Implement connection pooling and health checking
-- [ ] 8.5 Implement automatic retry with exponential backoff
-- [ ] 8.6 Add workflow operation methods (submit, list, status, cancel, result)
-- [ ] 8.7 Add streaming operation methods (watch workflow, watch tasks)
-- [ ] 8.8 Add batch operation methods (submit, statuses, cancel)
-- [ ] 8.9 Add admin operation methods (status, config, cluster)
-- [ ] 8.10 Implement context support (cancellation, deadlines, metadata)
-- [ ] 8.11 Add typed error handling
-- [ ] 8.12 Add unit tests for client SDK
+- [x] 8.1 Create `pkg/grpc/client/` package structure
+- [x] 8.2 Implement client initialization with connection options
+- [x] 8.3 Add TLS/mTLS connection support
+- [x] 8.4 Implement connection pooling and health checking
+- [x] 8.5 Implement automatic retry with exponential backoff
+- [x] 8.6 Add workflow operation methods (submit, list, status, cancel, result)
+- [x] 8.7 Add streaming operation methods (watch workflow, watch tasks)
+- [x] 8.8 Add batch operation methods (submit, statuses, cancel)
+- [x] 8.9 Add admin operation methods (status, config, cluster)
+- [x] 8.10 Implement context support (cancellation, deadlines, metadata)
+- [x] 8.11 Add typed error handling
+- [x] 8.12 Add unit tests for client SDK
 
 ## 9. Integration Testing
 
