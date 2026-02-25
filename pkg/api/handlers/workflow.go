@@ -32,6 +32,16 @@ func NewWorkflowHandler(eng *engine.Engine, log logger.Logger) *WorkflowHandler 
 }
 
 // SubmitWorkflow handles POST /api/v1/workflows
+// @Summary Submit a new workflow
+// @Description Submit a new workflow for execution with tasks and dependencies
+// @Tags workflows
+// @Accept json
+// @Produce json
+// @Param workflow body models.WorkflowRequest true "Workflow definition"
+// @Success 201 {object} models.WorkflowResponse "Workflow created successfully"
+// @Failure 400 {object} response.ErrorResponse "Invalid request body or validation error"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Router /api/v1/workflows [post]
 func (h *WorkflowHandler) SubmitWorkflow(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -70,6 +80,15 @@ func (h *WorkflowHandler) SubmitWorkflow(w http.ResponseWriter, r *http.Request)
 }
 
 // GetWorkflow handles GET /api/v1/workflows/{id}
+// @Summary Get workflow status
+// @Description Get the current status and details of a specific workflow
+// @Tags workflows
+// @Produce json
+// @Param id path string true "Workflow ID"
+// @Success 200 {object} models.WorkflowStatusResponse "Workflow status"
+// @Failure 400 {object} response.ErrorResponse "Invalid workflow ID"
+// @Failure 404 {object} response.ErrorResponse "Workflow not found"
+// @Router /api/v1/workflows/{id} [get]
 func (h *WorkflowHandler) GetWorkflow(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	workflowID := chi.URLParam(r, "id")
@@ -91,6 +110,16 @@ func (h *WorkflowHandler) GetWorkflow(w http.ResponseWriter, r *http.Request) {
 }
 
 // ListWorkflows handles GET /api/v1/workflows
+// @Summary List workflows
+// @Description List all workflows with optional filtering and pagination
+// @Tags workflows
+// @Produce json
+// @Param status query string false "Filter by status"
+// @Param limit query int false "Maximum number of results" default(10)
+// @Param offset query int false "Offset for pagination" default(0)
+// @Success 200 {object} models.WorkflowListResponse "List of workflows"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Router /api/v1/workflows [get]
 func (h *WorkflowHandler) ListWorkflows(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -145,6 +174,15 @@ func (h *WorkflowHandler) ListWorkflows(w http.ResponseWriter, r *http.Request) 
 }
 
 // CancelWorkflow handles POST /api/v1/workflows/{id}/cancel
+// @Summary Cancel a workflow
+// @Description Cancel a running or pending workflow
+// @Tags workflows
+// @Produce json
+// @Param id path string true "Workflow ID"
+// @Success 200 {object} map[string]string "Workflow cancelled successfully"
+// @Failure 400 {object} response.ErrorResponse "Invalid workflow ID"
+// @Failure 409 {object} response.ErrorResponse "Workflow cannot be cancelled"
+// @Router /api/v1/workflows/{id}/cancel [post]
 func (h *WorkflowHandler) CancelWorkflow(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	workflowID := chi.URLParam(r, "id")
@@ -167,6 +205,16 @@ func (h *WorkflowHandler) CancelWorkflow(w http.ResponseWriter, r *http.Request)
 }
 
 // GetTaskResult handles GET /api/v1/workflows/{id}/tasks/{tid}/result
+// @Summary Get task result
+// @Description Get the result of a specific task within a workflow
+// @Tags workflows
+// @Produce json
+// @Param id path string true "Workflow ID"
+// @Param tid path string true "Task ID"
+// @Success 200 {object} models.TaskResultResponse "Task result"
+// @Failure 400 {object} response.ErrorResponse "Invalid workflow ID or task ID"
+// @Failure 404 {object} response.ErrorResponse "Task result not found"
+// @Router /api/v1/workflows/{id}/tasks/{tid}/result [get]
 func (h *WorkflowHandler) GetTaskResult(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	workflowID := chi.URLParam(r, "id")

@@ -6,40 +6,40 @@ import "time"
 // WorkflowRequest represents a workflow submission request.
 type WorkflowRequest struct {
 	// Name is the workflow name.
-	Name string `json:"name" validate:"required,min=1,max=100"`
+	Name string `json:"name" validate:"required,min=1,max=100" example:"data-processing-workflow"`
 
 	// Description is an optional workflow description.
-	Description string `json:"description,omitempty" validate:"max=500"`
+	Description string `json:"description,omitempty" validate:"max=500" example:"Process customer data and generate reports"`
 
 	// Tasks is the list of tasks in the workflow.
 	Tasks []TaskDefinition `json:"tasks" validate:"required,min=1,dive"`
 
 	// Metadata holds optional key-value pairs.
-	Metadata map[string]string `json:"metadata,omitempty"`
+	Metadata map[string]string `json:"metadata,omitempty" example:"environment:production,team:data-engineering"`
 }
 
 // TaskDefinition defines a single task in a workflow.
 type TaskDefinition struct {
 	// ID is the unique task identifier within the workflow.
-	ID string `json:"id" validate:"required,min=1,max=100"`
+	ID string `json:"id" validate:"required,min=1,max=100" example:"task-1"`
 
 	// Name is the task name.
-	Name string `json:"name" validate:"required,min=1,max=100"`
+	Name string `json:"name" validate:"required,min=1,max=100" example:"Fetch data from API"`
 
 	// Type is the task type (e.g., "http", "script", "function").
-	Type string `json:"type" validate:"required,oneof=http script function"`
+	Type string `json:"type" validate:"required,oneof=http script function" example:"http"`
 
 	// DependsOn lists task IDs that must complete before this task.
-	DependsOn []string `json:"depends_on,omitempty"`
+	DependsOn []string `json:"depends_on,omitempty" example:"task-0"`
 
 	// Config holds task-specific configuration.
 	Config map[string]interface{} `json:"config,omitempty"`
 
 	// Timeout is the maximum execution time in seconds.
-	Timeout int `json:"timeout,omitempty" validate:"omitempty,min=1,max=3600"`
+	Timeout int `json:"timeout,omitempty" validate:"omitempty,min=1,max=3600" example:"300"`
 
 	// Retries is the number of retry attempts on failure.
-	Retries int `json:"retries,omitempty" validate:"omitempty,min=0,max=5"`
+	Retries int `json:"retries,omitempty" validate:"omitempty,min=0,max=5" example:"3"`
 }
 
 // WorkflowResponse represents a workflow submission response.

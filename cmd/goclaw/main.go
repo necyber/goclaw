@@ -1,5 +1,21 @@
 package main
 
+// @title Goclaw API
+// @version 1.0
+// @description Production-grade, high-performance, distributed-ready multi-agent orchestration engine
+// @termsOfService http://swagger.io/terms/
+
+// @contact.name API Support
+// @contact.url https://github.com/goclaw/goclaw
+// @contact.email support@goclaw.io
+
+// @license.name Apache 2.0
+// @license.url http://www.apache.org/licenses/LICENSE-2.0.html
+
+// @host localhost:8080
+// @BasePath /
+// @schemes http https
+
 import (
 	"context"
 	"flag"

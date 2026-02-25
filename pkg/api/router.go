@@ -7,6 +7,9 @@ import (
 	"github.com/goclaw/goclaw/pkg/api/handlers"
 	"github.com/goclaw/goclaw/pkg/api/middleware"
 	"github.com/goclaw/goclaw/pkg/logger"
+	httpSwagger "github.com/swaggo/http-swagger"
+
+	_ "github.com/goclaw/goclaw/docs/swagger" // Import generated docs
 )
 
 // Handlers holds all HTTP handlers.
@@ -57,4 +60,7 @@ func RegisterRoutes(r chi.Router, handlers *Handlers) {
 		r.Get("/ready", handlers.Health.Ready)
 		r.Get("/status", handlers.Health.Status)
 	}
+
+	// Swagger documentation
+	r.Get("/swagger/*", httpSwagger.WrapHandler)
 }

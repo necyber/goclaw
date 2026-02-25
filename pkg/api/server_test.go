@@ -63,7 +63,7 @@ func TestNewHTTPServer(t *testing.T) {
 func TestHTTPServer_StartAndShutdown(t *testing.T) {
 	cfg := &config.Config{
 		Server: config.ServerConfig{
-			Host: "localhost",
+			Host: "127.0.0.1",
 			Port: 18080, // Use different port to avoid conflicts
 			HTTP: config.HTTPConfig{
 				ReadTimeout:  5 * time.Second,
@@ -105,7 +105,7 @@ func TestHTTPServer_StartAndShutdown(t *testing.T) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Test if server is responding
-	resp, err := http.Get("http://localhost:18080/health")
+	resp, err := http.Get("http://127.0.0.1:18080/health")
 	if err != nil {
 		t.Fatalf("Failed to connect to server: %v", err)
 	}

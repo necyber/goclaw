@@ -21,6 +21,13 @@ func NewHealthHandler(eng *engine.Engine) *HealthHandler {
 }
 
 // Health handles the /health endpoint (liveness probe).
+// @Summary Health check
+// @Description Check if the service is alive and running
+// @Tags health
+// @Produce json
+// @Success 200 {object} map[string]string "Service is healthy"
+// @Failure 503 {object} map[string]string "Service is unhealthy"
+// @Router /health [get]
 func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
 	if h.engine.IsHealthy() {
 		response.JSON(w, http.StatusOK, map[string]string{
@@ -34,6 +41,13 @@ func (h *HealthHandler) Health(w http.ResponseWriter, r *http.Request) {
 }
 
 // Ready handles the /ready endpoint (readiness probe).
+// @Summary Readiness check
+// @Description Check if the service is ready to accept requests
+// @Tags health
+// @Produce json
+// @Success 200 {object} map[string]bool "Service is ready"
+// @Failure 503 {object} map[string]bool "Service is not ready"
+// @Router /ready [get]
 func (h *HealthHandler) Ready(w http.ResponseWriter, r *http.Request) {
 	if h.engine.IsReady() {
 		response.JSON(w, http.StatusOK, map[string]bool{
@@ -47,6 +61,12 @@ func (h *HealthHandler) Ready(w http.ResponseWriter, r *http.Request) {
 }
 
 // Status handles the /status endpoint (detailed status).
+// @Summary Detailed status
+// @Description Get detailed status information about the service and engine
+// @Tags health
+// @Produce json
+// @Success 200 {object} engine.EngineStatus "Detailed status information"
+// @Router /status [get]
 func (h *HealthHandler) Status(w http.ResponseWriter, r *http.Request) {
 	status := h.engine.GetStatus()
 	response.JSON(w, http.StatusOK, status)

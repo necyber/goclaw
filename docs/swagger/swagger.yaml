@@ -1,0 +1,465 @@
+basePath: /
+definitions:
+  engine.EngineStatus:
+    properties:
+      state:
+        type: string
+      uptime:
+        type: string
+      version:
+        type: string
+    type: object
+  models.TaskDefinition:
+    properties:
+      config:
+        additionalProperties: true
+        description: Config holds task-specific configuration.
+        type: object
+      depends_on:
+        description: DependsOn lists task IDs that must complete before this task.
+        example:
+        - task-0
+        items:
+          type: string
+        type: array
+      id:
+        description: ID is the unique task identifier within the workflow.
+        example: task-1
+        maxLength: 100
+        minLength: 1
+        type: string
+      name:
+        description: Name is the task name.
+        example: Fetch data from API
+        maxLength: 100
+        minLength: 1
+        type: string
+      retries:
+        description: Retries is the number of retry attempts on failure.
+        example: 3
+        maximum: 5
+        minimum: 0
+        type: integer
+      timeout:
+        description: Timeout is the maximum execution time in seconds.
+        example: 300
+        maximum: 3600
+        minimum: 1
+        type: integer
+      type:
+        description: Type is the task type (e.g., "http", "script", "function").
+        enum:
+        - http
+        - script
+        - function
+        example: http
+        type: string
+    required:
+    - id
+    - name
+    - type
+    type: object
+  models.TaskResultResponse:
+    properties:
+      completed_at:
+        description: CompletedAt is when the task completed.
+        type: string
+      error:
+        description: Error holds error information if the task failed.
+        type: string
+      result:
+        description: Result holds the task result data.
+      status:
+        description: Status is the task status.
+        type: string
+      task_id:
+        description: TaskID is the task identifier.
+        type: string
+      workflow_id:
+        description: WorkflowID is the workflow identifier.
+        type: string
+    type: object
+  models.TaskStatus:
+    properties:
+      completed_at:
+        description: CompletedAt is when the task completed.
+        type: string
+      error:
+        description: Error holds error information if the task failed.
+        type: string
+      id:
+        description: ID is the task identifier.
+        type: string
+      name:
+        description: Name is the task name.
+        type: string
+      result:
+        description: Result holds the task result data.
+      started_at:
+        description: StartedAt is when the task started.
+        type: string
+      status:
+        description: Status is the current task status.
+        type: string
+    type: object
+  models.WorkflowListResponse:
+    properties:
+      limit:
+        description: Limit is the maximum number of results returned.
+        type: integer
+      offset:
+        description: Offset is the starting position in the result set.
+        type: integer
+      total:
+        description: Total is the total number of workflows matching the filter.
+        type: integer
+      workflows:
+        description: Workflows is the list of workflow summaries.
+        items:
+          $ref: '#/definitions/models.WorkflowSummary'
+        type: array
+    type: object
+  models.WorkflowRequest:
+    properties:
+      description:
+        description: Description is an optional workflow description.
+        example: Process customer data and generate reports
+        maxLength: 500
+        type: string
+      metadata:
+        additionalProperties:
+          type: string
+        description: Metadata holds optional key-value pairs.
+        example:
+          environment: production
+          team: data-engineering
+        type: object
+      name:
+        description: Name is the workflow name.
+        example: data-processing-workflow
+        maxLength: 100
+        minLength: 1
+        type: string
+      tasks:
+        description: Tasks is the list of tasks in the workflow.
+        items:
+          $ref: '#/definitions/models.TaskDefinition'
+        minItems: 1
+        type: array
+    required:
+    - name
+    - tasks
+    type: object
+  models.WorkflowResponse:
+    properties:
+      created_at:
+        description: CreatedAt is the workflow creation timestamp.
+        type: string
+      id:
+        description: ID is the unique workflow identifier.
+        type: string
+      message:
+        description: Message provides additional information.
+        type: string
+      name:
+        description: Name is the workflow name.
+        type: string
+      status:
+        description: Status is the current workflow status.
+        type: string
+    type: object
+  models.WorkflowStatusResponse:
+    properties:
+      completed_at:
+        description: CompletedAt is when the workflow completed.
+        type: string
+      created_at:
+        description: CreatedAt is the workflow creation timestamp.
+        type: string
+      error:
+        description: Error holds error information if the workflow failed.
+        type: string
+      id:
+        description: ID is the workflow identifier.
+        type: string
+      metadata:
+        additionalProperties:
+          type: string
+        description: Metadata holds workflow metadata.
+        type: object
+      name:
+        description: Name is the workflow name.
+        type: string
+      started_at:
+        description: StartedAt is when the workflow started executing.
+        type: string
+      status:
+        description: Status is the current workflow status.
+        type: string
+      tasks:
+        description: Tasks is the list of task statuses.
+        items:
+          $ref: '#/definitions/models.TaskStatus'
+        type: array
+    type: object
+  models.WorkflowSummary:
+    properties:
+      completed_at:
+        description: CompletedAt is when the workflow completed.
+        type: string
+      created_at:
+        description: CreatedAt is the workflow creation timestamp.
+        type: string
+      id:
+        description: ID is the workflow identifier.
+        type: string
+      name:
+        description: Name is the workflow name.
+        type: string
+      status:
+        description: Status is the current workflow status.
+        type: string
+      task_count:
+        description: TaskCount is the total number of tasks.
+        type: integer
+    type: object
+  response.ErrorDetail:
+    properties:
+      code:
+        type: string
+      details:
+        additionalProperties: true
+        type: object
+      message:
+        type: string
+      request_id:
+        type: string
+    type: object
+  response.ErrorResponse:
+    properties:
+      error:
+        $ref: '#/definitions/response.ErrorDetail'
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@goclaw.io
+    name: API Support
+    url: https://github.com/goclaw/goclaw
+  description: Production-grade, high-performance, distributed-ready multi-agent orchestration
+    engine
+  license:
+    name: Apache 2.0
+    url: http://www.apache.org/licenses/LICENSE-2.0.html
+  termsOfService: http://swagger.io/terms/
+  title: Goclaw API
+  version: "1.0"
+paths:
+  /api/v1/workflows:
+    get:
+      description: List all workflows with optional filtering and pagination
+      parameters:
+      - description: Filter by status
+        in: query
+        name: status
+        type: string
+      - default: 10
+        description: Maximum number of results
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset for pagination
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of workflows
+          schema:
+            $ref: '#/definitions/models.WorkflowListResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: List workflows
+      tags:
+      - workflows
+    post:
+      consumes:
+      - application/json
+      description: Submit a new workflow for execution with tasks and dependencies
+      parameters:
+      - description: Workflow definition
+        in: body
+        name: workflow
+        required: true
+        schema:
+          $ref: '#/definitions/models.WorkflowRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Workflow created successfully
+          schema:
+            $ref: '#/definitions/models.WorkflowResponse'
+        "400":
+          description: Invalid request body or validation error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Submit a new workflow
+      tags:
+      - workflows
+  /api/v1/workflows/{id}:
+    get:
+      description: Get the current status and details of a specific workflow
+      parameters:
+      - description: Workflow ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Workflow status
+          schema:
+            $ref: '#/definitions/models.WorkflowStatusResponse'
+        "400":
+          description: Invalid workflow ID
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Workflow not found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Get workflow status
+      tags:
+      - workflows
+  /api/v1/workflows/{id}/cancel:
+    post:
+      description: Cancel a running or pending workflow
+      parameters:
+      - description: Workflow ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Workflow cancelled successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid workflow ID
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "409":
+          description: Workflow cannot be cancelled
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Cancel a workflow
+      tags:
+      - workflows
+  /api/v1/workflows/{id}/tasks/{tid}/result:
+    get:
+      description: Get the result of a specific task within a workflow
+      parameters:
+      - description: Workflow ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Task ID
+        in: path
+        name: tid
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Task result
+          schema:
+            $ref: '#/definitions/models.TaskResultResponse'
+        "400":
+          description: Invalid workflow ID or task ID
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Task result not found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Get task result
+      tags:
+      - workflows
+  /health:
+    get:
+      description: Check if the service is alive and running
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service is healthy
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "503":
+          description: Service is unhealthy
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Health check
+      tags:
+      - health
+  /ready:
+    get:
+      description: Check if the service is ready to accept requests
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Service is ready
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+        "503":
+          description: Service is not ready
+          schema:
+            additionalProperties:
+              type: boolean
+            type: object
+      summary: Readiness check
+      tags:
+      - health
+  /status:
+    get:
+      description: Get detailed status information about the service and engine
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Detailed status information
+          schema:
+            $ref: '#/definitions/engine.EngineStatus'
+      summary: Detailed status
+      tags:
+      - health
+schemes:
+- http
+- https
+swagger: "2.0"

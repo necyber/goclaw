@@ -172,30 +172,30 @@
 ## 阶段 5: API 文档
 
 ### 5.1 Swagger 集成
-- [ ] 添加 `github.com/swaggo/swag` 依赖
-- [ ] 添加 `github.com/swaggo/http-swagger` 依赖
-- [ ] 在 `main.go` 中添加 Swagger 注解
-  - [ ] @title, @version, @description
-  - [ ] @host, @BasePath
-  - [ ] @contact, @license
-- [ ] 为每个处理器函数添加 Swagger 注解
-  - [ ] @Summary, @Description
-  - [ ] @Tags, @Accept, @Produce
-  - [ ] @Param, @Success, @Failure
-  - [ ] @Router
-- [ ] 为数据模型添加注解和示例
+- [x] 添加 `github.com/swaggo/swag` 依赖
+- [x] 添加 `github.com/swaggo/http-swagger` 依赖
+- [x] 在 `main.go` 中添加 Swagger 注解
+  - [x] @title, @version, @description
+  - [x] @host, @BasePath
+  - [x] @contact, @license
+- [x] 为每个处理器函数添加 Swagger 注解
+  - [x] @Summary, @Description
+  - [x] @Tags, @Accept, @Produce
+  - [x] @Param, @Success, @Failure
+  - [x] @Router
+- [x] 为数据模型添加注解和示例
 
 ### 5.2 文档生成
-- [ ] 运行 `swag init` 生成文档
-- [ ] 创建 `docs/swagger/` 目录
-- [ ] 验证生成的 `swagger.json` 和 `swagger.yaml`
-- [ ] 在路由中注册 `/docs/*` 端点
-- [ ] 测试 Swagger UI 访问
+- [x] 运行 `swag init` 生成文档
+- [x] 创建 `docs/swagger/` 目录
+- [x] 验证生成的 `swagger.json` 和 `swagger.yaml`
+- [x] 在路由中注册 `/swagger/*` 端点
+- [x] 测试 Swagger UI 访问
 
 ### 5.3 使用示例
-- [ ] 创建 `docs/examples/` 目录
-- [ ] 编写 cURL 示例
-- [ ] 编写 Go 客户端示例
+- [x] 创建 `docs/examples/` 目录
+- [x] 编写 cURL 示例
+- [ ] 编写 Go 客户端示例（可选）
 - [ ] 编写 Postman 集合（可选）
 
 ## 阶段 6: 集成测试
