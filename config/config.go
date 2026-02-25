@@ -68,11 +68,74 @@ type ServerConfig struct {
 
 // GRPCConfig holds gRPC-specific settings.
 type GRPCConfig struct {
+	// Enabled enables the gRPC server.
+	Enabled bool `mapstructure:"enabled"`
+
 	// Port is the gRPC server port.
 	Port int `mapstructure:"port" validate:"min=1,max=65535"`
 
-	// MaxConcurrentStreams limits concurrent streams per connection.
-	MaxConcurrentStreams int `mapstructure:"max_concurrent_streams" validate:"min=1"`
+	// MaxConnections is the maximum number of concurrent connections.
+	MaxConnections int `mapstructure:"max_connections" validate:"min=0"`
+
+	// MaxRecvMsgSize is the maximum message size the server can receive (bytes).
+	MaxRecvMsgSize int `mapstructure:"max_recv_msg_size" validate:"min=0"`
+
+	// MaxSendMsgSize is the maximum message size the server can send (bytes).
+	MaxSendMsgSize int `mapstructure:"max_send_msg_size" validate:"min=0"`
+
+	// EnableReflection enables gRPC server reflection for debugging.
+	EnableReflection bool `mapstructure:"enable_reflection"`
+
+	// EnableHealthCheck enables gRPC health check service.
+	EnableHealthCheck bool `mapstructure:"enable_health_check"`
+
+	// TLS is the TLS/mTLS configuration.
+	TLS GRPCTLSConfig `mapstructure:"tls"`
+
+	// Keepalive is the keepalive configuration.
+	Keepalive GRPCKeepaliveConfig `mapstructure:"keepalive"`
+}
+
+// GRPCTLSConfig holds gRPC TLS/mTLS settings.
+type GRPCTLSConfig struct {
+	// Enabled indicates whether TLS is enabled.
+	Enabled bool `mapstructure:"enabled"`
+
+	// CertFile is the path to the server certificate file.
+	CertFile string `mapstructure:"cert_file"`
+
+	// KeyFile is the path to the server private key file.
+	KeyFile string `mapstructure:"key_file"`
+
+	// CAFile is the path to the CA certificate file for mTLS.
+	CAFile string `mapstructure:"ca_file"`
+
+	// ClientAuth indicates whether to require client certificates (mTLS).
+	ClientAuth bool `mapstructure:"client_auth"`
+}
+
+// GRPCKeepaliveConfig holds gRPC keepalive settings.
+type GRPCKeepaliveConfig struct {
+	// MaxIdleSeconds is the maximum idle time before closing connection.
+	MaxIdleSeconds int `mapstructure:"max_idle_seconds" validate:"min=0"`
+
+	// MaxAgeSeconds is the maximum connection age.
+	MaxAgeSeconds int `mapstructure:"max_age_seconds" validate:"min=0"`
+
+	// MaxAgeGraceSeconds is the grace period for closing connections.
+	MaxAgeGraceSeconds int `mapstructure:"max_age_grace_seconds" validate:"min=0"`
+
+	// TimeSeconds is the keepalive ping interval.
+	TimeSeconds int `mapstructure:"time_seconds" validate:"min=0"`
+
+	// TimeoutSeconds is the keepalive ping timeout.
+	TimeoutSeconds int `mapstructure:"timeout_seconds" validate:"min=0"`
+
+	// MinTimeSeconds is the minimum time between client pings.
+	MinTimeSeconds int `mapstructure:"min_time_seconds" validate:"min=0"`
+
+	// PermitWithoutStream allows pings without active streams.
+	PermitWithoutStream bool `mapstructure:"permit_without_stream"`
 }
 
 // HTTPConfig holds HTTP-specific settings.

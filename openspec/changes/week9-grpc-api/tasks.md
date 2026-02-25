@@ -19,7 +19,7 @@
 - [x] 2.5 Implement gRPC health check service (grpc.health.v1)
 - [x] 2.6 Add connection management (limits, idle timeout, keepalive)
 - [x] 2.7 Create `pkg/grpc/config.go` for gRPC-specific configuration
-- [ ] 2.8 Update `config/config.go` to include gRPC server settings
+- [x] 2.8 Update `config/config.go` to include gRPC server settings
 - [ ] 2.9 Modify `cmd/goclaw/main.go` to start gRPC server alongside HTTP
 
 ## 3. Interceptors
