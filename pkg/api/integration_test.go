@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/goclaw/goclaw/pkg/storage/memory"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -49,7 +50,7 @@ func setupIntegrationTest(t *testing.T) (string, func()) {
 
 	// Create and start engine
 	ctx := context.Background()
-	eng, err := engine.New(cfg, log)
+	eng, err := engine.New(cfg, log, memory.NewMemoryStorage())
 	if err != nil {
 		t.Fatalf("Failed to create engine: %v", err)
 	}

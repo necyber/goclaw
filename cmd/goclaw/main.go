@@ -30,6 +30,9 @@ import (
 	"github.com/goclaw/goclaw/pkg/api/handlers"
 	"github.com/goclaw/goclaw/pkg/engine"
 	"github.com/goclaw/goclaw/pkg/logger"
+	"github.com/goclaw/goclaw/pkg/storage"
+	"github.com/goclaw/goclaw/pkg/storage/badger"
+	"github.com/goclaw/goclaw/pkg/storage/memory"
 	"github.com/goclaw/goclaw/pkg/version"
 )
 
@@ -100,8 +103,36 @@ func main() {
 	sigChan := make(chan os.Signal, 1)
 	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
+	// Initialize storage backend
+	var store storage.Storage
+	switch cfg.Storage.Type {
+	case "badger":
+		badgerCfg := &badger.Config{
+			Path:             cfg.Storage.Badger.Path,
+			SyncWrites:       cfg.Storage.Badger.SyncWrites,
+			ValueLogFileSize: cfg.Storage.Badger.ValueLogFileSize,
+		}
+		store, err = badger.NewBadgerStorage(badgerCfg)
+		if err != nil {
+			log.Error("Failed to create Badger storage", "error", err)
+			os.Exit(1)
+		}
+		log.Info("Initialized Badger storage", "path", badgerCfg.Path)
+	case "memory":
+		store = memory.NewMemoryStorage()
+		log.Info("Initialized memory storage")
+	default:
+		store = memory.NewMemoryStorage()
+		log.Warn("Unknown storage type, using memory storage", "type", cfg.Storage.Type)
+	}
+	defer func() {
+		if err := store.Close(); err != nil {
+			log.Error("Error closing storage", "error", err)
+		}
+	}()
+
 	// Initialize and start the orchestration engine.
-	eng, err := engine.New(cfg, log)
+	eng, err := engine.New(cfg, log, store)
 	if err != nil {
 		log.Error("Failed to create engine", "error", err)
 		os.Exit(1)

@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/goclaw/goclaw/pkg/storage/memory"
 	"context"
 	"net/http"
 	"net/http/httptest"
@@ -30,7 +31,7 @@ func createTestHandlers(t *testing.T) (*Handlers, func()) {
 		Output: "stdout",
 	})
 
-	eng, err := engine.New(cfg, log)
+	eng, err := engine.New(cfg, log, memory.NewMemoryStorage())
 	if err != nil {
 		t.Fatalf("Failed to create engine: %v", err)
 	}

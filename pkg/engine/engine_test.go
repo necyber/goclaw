@@ -8,6 +8,7 @@ import (
 
 	"github.com/goclaw/goclaw/config"
 	"github.com/goclaw/goclaw/pkg/dag"
+	"github.com/goclaw/goclaw/pkg/storage/memory"
 )
 
 // minConfig returns a minimal valid config for tests.
@@ -185,7 +186,7 @@ func TestTaskRunner_ContextCancelled(t *testing.T) {
 // --- Engine lifecycle tests ---
 
 func TestEngine_New(t *testing.T) {
-	eng, err := New(minConfig(), nil)
+	eng, err := New(minConfig(), nil, memory.NewMemoryStorage())
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
 	}
@@ -195,14 +196,14 @@ func TestEngine_New(t *testing.T) {
 }
 
 func TestEngine_New_NilConfig(t *testing.T) {
-	_, err := New(nil, nil)
+	_, err := New(nil, nil, memory.NewMemoryStorage())
 	if err == nil {
 		t.Fatal("expected error for nil config")
 	}
 }
 
 func TestEngine_StartStop(t *testing.T) {
-	eng, _ := New(minConfig(), nil)
+	eng, _ := New(minConfig(), nil, memory.NewMemoryStorage())
 	ctx := context.Background()
 
 	if err := eng.Start(ctx); err != nil {
@@ -226,14 +227,14 @@ func TestEngine_StartStop(t *testing.T) {
 }
 
 func TestEngine_StopIdleEngine(t *testing.T) {
-	eng, _ := New(minConfig(), nil)
+	eng, _ := New(minConfig(), nil, memory.NewMemoryStorage())
 	if err := eng.Stop(context.Background()); err != nil {
 		t.Errorf("Stop on idle engine should return nil, got: %v", err)
 	}
 }
 
 func TestEngine_SubmitNotRunning(t *testing.T) {
-	eng, _ := New(minConfig(), nil)
+	eng, _ := New(minConfig(), nil, memory.NewMemoryStorage())
 	_, err := eng.Submit(context.Background(), &Workflow{ID: "wf1"})
 	if err == nil {
 		t.Fatal("expected EngineNotRunningError")
@@ -247,7 +248,7 @@ func TestEngine_SubmitNotRunning(t *testing.T) {
 // --- Integration: end-to-end 3-layer DAG ---
 
 func TestEngine_Submit_ThreeLayerDAG(t *testing.T) {
-	eng, _ := New(minConfig(), nil)
+	eng, _ := New(minConfig(), nil, memory.NewMemoryStorage())
 	ctx := context.Background()
 	if err := eng.Start(ctx); err != nil {
 		t.Fatalf("Start: %v", err)
@@ -316,7 +317,7 @@ func TestEngine_Submit_ThreeLayerDAG(t *testing.T) {
 
 
 func TestEngine_Submit_TaskFailure(t *testing.T) {
-	eng, _ := New(minConfig(), nil)
+	eng, _ := New(minConfig(), nil, memory.NewMemoryStorage())
 	ctx := context.Background()
 	eng.Start(ctx)
 	defer eng.Stop(ctx)
@@ -341,7 +342,7 @@ func TestEngine_Submit_TaskFailure(t *testing.T) {
 }
 
 func TestEngine_Submit_CyclicDAG(t *testing.T) {
-	eng, _ := New(minConfig(), nil)
+	eng, _ := New(minConfig(), nil, memory.NewMemoryStorage())
 	ctx := context.Background()
 	eng.Start(ctx)
 	defer eng.Stop(ctx)
@@ -365,7 +366,7 @@ func TestEngine_Submit_CyclicDAG(t *testing.T) {
 }
 
 func TestEngine_Submit_ContextCancelled(t *testing.T) {
-	eng, _ := New(minConfig(), nil)
+	eng, _ := New(minConfig(), nil, memory.NewMemoryStorage())
 	ctx := context.Background()
 	eng.Start(ctx)
 	defer eng.Stop(ctx)

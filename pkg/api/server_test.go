@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/goclaw/goclaw/pkg/storage/memory"
 	"context"
 	"net/http"
 	"testing"
@@ -35,7 +36,7 @@ func TestNewHTTPServer(t *testing.T) {
 	})
 
 	// Create engine and handlers
-	eng, _ := engine.New(cfg, log)
+	eng, _ := engine.New(cfg, log, memory.NewMemoryStorage())
 	ctx := context.Background()
 	eng.Start(ctx)
 	defer eng.Stop(ctx)
@@ -83,7 +84,7 @@ func TestHTTPServer_StartAndShutdown(t *testing.T) {
 	})
 
 	// Create engine and handlers
-	eng, _ := engine.New(cfg, log)
+	eng, _ := engine.New(cfg, log, memory.NewMemoryStorage())
 	ctx := context.Background()
 	eng.Start(ctx)
 	defer eng.Stop(ctx)

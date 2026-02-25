@@ -13,6 +13,7 @@ import (
 	"github.com/goclaw/goclaw/config"
 	"github.com/goclaw/goclaw/pkg/dag"
 	"github.com/goclaw/goclaw/pkg/engine"
+	"github.com/goclaw/goclaw/pkg/storage/memory"
 )
 
 func main() {
@@ -39,8 +40,12 @@ func main() {
 		Storage: config.StorageConfig{Type: "memory"},
 	}
 
+	// Create storage
+	store := memory.NewMemoryStorage()
+	defer store.Close()
+
 	// Create and start the engine.
-	eng, err := engine.New(cfg, nil)
+	eng, err := engine.New(cfg, nil, store)
 	if err != nil {
 		log.Fatalf("failed to create engine: %v", err)
 	}

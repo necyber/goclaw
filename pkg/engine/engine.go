@@ -63,13 +63,12 @@ type WorkflowResult struct {
 
 // Engine is the core orchestration engine.
 type Engine struct {
-	cfg           *config.Config
-	logger        appLogger
-	storage       storage.Storage
-	laneManager   *lane.Manager
-	scheduler     *Scheduler
-	workflowStore *WorkflowStore
-	state         atomic.Int32
+	cfg         *config.Config
+	logger      appLogger
+	storage     storage.Storage
+	laneManager *lane.Manager
+	scheduler   *Scheduler
+	state       atomic.Int32
 }
 
 // New creates a new Engine from the given configuration, logger, and storage.
@@ -84,10 +83,9 @@ func New(cfg *config.Config, logger appLogger, store storage.Storage) (*Engine, 
 		return nil, fmt.Errorf("storage cannot be nil")
 	}
 	e := &Engine{
-		cfg:           cfg,
-		logger:        logger,
-		storage:       store,
-		workflowStore: NewWorkflowStore(),
+		cfg:     cfg,
+		logger:  logger,
+		storage: store,
 	}
 	e.state.Store(int32(stateIdle))
 	return e, nil
@@ -129,6 +127,12 @@ func (e *Engine) Start(ctx context.Context) error {
 
 	e.state.Store(int32(stateRunning))
 	e.logger.Info("engine started")
+
+	// Recover workflows from storage
+	if err := e.RecoverWorkflows(ctx); err != nil {
+		e.logger.Warn("workflow recovery completed with errors", "error", err)
+	}
+
 	return nil
 }
 
@@ -227,6 +231,76 @@ func (e *Engine) Submit(ctx context.Context, wf *Workflow) (*WorkflowResult, err
 	)
 
 	return result, schedErr
+}
+
+// RecoverWorkflows loads and resubmits workflows that were pending or running when the engine stopped.
+func (e *Engine) RecoverWorkflows(ctx context.Context) error {
+	e.logger.Info("starting workflow recovery")
+
+	// List workflows with pending or running status
+	filter := &storage.WorkflowFilter{
+		Status: []string{"pending", "running"},
+		Limit:  1000, // Reasonable batch size
+		Offset: 0,
+	}
+
+	workflows, total, err := e.storage.ListWorkflows(ctx, filter)
+	if err != nil {
+		return fmt.Errorf("failed to list workflows for recovery: %w", err)
+	}
+
+	if total == 0 {
+		e.logger.Info("no workflows to recover")
+		return nil
+	}
+
+	e.logger.Info("found workflows to recover", "count", total)
+
+	var recoveryErrors []error
+	recovered := 0
+	skipped := 0
+
+	for _, wf := range workflows {
+		// Reset running tasks to pending for re-execution
+		for _, task := range wf.TaskStatus {
+			if task.Status == "running" {
+				task.Status = "pending"
+				task.StartedAt = nil
+				task.CompletedAt = nil
+				task.Error = ""
+			}
+		}
+
+		// Reset workflow status to pending
+		wf.Status = "pending"
+		wf.StartedAt = nil
+		wf.CompletedAt = nil
+		wf.Error = ""
+
+		// Save updated workflow state
+		if err := e.storage.SaveWorkflow(ctx, wf); err != nil {
+			e.logger.Error("failed to reset workflow for recovery",
+				"workflow_id", wf.ID,
+				"error", err)
+			recoveryErrors = append(recoveryErrors, fmt.Errorf("workflow %s: %w", wf.ID, err))
+			skipped++
+			continue
+		}
+
+		e.logger.Info("recovered workflow", "workflow_id", wf.ID, "name", wf.Name)
+		recovered++
+	}
+
+	e.logger.Info("workflow recovery completed",
+		"recovered", recovered,
+		"skipped", skipped,
+		"total", total)
+
+	if len(recoveryErrors) > 0 {
+		return fmt.Errorf("recovery completed with %d errors", len(recoveryErrors))
+	}
+
+	return nil
 }
 
 // State returns the current engine state as a string.

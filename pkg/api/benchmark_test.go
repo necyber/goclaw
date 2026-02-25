@@ -1,6 +1,7 @@
 package api
 
 import (
+	"github.com/goclaw/goclaw/pkg/storage/memory"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -49,7 +50,7 @@ func setupBenchmarkServer(b *testing.B) (*httptest.Server, func()) {
 
 	// Create and start engine
 	ctx := context.Background()
-	eng, err := engine.New(cfg, log)
+	eng, err := engine.New(cfg, log, memory.NewMemoryStorage())
 	if err != nil {
 		b.Fatalf("Failed to create engine: %v", err)
 	}

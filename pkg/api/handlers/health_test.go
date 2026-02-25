@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"github.com/goclaw/goclaw/pkg/storage/memory"
 	"context"
 	"net/http"
 	"net/http/httptest"
@@ -28,7 +29,7 @@ func TestHealthHandler_Health(t *testing.T) {
 		Output: "stdout",
 	})
 
-	eng, err := engine.New(cfg, log)
+	eng, err := engine.New(cfg, log, memory.NewMemoryStorage())
 	if err != nil {
 		t.Fatalf("Failed to create engine: %v", err)
 	}
@@ -68,7 +69,7 @@ func TestHealthHandler_Ready(t *testing.T) {
 		Output: "stdout",
 	})
 
-	eng, _ := engine.New(cfg, log)
+	eng, _ := engine.New(cfg, log, memory.NewMemoryStorage())
 	ctx := context.Background()
 	eng.Start(ctx)
 	defer eng.Stop(ctx)
