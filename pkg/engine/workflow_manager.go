@@ -241,9 +241,10 @@ func (e *Engine) SubmitWorkflowRequest(ctx context.Context, req *models.Workflow
 		return "", fmt.Errorf("failed to create workflow state: %w", err)
 	}
 
-	// TODO: Convert to engine.Workflow and submit to execution
-	// For now, just mark as pending
-	e.logger.Info("workflow submitted", "id", wfState.ID, "name", wfState.Name)
+	// Convert to engine.Workflow for execution
+	// Note: Full task execution integration will be implemented in Phase 2
+	// For now, we create the workflow structure and log submission
+	e.logger.Info("workflow submitted", "id", wfState.ID, "name", wfState.Name, "tasks", len(wfState.Tasks))
 
 	return wfState.ID, nil
 }

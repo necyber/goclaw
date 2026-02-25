@@ -115,7 +115,11 @@ func (g *Graph) RemoveTask(id string) error {
 	
 	// Remove outgoing edges (this task depends on others)
 	for _, depID := range task.Deps {
-		_ = depID // TODO: Update dependency's out-degree tracking
+		// Update dependency's out-degree tracking
+		g.outDegree[depID]--
+		if g.outDegree[depID] < 0 {
+			g.outDegree[depID] = 0
+		}
 		g.inDegree[id]--
 		if g.inDegree[id] < 0 {
 			g.inDegree[id] = 0

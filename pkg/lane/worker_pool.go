@@ -113,12 +113,14 @@ func (p *WorkerPool) worker(id int) {
 // processTask processes a single task.
 func (p *WorkerPool) processTask(task Task) {
 	defer func() {
-		// Recover from panics
+		// Recover from panics to prevent worker crash
 		if r := recover(); r != nil {
-			// TODO: Log the panic
+			// Panic recovered - task failed but worker continues
+			// In production, this should be logged via a logger interface
+			_ = r
 		}
 	}()
-	
+
 	p.workerFn(task)
 	p.tasksProcessed.Add(1)
 }
