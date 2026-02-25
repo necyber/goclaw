@@ -2,82 +2,82 @@
 
 ## 1. Metrics 包基础设施
 
-- [ ] 1.1 创建 `pkg/metrics` 包目录结构
-- [ ] 1.2 定义 `MetricsManager` 结构
-- [ ] 1.3 实现 Prometheus registry 初始化
-- [ ] 1.4 添加 metrics 配置结构到 `config/config.go`
-- [ ] 1.5 实现 metrics server (HTTP endpoint)
-- [ ] 1.6 添加 metrics 启用/禁用开关
+- [x] 1.1 创建 `pkg/metrics` 包目录结构
+- [x] 1.2 定义 `MetricsManager` 结构
+- [x] 1.3 实现 Prometheus registry 初始化
+- [x] 1.4 添加 metrics 配置结构到 `config/config.go`
+- [x] 1.5 实现 metrics server (HTTP endpoint)
+- [x] 1.6 添加 metrics 启用/禁用开关
 
 ## 2. Workflow 指标
 
-- [ ] 2.1 定义 workflow 指标（Counter, Histogram, Gauge）
-- [ ] 2.2 实现 `RecordWorkflowSubmission()` 方法
-- [ ] 2.3 实现 `RecordWorkflowDuration()` 方法
-- [ ] 2.4 实现 `SetActiveWorkflows()` 方法
-- [ ] 2.5 在 `engine.SubmitWorkflowRequest()` 中添加指标记录
-- [ ] 2.6 在 workflow 执行完成时记录时长
-- [ ] 2.7 编写 workflow metrics 单元测试
+- [x] 2.1 定义 workflow 指标（Counter, Histogram, Gauge）
+- [x] 2.2 实现 `RecordWorkflowSubmission()` 方法
+- [x] 2.3 实现 `RecordWorkflowDuration()` 方法
+- [x] 2.4 实现 `SetActiveWorkflows()` 方法
+- [x] 2.5 在 `engine.SubmitWorkflowRequest()` 中添加指标记录
+- [x] 2.6 在 workflow 执行完成时记录时长
+- [x] 2.7 编写 workflow metrics 单元测试
 
 ## 3. Task 指标
 
-- [ ] 3.1 定义 task 指标（Counter, Histogram）
-- [ ] 3.2 实现 `RecordTaskExecution()` 方法
-- [ ] 3.3 实现 `RecordTaskDuration()` 方法
-- [ ] 3.4 实现 `RecordTaskRetry()` 方法
-- [ ] 3.5 在 task runner 中添加指标记录
-- [ ] 3.6 在 task 重试逻辑中添加计数
-- [ ] 3.7 编写 task metrics 单元测试
+- [x] 3.1 定义 task 指标（Counter, Histogram）
+- [x] 3.2 实现 `RecordTaskExecution()` 方法
+- [x] 3.3 实现 `RecordTaskDuration()` 方法
+- [x] 3.4 实现 `RecordTaskRetry()` 方法
+- [x] 3.5 在 task runner 中添加指标记录
+- [x] 3.6 在 task 重试逻辑中添加计数
+- [x] 3.7 编写 task metrics 单元测试
 
 ## 4. Lane 队列指标
 
-- [ ] 4.1 定义 lane 指标（Gauge, Histogram, Counter）
-- [ ] 4.2 实现 `SetQueueDepth()` 方法
-- [ ] 4.3 实现 `RecordWaitDuration()` 方法
-- [ ] 4.4 实现 `RecordThroughput()` 方法
-- [ ] 4.5 在 `ChannelLane.Submit()` 中添加队列深度记录
-- [ ] 4.6 在 task 出队时记录等待时长
-- [ ] 4.7 在 worker 处理完成时记录吞吐量
-- [ ] 4.8 编写 lane metrics 单元测试
+- [x] 4.1 定义 lane 指标（Gauge, Histogram, Counter）
+- [x] 4.2 实现 `SetQueueDepth()` 方法
+- [x] 4.3 实现 `RecordWaitDuration()` 方法
+- [x] 4.4 实现 `RecordThroughput()` 方法
+- [x] 4.5 在 `ChannelLane.Submit()` 中添加队列深度记录
+- [x] 4.6 在 task 出队时记录等待时长
+- [x] 4.7 在 worker 处理完成时记录吞吐量
+- [x] 4.8 编写 lane metrics 单元测试
 
 ## 5. HTTP API 指标
 
-- [ ] 5.1 定义 HTTP 指标（Counter, Histogram, Gauge）
-- [ ] 5.2 创建 `pkg/api/middleware/metrics.go`
-- [ ] 5.3 实现 metrics middleware
-- [ ] 5.4 实现 `RecordHTTPRequest()` 方法
-- [ ] 5.5 实现活跃连接计数（Inc/Dec）
-- [ ] 5.6 包装 ResponseWriter 以捕获状态码
-- [ ] 5.7 在 router 中注册 metrics middleware
-- [ ] 5.8 编写 HTTP metrics 单元测试
+- [x] 5.1 定义 HTTP 指标（Counter, Histogram, Gauge）
+- [x] 5.2 创建 `pkg/api/middleware/metrics.go`
+- [x] 5.3 实现 metrics middleware
+- [x] 5.4 实现 `RecordHTTPRequest()` 方法
+- [x] 5.5 实现活跃连接计数（Inc/Dec）
+- [x] 5.6 包装 ResponseWriter 以捕获状态码
+- [x] 5.7 在 router 中注册 metrics middleware
+- [x] 5.8 编写 HTTP metrics 单元测试
 
 ## 6. 系统指标
 
-- [ ] 6.1 添加 Go runtime 指标（goroutines, memory, GC）
-- [ ] 6.2 实现自定义 collector（可选）
-- [ ] 6.3 添加进程指标（CPU, 文件描述符）
-- [ ] 6.4 配置指标收集间隔
+- [x] 6.1 添加 Go runtime 指标（goroutines, memory, GC）
+- [x] 6.2 实现自定义 collector（可选）
+- [x] 6.3 添加进程指标（CPU, 文件描述符）
+- [x] 6.4 配置指标收集间隔
 
 ## 7. 配置集成
 
-- [ ] 7.1 在 `config/config.go` 添加 `MetricsConfig` 结构
-- [ ] 7.2 添加 metrics 端口配置（默认 9091）
-- [ ] 7.3 添加 metrics 路径配置（默认 /metrics）
-- [ ] 7.4 添加各类指标的启用开关
-- [ ] 7.5 添加 histogram buckets 配置
-- [ ] 7.6 更新 `config.example.yaml` 添加 metrics 配置
-- [ ] 7.7 添加配置验证规则
-- [ ] 7.8 编写配置加载测试
+- [x] 7.1 在 `config/config.go` 添加 `MetricsConfig` 结构
+- [x] 7.2 添加 metrics 端口配置（默认 9091）
+- [x] 7.3 添加 metrics 路径配置（默认 /metrics）
+- [x] 7.4 添加各类指标的启用开关
+- [x] 7.5 添加 histogram buckets 配置
+- [x] 7.6 更新 `config.example.yaml` 添加 metrics 配置
+- [x] 7.7 添加配置验证规则
+- [x] 7.8 编写配置加载测试
 
 ## 8. 主程序集成
 
-- [ ] 8.1 在 `cmd/goclaw/main.go` 初始化 MetricsManager
-- [ ] 8.2 启动 metrics HTTP server（独立端口）
-- [ ] 8.3 传递 metrics 到 engine
-- [ ] 8.4 传递 metrics 到 API server
-- [ ] 8.5 在 shutdown 时优雅关闭 metrics server
-- [ ] 8.6 添加 metrics 初始化日志
-- [ ] 8.7 测试 metrics endpoint 可访问性
+- [x] 8.1 在 `cmd/goclaw/main.go` 初始化 MetricsManager
+- [x] 8.2 启动 metrics HTTP server（独立端口）
+- [x] 8.3 传递 metrics 到 engine
+- [x] 8.4 传递 metrics 到 API server
+- [x] 8.5 在 shutdown 时优雅关闭 metrics server
+- [x] 8.6 添加 metrics 初始化日志
+- [x] 8.7 测试 metrics endpoint 可访问性
 
 ## 9. Prometheus 配置
 

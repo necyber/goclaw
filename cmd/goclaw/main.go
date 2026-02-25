@@ -30,6 +30,7 @@ import (
 	"github.com/goclaw/goclaw/pkg/api/handlers"
 	"github.com/goclaw/goclaw/pkg/engine"
 	"github.com/goclaw/goclaw/pkg/logger"
+	"github.com/goclaw/goclaw/pkg/metrics"
 	"github.com/goclaw/goclaw/pkg/storage"
 	"github.com/goclaw/goclaw/pkg/storage/badger"
 	"github.com/goclaw/goclaw/pkg/storage/memory"
@@ -130,6 +131,28 @@ func main() {
 			log.Error("Error closing storage", "error", err)
 		}
 	}()
+
+	// Initialize metrics manager
+	metricsCfg := metrics.Config{
+		Enabled:                 cfg.Metrics.Enabled,
+		Port:                    cfg.Metrics.Port,
+		Path:                    cfg.Metrics.Path,
+		WorkflowDurationBuckets: metrics.DefaultConfig().WorkflowDurationBuckets,
+		TaskDurationBuckets:     metrics.DefaultConfig().TaskDurationBuckets,
+		LaneWaitBuckets:         metrics.DefaultConfig().LaneWaitBuckets,
+		HTTPDurationBuckets:     metrics.DefaultConfig().HTTPDurationBuckets,
+	}
+	metricsManager := metrics.NewManager(metricsCfg)
+
+	// Start metrics server if enabled
+	if metricsManager.Enabled() {
+		go func() {
+			log.Info("Starting metrics server", "port", cfg.Metrics.Port, "path", cfg.Metrics.Path)
+			if err := metricsManager.StartServer(ctx, cfg.Metrics.Port, cfg.Metrics.Path); err != nil {
+				log.Error("Metrics server error", "error", err)
+			}
+		}()
+	}
 
 	// Initialize and start the orchestration engine.
 	eng, err := engine.New(cfg, log, store)
