@@ -50,8 +50,8 @@
 
 ## 5. 引擎集成
 
-- [ ] 5.1 在 `pkg/engine/engine.go` 添加 `storage Storage` 字段
-- [ ] 5.2 更新 `NewEngine()` 接受 storage 参数
+- [x] 5.1 在 `pkg/engine/engine.go` 添加 `storage Storage` 字段
+- [x] 5.2 更新 `NewEngine()` 接受 storage 参数
 - [ ] 5.3 修改 `pkg/engine/workflow_manager.go` 使用 Storage 接口
 - [ ] 5.4 替换 WorkflowStore map 为 storage.SaveWorkflow 调用
 - [ ] 5.5 替换 Get 操作为 storage.GetWorkflow 调用

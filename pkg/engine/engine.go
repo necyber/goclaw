@@ -9,6 +9,7 @@ import (
 	"github.com/goclaw/goclaw/config"
 	"github.com/goclaw/goclaw/pkg/dag"
 	"github.com/goclaw/goclaw/pkg/lane"
+	"github.com/goclaw/goclaw/pkg/storage"
 )
 
 // appLogger is the subset of the logger.Logger interface used by the engine.
@@ -64,23 +65,28 @@ type WorkflowResult struct {
 type Engine struct {
 	cfg           *config.Config
 	logger        appLogger
+	storage       storage.Storage
 	laneManager   *lane.Manager
 	scheduler     *Scheduler
 	workflowStore *WorkflowStore
 	state         atomic.Int32
 }
 
-// New creates a new Engine from the given configuration and logger.
-func New(cfg *config.Config, logger appLogger) (*Engine, error) {
+// New creates a new Engine from the given configuration, logger, and storage.
+func New(cfg *config.Config, logger appLogger, store storage.Storage) (*Engine, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("config cannot be nil")
 	}
 	if logger == nil {
 		logger = &nopLogger{}
 	}
+	if store == nil {
+		return nil, fmt.Errorf("storage cannot be nil")
+	}
 	e := &Engine{
 		cfg:           cfg,
 		logger:        logger,
+		storage:       store,
 		workflowStore: NewWorkflowStore(),
 	}
 	e.state.Store(int32(stateIdle))
