@@ -162,3 +162,26 @@ tracing:
   type: jaeger  # jaeger, zipkin
   endpoint: "http://localhost:14268/api/traces"
   sample_rate: 0.1
+
+# Hybrid memory system configuration
+memory:
+  enabled: false
+  vector_dimension: 768          # Embedding vector dimension
+  vector_weight: 0.7             # Weight for vector retrieval in hybrid search
+  bm25_weight: 0.3               # Weight for BM25 retrieval in hybrid search
+  l1_cache_size: 1000            # Max entries in L1 LRU cache
+  forget_threshold: 0.1          # Strength below which entries are auto-deleted
+  decay_interval: 1h             # How often the decay loop runs
+  default_stability: 24.0        # Initial stability for new entries (hours)
+  storage_path: "./data/memory"  # Directory for memory data persistence
+
+  # BM25 algorithm parameters
+  bm25:
+    k1: 1.5                      # Term frequency saturation
+    b: 0.75                      # Document length normalization
+
+  # HNSW index parameters
+  hnsw:
+    m: 16                        # Bi-directional links per element
+    ef_construction: 200         # Dynamic candidate list size (construction)
+    ef_search: 100               # Dynamic candidate list size (search)

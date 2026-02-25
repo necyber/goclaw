@@ -102,6 +102,7 @@ func (l *Loader) loadDefaults() error {
 		"storage":       defaults.Storage,
 		"metrics":       defaults.Metrics,
 		"tracing":       defaults.Tracing,
+		"memory":        defaults.Memory,
 	}, Delimiter), nil)
 }
 
@@ -232,7 +233,22 @@ func (l *Loader) fillDefaults() error {
 	setIfZero("metrics.enabled", defaults.Metrics.Enabled)
 	setIfZero("metrics.path", defaults.Metrics.Path)
 	setIfZero("metrics.port", defaults.Metrics.Port)
-	
+
+	// Memory defaults
+	setIfZero("memory.vector_dimension", defaults.Memory.VectorDimension)
+	setIfZero("memory.vector_weight", defaults.Memory.VectorWeight)
+	setIfZero("memory.bm25_weight", defaults.Memory.BM25Weight)
+	setIfZero("memory.l1_cache_size", defaults.Memory.L1CacheSize)
+	setIfZero("memory.forget_threshold", defaults.Memory.ForgetThreshold)
+	setIfZero("memory.decay_interval", defaults.Memory.DecayInterval)
+	setIfZero("memory.default_stability", defaults.Memory.DefaultStability)
+	setIfZero("memory.storage_path", defaults.Memory.StoragePath)
+	setIfZero("memory.bm25.k1", defaults.Memory.BM25.K1)
+	setIfZero("memory.bm25.b", defaults.Memory.BM25.B)
+	setIfZero("memory.hnsw.m", defaults.Memory.HNSW.M)
+	setIfZero("memory.hnsw.ef_construction", defaults.Memory.HNSW.EfConstruction)
+	setIfZero("memory.hnsw.ef_search", defaults.Memory.HNSW.EfSearch)
+
 	return nil
 }
 

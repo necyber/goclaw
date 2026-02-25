@@ -74,6 +74,12 @@ type MetricsRecorder interface {
 	RecordThroughput(laneName string)
 }
 
+// MemoryHub is the interface for the memory system used by the engine.
+type MemoryHub interface {
+	Start(ctx context.Context) error
+	Stop(ctx context.Context) error
+}
+
 // Engine is the core orchestration engine.
 type Engine struct {
 	cfg         *config.Config
@@ -82,6 +88,7 @@ type Engine struct {
 	laneManager *lane.Manager
 	scheduler   *Scheduler
 	metrics     MetricsRecorder
+	memoryHub   MemoryHub
 	state       atomic.Int32
 }
 
@@ -152,6 +159,15 @@ func (e *Engine) Start(ctx context.Context) error {
 	// Create scheduler (tracker is per-workflow, created in Submit).
 	e.scheduler = newScheduler(newStateTracker(), e.logger)
 
+	// Start memory hub if configured
+	if e.memoryHub != nil {
+		if err := e.memoryHub.Start(ctx); err != nil {
+			e.logger.Warn("failed to start memory hub", "error", err)
+		} else {
+			e.logger.Info("memory hub started")
+		}
+	}
+
 	e.state.Store(int32(stateRunning))
 	e.logger.Info("engine started")
 
@@ -170,6 +186,13 @@ func (e *Engine) Stop(ctx context.Context) error {
 	}
 
 	e.logger.Info("stopping engine")
+
+	// Stop memory hub first
+	if e.memoryHub != nil {
+		if err := e.memoryHub.Stop(ctx); err != nil {
+			e.logger.Warn("error stopping memory hub", "error", err)
+		}
+	}
 
 	if e.laneManager != nil {
 		if err := e.laneManager.Close(ctx); err != nil {

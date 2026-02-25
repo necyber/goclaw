@@ -11,3 +11,12 @@ func WithMetrics(metrics MetricsRecorder) Option {
 		}
 	}
 }
+
+// WithMemoryHub sets the memory hub for the engine.
+func WithMemoryHub(hub MemoryHub) Option {
+	return func(e *Engine) {
+		if hub != nil {
+			e.memoryHub = hub
+		}
+	}
+}

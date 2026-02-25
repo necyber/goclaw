@@ -31,6 +31,9 @@ type Config struct {
 
 	// Tracing is the distributed tracing configuration (Phase 3).
 	Tracing TracingConfig `mapstructure:"tracing"`
+
+	// Memory is the hybrid memory system configuration.
+	Memory MemoryConfig `mapstructure:"memory"`
 }
 
 // AppConfig holds application metadata and settings.
@@ -322,6 +325,63 @@ type TracingConfig struct {
 
 	// SampleRate is the fraction of traces to sample (0.0-1.0).
 	SampleRate float64 `mapstructure:"sample_rate" validate:"min=0,max=1"`
+}
+
+// MemoryConfig holds hybrid memory system settings.
+type MemoryConfig struct {
+	// Enabled enables the memory system.
+	Enabled bool `mapstructure:"enabled"`
+
+	// VectorDimension is the dimension of embedding vectors.
+	VectorDimension int `mapstructure:"vector_dimension" validate:"min=1"`
+
+	// VectorWeight is the weight for vector retrieval in hybrid search (0.0-1.0).
+	VectorWeight float64 `mapstructure:"vector_weight" validate:"min=0,max=1"`
+
+	// BM25Weight is the weight for BM25 retrieval in hybrid search (0.0-1.0).
+	BM25Weight float64 `mapstructure:"bm25_weight" validate:"min=0,max=1"`
+
+	// L1CacheSize is the maximum number of entries in the L1 LRU cache.
+	L1CacheSize int `mapstructure:"l1_cache_size" validate:"min=1"`
+
+	// ForgetThreshold is the strength below which entries are auto-deleted.
+	ForgetThreshold float64 `mapstructure:"forget_threshold" validate:"min=0,max=1"`
+
+	// DecayInterval is how often the background decay loop runs.
+	DecayInterval time.Duration `mapstructure:"decay_interval"`
+
+	// DefaultStability is the initial stability for new entries (in hours).
+	DefaultStability float64 `mapstructure:"default_stability" validate:"min=0"`
+
+	// BM25 holds BM25-specific parameters.
+	BM25 BM25Config `mapstructure:"bm25"`
+
+	// HNSW holds HNSW index parameters.
+	HNSW HNSWConfig `mapstructure:"hnsw"`
+
+	// StoragePath is the directory for persisting memory data.
+	StoragePath string `mapstructure:"storage_path"`
+}
+
+// BM25Config holds BM25 algorithm parameters.
+type BM25Config struct {
+	// K1 is the term frequency saturation parameter.
+	K1 float64 `mapstructure:"k1" validate:"min=0"`
+
+	// B is the document length normalization parameter.
+	B float64 `mapstructure:"b" validate:"min=0,max=1"`
+}
+
+// HNSWConfig holds HNSW index parameters.
+type HNSWConfig struct {
+	// M is the number of bi-directional links per element.
+	M int `mapstructure:"m" validate:"min=2"`
+
+	// EfConstruction is the size of the dynamic candidate list during construction.
+	EfConstruction int `mapstructure:"ef_construction" validate:"min=1"`
+
+	// EfSearch is the size of the dynamic candidate list during search.
+	EfSearch int `mapstructure:"ef_search" validate:"min=1"`
 }
 
 // Validate performs validation on the configuration.

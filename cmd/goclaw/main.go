@@ -31,11 +31,14 @@ import (
 	"github.com/goclaw/goclaw/pkg/engine"
 	grpcpkg "github.com/goclaw/goclaw/pkg/grpc"
 	"github.com/goclaw/goclaw/pkg/logger"
+	memorypkg "github.com/goclaw/goclaw/pkg/memory"
 	"github.com/goclaw/goclaw/pkg/metrics"
 	"github.com/goclaw/goclaw/pkg/storage"
-	"github.com/goclaw/goclaw/pkg/storage/badger"
-	"github.com/goclaw/goclaw/pkg/storage/memory"
+	badgerstorage "github.com/goclaw/goclaw/pkg/storage/badger"
+	memstorage "github.com/goclaw/goclaw/pkg/storage/memory"
 	"github.com/goclaw/goclaw/pkg/version"
+
+	dgbadger "github.com/dgraph-io/badger/v4"
 )
 
 var (
@@ -109,22 +112,22 @@ func main() {
 	var store storage.Storage
 	switch cfg.Storage.Type {
 	case "badger":
-		badgerCfg := &badger.Config{
+		badgerCfg := &badgerstorage.Config{
 			Path:             cfg.Storage.Badger.Path,
 			SyncWrites:       cfg.Storage.Badger.SyncWrites,
 			ValueLogFileSize: cfg.Storage.Badger.ValueLogFileSize,
 		}
-		store, err = badger.NewBadgerStorage(badgerCfg)
+		store, err = badgerstorage.NewBadgerStorage(badgerCfg)
 		if err != nil {
 			log.Error("Failed to create Badger storage", "error", err)
 			os.Exit(1)
 		}
 		log.Info("Initialized Badger storage", "path", badgerCfg.Path)
 	case "memory":
-		store = memory.NewMemoryStorage()
+		store = memstorage.NewMemoryStorage()
 		log.Info("Initialized memory storage")
 	default:
-		store = memory.NewMemoryStorage()
+		store = memstorage.NewMemoryStorage()
 		log.Warn("Unknown storage type, using memory storage", "type", cfg.Storage.Type)
 	}
 	defer func() {
@@ -156,7 +159,43 @@ func main() {
 	}
 
 	// Initialize and start the orchestration engine.
-	eng, err := engine.New(cfg, log, store, engine.WithMetrics(metricsManager))
+	engineOpts := []engine.Option{engine.WithMetrics(metricsManager)}
+
+	// Initialize memory hub if enabled
+	var memoryHub *memorypkg.MemoryHub
+	var memoryHandler *handlers.MemoryHandler
+	if cfg.Memory.Enabled {
+		// Memory system needs its own Badger instance for storage
+		memoryBadgerOpts := dgbadger.DefaultOptions(cfg.Memory.StoragePath)
+		memoryBadgerOpts.Logger = nil
+		memoryDB, err := dgbadger.Open(memoryBadgerOpts)
+		if err != nil {
+			log.Error("Failed to open memory Badger DB", "error", err)
+			os.Exit(1)
+		}
+		defer func() {
+			if err := memoryDB.Close(); err != nil {
+				log.Error("Error closing memory Badger DB", "error", err)
+			}
+		}()
+
+		l1Cache := memorypkg.NewL1Cache(cfg.Memory.L1CacheSize)
+		l2Storage := memorypkg.NewL2Badger(memoryDB)
+		tieredStorage := memorypkg.NewTieredStorage(l1Cache, l2Storage)
+
+		memoryHub = memorypkg.NewMemoryHub(&cfg.Memory, tieredStorage, log)
+		engineOpts = append(engineOpts, engine.WithMemoryHub(memoryHub))
+		memoryHandler = handlers.NewMemoryHandler(memoryHub, log)
+
+		log.Info("Memory hub initialized",
+			"vector_dimension", cfg.Memory.VectorDimension,
+			"l1_cache_size", cfg.Memory.L1CacheSize,
+		)
+	} else {
+		log.Info("Memory hub disabled")
+	}
+
+	eng, err := engine.New(cfg, log, store, engineOpts...)
 	if err != nil {
 		log.Error("Failed to create engine", "error", err)
 		os.Exit(1)
@@ -173,6 +212,7 @@ func main() {
 	apiHandlers := &api.Handlers{
 		Workflow: workflowHandler,
 		Health:   healthHandler,
+		Memory:   memoryHandler,
 		Metrics:  metricsManager,
 	}
 

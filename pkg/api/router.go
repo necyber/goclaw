@@ -20,6 +20,9 @@ type Handlers struct {
 	// Health handles health check endpoints
 	Health *handlers.HealthHandler
 
+	// Memory handles memory-related endpoints
+	Memory *handlers.MemoryHandler
+
 	// Metrics is the optional metrics recorder
 	Metrics middleware.MetricsRecorder
 }
@@ -59,6 +62,19 @@ func RegisterRoutes(r chi.Router, handlers *Handlers) {
 				r.Get("/{id}", handlers.Workflow.GetWorkflow)
 				r.Post("/{id}/cancel", handlers.Workflow.CancelWorkflow)
 				r.Get("/{id}/tasks/{tid}/result", handlers.Workflow.GetTaskResult)
+			})
+		}
+
+		// Memory routes
+		if handlers.Memory != nil {
+			r.Route("/memory/{sessionID}", func(r chi.Router) {
+				r.Post("/", handlers.Memory.StoreMemory)
+				r.Get("/", handlers.Memory.QueryMemory)
+				r.Delete("/", handlers.Memory.DeleteMemory)
+				r.Get("/list", handlers.Memory.ListMemory)
+				r.Get("/stats", handlers.Memory.GetStats)
+				r.Delete("/all", handlers.Memory.DeleteSession)
+				r.Delete("/weak", handlers.Memory.DeleteWeakMemories)
 			})
 		}
 	})

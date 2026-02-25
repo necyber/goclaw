@@ -92,5 +92,25 @@ func DefaultConfig() *Config {
 			Endpoint:   "http://localhost:14268/api/traces",
 			SampleRate: 0.1,
 		},
+		Memory: MemoryConfig{
+			Enabled:          false,
+			VectorDimension:  768,
+			VectorWeight:     0.7,
+			BM25Weight:       0.3,
+			L1CacheSize:      1000,
+			ForgetThreshold:  0.1,
+			DecayInterval:    1 * time.Hour,
+			DefaultStability: 24.0,
+			BM25: BM25Config{
+				K1: 1.5,
+				B:  0.75,
+			},
+			HNSW: HNSWConfig{
+				M:              16,
+				EfConstruction: 200,
+				EfSearch:       100,
+			},
+			StoragePath: "./data/memory",
+		},
 	}
 }
