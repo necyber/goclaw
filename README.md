@@ -119,6 +119,11 @@ storage:
     sync_writes: true
     value_log_file_size: 1073741824  # 1GB
 
+metrics:
+  enabled: true
+  port: 9091
+  path: /metrics
+
 orchestration:
   max_agents: 10
   queue:
@@ -129,6 +134,11 @@ orchestration:
 **Storage Options:**
 - `memory` - In-memory storage (for development/testing)
 - `badger` - Persistent embedded database (for production)
+
+**Metrics Configuration:**
+- `enabled` - Enable/disable Prometheus metrics collection
+- `port` - Metrics server port (default: 9091)
+- `path` - Metrics endpoint path (default: /metrics)
 
 **Environment Variables:**
 All config values can be overridden with `GOCLAW_` prefix:
@@ -156,6 +166,9 @@ Goclaw provides a complete RESTful API for workflow management:
 - `GET /health` - Liveness probe
 - `GET /ready` - Readiness probe
 - `GET /status` - Detailed status information
+
+**Metrics:**
+- `GET /metrics` - Prometheus metrics endpoint (port 9091)
 
 **Documentation:**
 - `GET /swagger/index.html` - Interactive API documentation
@@ -192,6 +205,65 @@ curl http://localhost:8080/api/v1/workflows?limit=10&offset=0
 ```
 
 For more examples, see [docs/examples/curl-examples.md](docs/examples/curl-examples.md).
+
+### Monitoring and Observability
+
+Goclaw provides production-grade monitoring with Prometheus metrics:
+
+#### Metrics Endpoint
+
+```bash
+# Access metrics
+curl http://localhost:9091/metrics
+```
+
+#### Available Metrics
+
+**Workflow Metrics:**
+- `workflow_submissions_total` - Total workflow submissions by status
+- `workflow_duration_seconds` - Workflow execution duration histogram
+- `workflow_active_count` - Current active workflows by status
+
+**Task Metrics:**
+- `task_executions_total` - Total task executions by status
+- `task_duration_seconds` - Task execution duration histogram
+- `task_retries_total` - Total task retry attempts
+
+**Lane Queue Metrics:**
+- `lane_queue_depth` - Current queue depth by lane
+- `lane_wait_duration_seconds` - Task wait time in queue histogram
+- `lane_throughput_total` - Total tasks processed by lane
+
+**HTTP API Metrics:**
+- `http_requests_total` - Total HTTP requests by method/path/status
+- `http_request_duration_seconds` - HTTP request latency histogram
+- `http_active_connections` - Current active HTTP connections
+
+**System Metrics:**
+- `go_goroutines` - Number of goroutines
+- `go_memstats_alloc_bytes` - Memory allocated
+- `process_cpu_seconds_total` - CPU time
+- `process_open_fds` - Open file descriptors
+
+#### Docker Compose with Monitoring Stack
+
+```bash
+# Start Goclaw with Prometheus and Grafana
+docker-compose up -d
+
+# Access services
+# - Goclaw API: http://localhost:8080
+# - Metrics: http://localhost:9091/metrics
+# - Prometheus: http://localhost:9092
+# - Grafana: http://localhost:3000 (admin/admin)
+```
+
+The monitoring stack includes:
+- **Prometheus** - Metrics collection and storage
+- **Grafana** - Visualization dashboards
+- **Alert Rules** - Pre-configured alerts for failures, latency, and resource usage
+
+For detailed monitoring setup, see [config/prometheus.yml](config/prometheus.yml) and [config/grafana/](config/grafana/).
 
 ---
 
@@ -297,6 +369,9 @@ Goclaw 提供完整的 RESTful API 用于工作流管理：
 - `GET /ready` - 就绪探针
 - `GET /status` - 详细状态信息
 
+**指标监控：**
+- `GET /metrics` - Prometheus 指标端点（端口 9091）
+
 **文档：**
 - `GET /swagger/index.html` - 交互式 API 文档
 
@@ -332,6 +407,65 @@ curl http://localhost:8080/api/v1/workflows?limit=10&offset=0
 ```
 
 更多示例请参见 [docs/examples/curl-examples.md](docs/examples/curl-examples.md)。
+
+### 监控与可观测性
+
+Goclaw 提供生产级的 Prometheus 指标监控：
+
+#### 指标端点
+
+```bash
+# 访问指标
+curl http://localhost:9091/metrics
+```
+
+#### 可用指标
+
+**工作流指标：**
+- `workflow_submissions_total` - 按状态统计的工作流提交总数
+- `workflow_duration_seconds` - 工作流执行时长直方图
+- `workflow_active_count` - 按状态统计的当前活跃工作流数
+
+**任务指标：**
+- `task_executions_total` - 按状态统计的任务执行总数
+- `task_duration_seconds` - 任务执行时长直方图
+- `task_retries_total` - 任务重试总次数
+
+**队列指标：**
+- `lane_queue_depth` - 按 lane 统计的当前队列深度
+- `lane_wait_duration_seconds` - 任务在队列中的等待时长直方图
+- `lane_throughput_total` - 按 lane 统计的已处理任务总数
+
+**HTTP API 指标：**
+- `http_requests_total` - 按方法/路径/状态统计的 HTTP 请求总数
+- `http_request_duration_seconds` - HTTP 请求延迟直方图
+- `http_active_connections` - 当前活跃 HTTP 连接数
+
+**系统指标：**
+- `go_goroutines` - Goroutine 数量
+- `go_memstats_alloc_bytes` - 已分配内存
+- `process_cpu_seconds_total` - CPU 时间
+- `process_open_fds` - 打开的文件描述符数
+
+#### Docker Compose 监控栈
+
+```bash
+# 启动 Goclaw 及 Prometheus 和 Grafana
+docker-compose up -d
+
+# 访问服务
+# - Goclaw API: http://localhost:8080
+# - 指标端点: http://localhost:9091/metrics
+# - Prometheus: http://localhost:9092
+# - Grafana: http://localhost:3000 (admin/admin)
+```
+
+监控栈包括：
+- **Prometheus** - 指标收集和存储
+- **Grafana** - 可视化仪表板
+- **告警规则** - 预配置的失败、延迟和资源使用告警
+
+详细的监控配置请参见 [config/prometheus.yml](config/prometheus.yml) 和 [config/grafana/](config/grafana/)。
 
 ---
 
