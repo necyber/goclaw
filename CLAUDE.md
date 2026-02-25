@@ -63,6 +63,20 @@ Goclaw is a distributed multi-agent orchestration engine. The core execution mod
 - `response/` contains JSON response helpers and error formatting
 - `models/` defines API request/response data structures
 
+**`pkg/memory/`** — Hybrid memory system:
+- `memory.go` defines the `Hub` interface; `hub.go` is the concrete `MemoryHub`
+- `entry.go` defines `MemoryEntry`, `Query`, `RetrievalResult`, `MemoryStats`
+- `vector.go` implements cosine similarity vector search
+- `bm25.go` implements BM25 full-text search with CJK tokenization
+- `hybrid.go` implements RRF (Reciprocal Rank Fusion) combining vector + BM25
+- `storage.go` implements tiered storage (L1 LRU cache → L2 Badger)
+- `fsrs.go` implements FSRS-6 memory decay with background loop
+
+**`pkg/metrics/`** — Prometheus metrics:
+- `metrics.go` defines `Manager` with registry and HTTP server (port 9091)
+- `workflow.go`, `task.go`, `lane.go`, `http.go` define domain-specific metrics
+- No-op mode when disabled for zero overhead
+
 **`config/`** — Multi-source config loading via [koanf](https://github.com/knadh/koanf): defaults → YAML/JSON file → env vars (`GOCLAW_` prefix) → CLI flags. Validated with `go-playground/validator`.
 
 **`pkg/logger/`** — Thin wrapper around Go's `log/slog` with JSON/text format and file/stdout output.
@@ -71,13 +85,15 @@ Goclaw is a distributed multi-agent orchestration engine. The core execution mod
 
 ### Configuration
 
-Copy `config/config.example.yaml` as your config file. Key sections: `app`, `server` (HTTP :8080, gRPC :9090), `log`, `orchestration`, `cluster`, `storage`, `metrics`, `tracing`.
+Copy `config/config.example.yaml` as your config file. Key sections: `app`, `server` (HTTP :8080, gRPC :9090), `log`, `orchestration`, `cluster`, `storage`, `metrics`, `tracing`, `memory`.
 
 ### Development phases
 
 - **Phase 1:** DAG, Lane, in-memory storage, CLI, HTTP API — implemented ✅
 - **Phase 2:** Persistent storage (Badger/Redis), distributed mode (Consul/etcd)
 - **Phase 3:** gRPC API, Prometheus metrics, Web UI
+- **Memory system:** Hybrid retrieval (vector + BM25), FSRS-6 decay, tiered storage — implemented ✅
+- **Monitoring:** Prometheus metrics, Grafana dashboards, alert rules — implemented ✅
 
 ### HTTP API
 
@@ -89,6 +105,15 @@ The HTTP API server runs on port 8080 (configurable) and provides:
 - `GET /api/v1/workflows/{id}` - Get workflow status
 - `POST /api/v1/workflows/{id}/cancel` - Cancel workflow
 - `GET /api/v1/workflows/{id}/tasks/{tid}/result` - Get task result
+
+**Memory API:**
+- `POST /api/v1/memory/{sessionID}` - Store memory entry
+- `GET /api/v1/memory/{sessionID}` - Query memories
+- `DELETE /api/v1/memory/{sessionID}` - Delete entries
+- `GET /api/v1/memory/{sessionID}/list` - List entries (paginated)
+- `GET /api/v1/memory/{sessionID}/stats` - Session statistics
+- `DELETE /api/v1/memory/{sessionID}/all` - Delete session
+- `DELETE /api/v1/memory/{sessionID}/weak` - Delete weak memories
 
 **Health Checks:**
 - `GET /health` - Liveness probe (Kubernetes compatible)

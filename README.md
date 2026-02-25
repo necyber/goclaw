@@ -332,6 +332,57 @@ The monitoring stack includes:
 
 For detailed monitoring setup, see [config/prometheus.yml](config/prometheus.yml) and [config/grafana/](config/grafana/).
 
+### Hybrid Memory System
+
+Goclaw includes a hybrid memory system for intelligent agent memory management, combining vector-based semantic search, BM25 full-text retrieval, and FSRS-6 spaced-repetition decay.
+
+#### Architecture
+
+- **Tiered Storage** — L1 LRU cache + L2 Badger persistence
+- **Vector Index** — Cosine similarity search over embedding vectors
+- **BM25 Index** — Full-text search with TF-IDF scoring (CJK support)
+- **Hybrid Retriever** — Reciprocal Rank Fusion (RRF) combining both indexes
+- **FSRS-6 Decay** — Automatic memory strength decay with spaced repetition
+
+#### Memory API Endpoints
+
+- `POST /api/v1/memory/{sessionID}` - Store a memory entry
+- `GET /api/v1/memory/{sessionID}` - Query memories (text/vector/hybrid)
+- `DELETE /api/v1/memory/{sessionID}` - Delete specific entries
+- `GET /api/v1/memory/{sessionID}/list` - List entries (paginated)
+- `GET /api/v1/memory/{sessionID}/stats` - Get session statistics
+- `DELETE /api/v1/memory/{sessionID}/all` - Delete entire session
+- `DELETE /api/v1/memory/{sessionID}/weak` - Delete weak memories
+
+#### Quick Example
+
+```bash
+# Store a memory
+curl -X POST http://localhost:8080/api/v1/memory/session-1 \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Go is a compiled language", "metadata": {"type": "fact"}}'
+
+# Query memories
+curl "http://localhost:8080/api/v1/memory/session-1?query=compiled+language&limit=5"
+```
+
+#### Configuration
+
+```yaml
+memory:
+  enabled: true
+  vector_dimension: 768
+  vector_weight: 0.7
+  bm25_weight: 0.3
+  l1_cache_size: 1000
+  forget_threshold: 0.1
+  decay_interval: 1h
+  default_stability: 24.0
+  storage_path: "./data/memory"
+```
+
+For detailed documentation, see [docs/memory-system-guide.md](docs/memory-system-guide.md).
+
 ---
 
 <a name="chinese"></a>
@@ -533,6 +584,42 @@ docker-compose up -d
 - **告警规则** - 预配置的失败、延迟和资源使用告警
 
 详细的监控配置请参见 [config/prometheus.yml](config/prometheus.yml) 和 [config/grafana/](config/grafana/)。
+
+### 混合记忆系统
+
+Goclaw 内置混合记忆系统，结合向量语义搜索、BM25 全文检索和 FSRS-6 间隔重复衰减算法，为 Agent 提供智能记忆管理。
+
+#### 架构
+
+- **分层存储** — L1 LRU 缓存 + L2 Badger 持久化
+- **向量索引** — 基于余弦相似度的嵌入向量搜索
+- **BM25 索引** — 支持中英文的全文检索
+- **混合检索** — RRF (Reciprocal Rank Fusion) 融合两种检索结果
+- **FSRS-6 衰减** — 基于间隔重复的自动记忆强度衰减
+
+#### 记忆 API 端点
+
+- `POST /api/v1/memory/{sessionID}` - 存储记忆
+- `GET /api/v1/memory/{sessionID}` - 查询记忆（文本/向量/混合）
+- `DELETE /api/v1/memory/{sessionID}` - 删除指定记忆
+- `GET /api/v1/memory/{sessionID}/list` - 列出记忆（分页）
+- `GET /api/v1/memory/{sessionID}/stats` - 获取会话统计
+- `DELETE /api/v1/memory/{sessionID}/all` - 删除整个会话
+- `DELETE /api/v1/memory/{sessionID}/weak` - 删除弱记忆
+
+#### 快速示例
+
+```bash
+# 存储记忆
+curl -X POST http://localhost:8080/api/v1/memory/session-1 \
+  -H "Content-Type: application/json" \
+  -d '{"content": "Go 是编译型语言", "metadata": {"type": "fact"}}'
+
+# 查询记忆
+curl "http://localhost:8080/api/v1/memory/session-1?query=编译型语言&limit=5"
+```
+
+详细文档请参见 [docs/memory-system-guide.md](docs/memory-system-guide.md)。
 
 ---
 
