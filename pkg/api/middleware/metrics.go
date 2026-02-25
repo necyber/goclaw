@@ -29,7 +29,7 @@ func Metrics(recorder MetricsRecorder) func(http.Handler) http.Handler {
 			defer recorder.DecActiveConnections()
 
 			// Wrap response writer to capture status code
-			wrapped := &responseWriter{
+			wrapped := &metricsResponseWriter{
 				ResponseWriter: w,
 				statusCode:     http.StatusOK,
 			}
@@ -54,14 +54,14 @@ func Metrics(recorder MetricsRecorder) func(http.Handler) http.Handler {
 	}
 }
 
-// responseWriter wraps http.ResponseWriter to capture the status code.
-type responseWriter struct {
+// metricsResponseWriter wraps http.ResponseWriter to capture the status code.
+type metricsResponseWriter struct {
 	http.ResponseWriter
 	statusCode int
 	written    bool
 }
 
-func (rw *responseWriter) WriteHeader(code int) {
+func (rw *metricsResponseWriter) WriteHeader(code int) {
 	if !rw.written {
 		rw.statusCode = code
 		rw.written = true
@@ -69,7 +69,7 @@ func (rw *responseWriter) WriteHeader(code int) {
 	rw.ResponseWriter.WriteHeader(code)
 }
 
-func (rw *responseWriter) Write(b []byte) (int, error) {
+func (rw *metricsResponseWriter) Write(b []byte) (int, error) {
 	if !rw.written {
 		rw.written = true
 	}

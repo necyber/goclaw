@@ -172,6 +172,7 @@ func main() {
 	apiHandlers := &api.Handlers{
 		Workflow: workflowHandler,
 		Health:   healthHandler,
+		Metrics:  metricsManager,
 	}
 
 	httpServer := api.NewHTTPServer(cfg, log, apiHandlers)

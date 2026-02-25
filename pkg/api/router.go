@@ -19,6 +19,9 @@ type Handlers struct {
 
 	// Health handles health check endpoints
 	Health *handlers.HealthHandler
+
+	// Metrics is the optional metrics recorder
+	Metrics middleware.MetricsRecorder
 }
 
 // NewRouter creates a new chi router with middleware and routes.
@@ -29,6 +32,12 @@ func NewRouter(cfg *config.Config, log logger.Logger, handlers *Handlers) chi.Ro
 	r.Use(middleware.RequestID())
 	r.Use(middleware.Logger(log))
 	r.Use(middleware.Recovery(log))
+
+	// Add metrics middleware if provided
+	if handlers.Metrics != nil {
+		r.Use(middleware.Metrics(handlers.Metrics))
+	}
+
 	r.Use(middleware.CORS(&cfg.Server.CORS))
 	r.Use(middleware.Timeout(cfg.Server.HTTP.ReadTimeout))
 
