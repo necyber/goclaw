@@ -29,6 +29,7 @@ import (
 	"github.com/goclaw/goclaw/pkg/api"
 	"github.com/goclaw/goclaw/pkg/api/handlers"
 	"github.com/goclaw/goclaw/pkg/engine"
+	grpcpkg "github.com/goclaw/goclaw/pkg/grpc"
 	"github.com/goclaw/goclaw/pkg/logger"
 	"github.com/goclaw/goclaw/pkg/metrics"
 	"github.com/goclaw/goclaw/pkg/storage"
@@ -178,7 +179,7 @@ func main() {
 	httpServer := api.NewHTTPServer(cfg, log, apiHandlers)
 
 	// Start HTTP server in a separate goroutine
-	serverErrChan := make(chan error, 1)
+	serverErrChan := make(chan error, 2) // Increased buffer for both HTTP and gRPC
 	go func() {
 		log.Info("Starting HTTP server", "address", fmt.Sprintf("%s:%d", cfg.Server.Host, cfg.Server.Port))
 		if err := httpServer.Start(); err != nil {
@@ -186,9 +187,31 @@ func main() {
 		}
 	}()
 
+	// Initialize and start gRPC server if enabled
+	var grpcServer *grpcpkg.Server
+	if cfg.Server.GRPC.Enabled {
+		grpcCfg := cfg.Server.GRPC.ToGRPCConfig()
+		grpcServer, err = grpcpkg.New(grpcCfg)
+		if err != nil {
+			log.Error("Failed to create gRPC server", "error", err)
+			os.Exit(1)
+		}
+
+		// Start gRPC server in a separate goroutine
+		go func() {
+			log.Info("Starting gRPC server", "address", grpcCfg.Address)
+			if err := grpcServer.Start(); err != nil {
+				serverErrChan <- fmt.Errorf("gRPC server error: %w", err)
+			}
+		}()
+	} else {
+		log.Info("gRPC server disabled")
+	}
+
 	log.Info("Goclaw is running",
 		"http_port", cfg.Server.Port,
 		"grpc_port", cfg.Server.GRPC.Port,
+		"grpc_enabled", cfg.Server.GRPC.Enabled,
 		"metrics_port", cfg.Metrics.Port,
 	)
 	log.Info("Press Ctrl+C to stop")
@@ -211,6 +234,14 @@ func main() {
 	log.Info("Shutting down HTTP server")
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		log.Error("Error shutting down HTTP server", "error", err)
+	}
+
+	// Shutdown gRPC server if it was started
+	if grpcServer != nil && grpcServer.IsRunning() {
+		log.Info("Shutting down gRPC server")
+		if err := grpcServer.Stop(shutdownCtx); err != nil {
+			log.Error("Error shutting down gRPC server", "error", err)
+		}
 	}
 
 	// Stop the engine gracefully.

@@ -20,7 +20,7 @@
 - [x] 2.6 Add connection management (limits, idle timeout, keepalive)
 - [x] 2.7 Create `pkg/grpc/config.go` for gRPC-specific configuration
 - [x] 2.8 Update `config/config.go` to include gRPC server settings
-- [ ] 2.9 Modify `cmd/goclaw/main.go` to start gRPC server alongside HTTP
+- [x] 2.9 Modify `cmd/goclaw/main.go` to start gRPC server alongside HTTP
 
 ## 3. Interceptors
 
