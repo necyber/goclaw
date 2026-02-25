@@ -47,7 +47,7 @@ The system SHALL organize proto files by service domain with proper package name
 
 #### Scenario: Go package option
 - **WHEN** generating Go code
-- **THEN** proto files MUST specify go_package option as "github.com/yourusername/goclaw/pkg/grpc/pb/v1"
+- **THEN** proto files MUST specify go_package option as "github.com/goclaw/goclaw/pkg/grpc/pb/v1"
 
 ### Requirement: Field naming conventions
 The system SHALL use snake_case for proto field names following Protocol Buffer style guide.

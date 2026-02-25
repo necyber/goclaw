@@ -54,10 +54,31 @@ func (b *ChainBuilder) WithRateLimit(requestsPerSecond float64, burst int) *Chai
 	return b
 }
 
+// WithValidation adds validation interceptor
+func (b *ChainBuilder) WithValidation() *ChainBuilder {
+	b.unaryInterceptors = append(b.unaryInterceptors, ValidationUnaryInterceptor())
+	b.streamInterceptors = append(b.streamInterceptors, ValidationStreamInterceptor())
+	return b
+}
+
 // WithLogging adds logging interceptor
 func (b *ChainBuilder) WithLogging() *ChainBuilder {
 	b.unaryInterceptors = append(b.unaryInterceptors, LoggingUnaryInterceptor())
 	b.streamInterceptors = append(b.streamInterceptors, LoggingStreamInterceptor())
+	return b
+}
+
+// WithMetrics adds metrics interceptor
+func (b *ChainBuilder) WithMetrics() *ChainBuilder {
+	b.unaryInterceptors = append(b.unaryInterceptors, MetricsUnaryInterceptor(nil))
+	b.streamInterceptors = append(b.streamInterceptors, MetricsStreamInterceptor(nil))
+	return b
+}
+
+// WithTracing adds tracing interceptor
+func (b *ChainBuilder) WithTracing() *ChainBuilder {
+	b.unaryInterceptors = append(b.unaryInterceptors, TracingUnaryInterceptor())
+	b.streamInterceptors = append(b.streamInterceptors, TracingStreamInterceptor())
 	return b
 }
 
@@ -77,7 +98,7 @@ func (b *ChainBuilder) Build() []grpc.ServerOption {
 }
 
 // DefaultChain returns a chain with recommended interceptors in correct order:
-// recovery → request_id → auth → authorization → rate_limit → logging
+// recovery -> request_id -> auth -> authorization -> rate_limit -> validation -> logging -> metrics -> tracing
 func DefaultChain() *ChainBuilder {
 	return NewChainBuilder().
 		WithRecovery().
@@ -85,5 +106,8 @@ func DefaultChain() *ChainBuilder {
 		WithAuthentication().
 		WithAuthorization().
 		WithRateLimit(100, 200). // 100 req/s, burst of 200
-		WithLogging()
+		WithValidation().
+		WithLogging().
+		WithMetrics().
+		WithTracing()
 }

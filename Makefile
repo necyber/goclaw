@@ -206,8 +206,8 @@ proto: ## Generate protobuf files (requires protoc and protoc-gen-go)
 	@echo "📄 Generating protobuf files..."
 	@if command -v protoc > /dev/null; then \
 		mkdir -p pkg/grpc/pb/v1; \
-		protoc --go_out=. --go_opt=paths=source_relative \
-			--go-grpc_out=. --go-grpc_opt=paths=source_relative \
+		protoc --go_out=. --go_opt=module=$(MODULE) \
+			--go-grpc_out=. --go-grpc_opt=module=$(MODULE) \
 			--proto_path=api/proto \
 			api/proto/goclaw/v1/*.proto; \
 		echo "✅ Protobuf files generated"; \

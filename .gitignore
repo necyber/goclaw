@@ -75,6 +75,7 @@ out/
 .claude/
 .cache/
 pkg/mod/
+.tools/
 
 # ================================================
 # IDE - Vim/Emacs

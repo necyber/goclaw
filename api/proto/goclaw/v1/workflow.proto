@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package goclaw.v1;
 
-option go_package = "github.com/yourusername/goclaw/pkg/grpc/pb/v1;pbv1";
+option go_package = "github.com/goclaw/goclaw/pkg/grpc/pb/v1;pbv1";
 
 import "goclaw/v1/common.proto";
 import "google/protobuf/timestamp.proto";
@@ -131,3 +131,4 @@ message GetTaskResultResponse {
   string error_message = 4;
   Error error = 5;
 }
+

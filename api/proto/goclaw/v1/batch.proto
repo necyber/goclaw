@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package goclaw.v1;
 
-option go_package = "github.com/yourusername/goclaw/pkg/grpc/pb/v1;pbv1";
+option go_package = "github.com/goclaw/goclaw/pkg/grpc/pb/v1;pbv1";
 
 import "goclaw/v1/common.proto";
 import "goclaw/v1/workflow.proto";
@@ -101,3 +101,4 @@ message GetTaskResultsResponse {
   PaginationResponse pagination = 2;
   Error error = 3;
 }
+

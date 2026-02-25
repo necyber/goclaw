@@ -8,7 +8,7 @@
 - [x] 1.6 Define admin messages and AdminService in `admin.proto`
 - [x] 1.7 Add `buf.yaml` configuration for buf build tool
 - [x] 1.8 Add Makefile targets for proto code generation (`make proto`)
-- [ ] 1.9 Generate Go code and verify compilation
+- [x] 1.9 Generate Go code and verify compilation
 
 ## 2. gRPC Server Infrastructure
 
@@ -30,12 +30,12 @@
 - [x] 3.4 Implement authentication interceptor (token + mTLS)
 - [x] 3.5 Implement authorization interceptor (role-based)
 - [x] 3.6 Implement rate limiting interceptor
-- [ ] 3.7 Implement validation interceptor for request payloads
+- [x] 3.7 Implement validation interceptor for request payloads
 - [x] 3.8 Implement logging interceptor (request/response logging)
-- [ ] 3.9 Implement metrics interceptor (counters, histograms, gauges)
-- [ ] 3.10 Implement tracing interceptor (trace context propagation)
+- [x] 3.9 Implement metrics interceptor (counters, histograms, gauges)
+- [x] 3.10 Implement tracing interceptor (trace context propagation)
 - [x] 3.11 Create interceptor chain builder with correct ordering
-- [ ] 3.12 Add unit tests for each interceptor
+- [x] 3.12 Add unit tests for each interceptor
 
 ## 4. Workflow Service Handlers
 
