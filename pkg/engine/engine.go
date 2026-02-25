@@ -5,6 +5,7 @@ import (
 	"context"
 	"fmt"
 	"sync/atomic"
+	"time"
 
 	"github.com/goclaw/goclaw/config"
 	"github.com/goclaw/goclaw/pkg/dag"
@@ -61,6 +62,14 @@ type WorkflowResult struct {
 	Error       error
 }
 
+// MetricsRecorder defines the interface for recording engine metrics.
+type MetricsRecorder interface {
+	RecordWorkflowSubmission(status string)
+	RecordWorkflowDuration(status string, duration time.Duration)
+	IncActiveWorkflows(status string)
+	DecActiveWorkflows(status string)
+}
+
 // Engine is the core orchestration engine.
 type Engine struct {
 	cfg         *config.Config
@@ -68,11 +77,12 @@ type Engine struct {
 	storage     storage.Storage
 	laneManager *lane.Manager
 	scheduler   *Scheduler
+	metrics     MetricsRecorder
 	state       atomic.Int32
 }
 
 // New creates a new Engine from the given configuration, logger, and storage.
-func New(cfg *config.Config, logger appLogger, store storage.Storage) (*Engine, error) {
+func New(cfg *config.Config, logger appLogger, store storage.Storage, opts ...Option) (*Engine, error) {
 	if cfg == nil {
 		return nil, fmt.Errorf("config cannot be nil")
 	}
@@ -86,8 +96,15 @@ func New(cfg *config.Config, logger appLogger, store storage.Storage) (*Engine, 
 		cfg:     cfg,
 		logger:  logger,
 		storage: store,
+		metrics: &nopMetrics{},
 	}
 	e.state.Store(int32(stateIdle))
+
+	// Apply options
+	for _, opt := range opts {
+		opt(e)
+	}
+
 	return e, nil
 }
 
@@ -165,6 +182,13 @@ func (e *Engine) Submit(ctx context.Context, wf *Workflow) (*WorkflowResult, err
 
 	e.logger.Info("submitting workflow", "workflow_id", wf.ID, "tasks", len(wf.Tasks))
 
+	// Record workflow submission
+	e.metrics.RecordWorkflowSubmission("pending")
+	e.metrics.IncActiveWorkflows("running")
+	defer e.metrics.DecActiveWorkflows("running")
+
+	start := time.Now()
+
 	// Build DAG graph.
 	g := dag.NewGraph()
 	for _, t := range wf.Tasks {
@@ -209,13 +233,21 @@ func (e *Engine) Submit(ctx context.Context, wf *Workflow) (*WorkflowResult, err
 	schedErr := sched.Schedule(ctx, plan, taskFns)
 
 	status := WorkflowStatusSuccess
+	statusStr := "completed"
 	if schedErr != nil {
 		if ctx.Err() != nil {
 			status = WorkflowStatusCancelled
+			statusStr = "cancelled"
 		} else {
 			status = WorkflowStatusFailed
+			statusStr = "failed"
 		}
 	}
+
+	// Record workflow duration
+	duration := time.Since(start)
+	e.metrics.RecordWorkflowDuration(statusStr, duration)
+	e.metrics.RecordWorkflowSubmission(statusStr)
 
 	result := &WorkflowResult{
 		WorkflowID:  wf.ID,
@@ -326,3 +358,11 @@ func (n *nopLogger) Debug(msg string, args ...any) {}
 func (n *nopLogger) Info(msg string, args ...any)  {}
 func (n *nopLogger) Warn(msg string, args ...any)  {}
 func (n *nopLogger) Error(msg string, args ...any) {}
+
+// nopMetrics is a no-op implementation of MetricsRecorder used when no metrics are provided.
+type nopMetrics struct{}
+
+func (n *nopMetrics) RecordWorkflowSubmission(status string)                    {}
+func (n *nopMetrics) RecordWorkflowDuration(status string, duration time.Duration) {}
+func (n *nopMetrics) IncActiveWorkflows(status string)                          {}
+func (n *nopMetrics) DecActiveWorkflows(status string)                          {}

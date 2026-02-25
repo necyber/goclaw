@@ -155,7 +155,7 @@ func main() {
 	}
 
 	// Initialize and start the orchestration engine.
-	eng, err := engine.New(cfg, log, store)
+	eng, err := engine.New(cfg, log, store, engine.WithMetrics(metricsManager))
 	if err != nil {
 		log.Error("Failed to create engine", "error", err)
 		os.Exit(1)
