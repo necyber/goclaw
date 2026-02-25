@@ -1,0 +1,47 @@
+# Prometheus configuration for Goclaw monitoring
+
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+  external_labels:
+    cluster: 'goclaw-dev'
+    environment: 'development'
+
+# Alertmanager configuration (optional)
+# alerting:
+#   alertmanagers:
+#     - static_configs:
+#         - targets:
+#           - alertmanager:9093
+
+# Load rules once and periodically evaluate them
+rule_files:
+  - "alerts.yml"
+
+# Scrape configurations
+scrape_configs:
+  # Goclaw metrics
+  - job_name: 'goclaw'
+    static_configs:
+      - targets: ['localhost:9091']
+        labels:
+          service: 'goclaw'
+          component: 'orchestration-engine'
+    
+    # Scrape interval for this job
+    scrape_interval: 15s
+    scrape_timeout: 10s
+    
+    # Metrics path (default is /metrics)
+    metrics_path: /metrics
+    
+    # Relabeling rules (optional)
+    relabel_configs:
+      - source_labels: [__address__]
+        target_label: instance
+        replacement: 'goclaw-main'
+
+  # Prometheus self-monitoring
+  - job_name: 'prometheus'
+    static_configs:
+      - targets: ['localhost:9090']

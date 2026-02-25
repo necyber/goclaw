@@ -1,0 +1,98 @@
+groups:
+  - name: goclaw_alerts
+    interval: 30s
+    rules:
+      # Workflow failure rate alert
+      - alert: HighWorkflowFailureRate
+        expr: |
+          (
+            sum(rate(workflow_submissions_total{status="failed"}[5m]))
+            /
+            sum(rate(workflow_submissions_total[5m]))
+          ) > 0.1
+        for: 5m
+        labels:
+          severity: warning
+          component: workflow
+        annotations:
+          summary: "High workflow failure rate detected"
+          description: "Workflow failure rate is {{ $value | humanizePercentage }} (threshold: 10%)"
+
+      # Queue backlog alert
+      - alert: LaneQueueBacklog
+        expr: lane_queue_depth > 100
+        for: 10m
+        labels:
+          severity: warning
+          component: lane
+        annotations:
+          summary: "Lane queue backlog detected"
+          description: "Lane {{ $labels.lane_name }} has {{ $value }} tasks in queue"
+
+      # API high latency alert
+      - alert: HighAPILatency
+        expr: |
+          histogram_quantile(0.95,
+            sum(rate(http_request_duration_seconds_bucket[5m])) by (le, path)
+          ) > 1
+        for: 5m
+        labels:
+          severity: warning
+          component: api
+        annotations:
+          summary: "High API latency detected"
+          description: "P95 latency for {{ $labels.path }} is {{ $value }}s (threshold: 1s)"
+
+      # HTTP error rate alert
+      - alert: HighHTTPErrorRate
+        expr: |
+          (
+            sum(rate(http_requests_total{status=~"5.."}[5m]))
+            /
+            sum(rate(http_requests_total[5m]))
+          ) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+          component: api
+        annotations:
+          summary: "High HTTP error rate detected"
+          description: "HTTP 5xx error rate is {{ $value | humanizePercentage }} (threshold: 5%)"
+
+      # Service down alert
+      - alert: GoclawServiceDown
+        expr: up{job="goclaw"} == 0
+        for: 1m
+        labels:
+          severity: critical
+          component: service
+        annotations:
+          summary: "Goclaw service is down"
+          description: "Goclaw instance {{ $labels.instance }} has been down for more than 1 minute"
+
+      # High memory usage alert
+      - alert: HighMemoryUsage
+        expr: |
+          (
+            process_resident_memory_bytes{job="goclaw"}
+            /
+            1024 / 1024 / 1024
+          ) > 2
+        for: 10m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High memory usage detected"
+          description: "Memory usage is {{ $value | humanize }}GB (threshold: 2GB)"
+
+      # High goroutine count alert
+      - alert: HighGoroutineCount
+        expr: go_goroutines{job="goclaw"} > 10000
+        for: 10m
+        labels:
+          severity: warning
+          component: system
+        annotations:
+          summary: "High goroutine count detected"
+          description: "Goroutine count is {{ $value }} (threshold: 10000)"
