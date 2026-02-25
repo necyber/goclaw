@@ -98,6 +98,47 @@ func main() {
 }
 ```
 
+### Configuration
+
+Goclaw uses a flexible configuration system that supports multiple sources:
+
+```yaml
+# config.yaml
+app:
+  name: goclaw
+  environment: production
+
+server:
+  host: 0.0.0.0
+  port: 8080
+
+storage:
+  type: badger  # or "memory" for testing
+  badger:
+    path: ./data/badger
+    sync_writes: true
+    value_log_file_size: 1073741824  # 1GB
+
+orchestration:
+  max_agents: 10
+  queue:
+    type: memory
+    size: 1000
+```
+
+**Storage Options:**
+- `memory` - In-memory storage (for development/testing)
+- `badger` - Persistent embedded database (for production)
+
+**Environment Variables:**
+All config values can be overridden with `GOCLAW_` prefix:
+```bash
+export GOCLAW_SERVER_PORT=9090
+export GOCLAW_STORAGE_TYPE=badger
+```
+
+For a complete configuration example, see [config/config.example.yaml](config/config.example.yaml).
+
 ### HTTP API
 
 Goclaw provides a complete RESTful API for workflow management:

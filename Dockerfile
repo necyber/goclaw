@@ -37,11 +37,17 @@ COPY --from=builder /build/goclaw .
 # Copy config example (can be overridden)
 COPY --from=builder /build/config/config.example.yaml ./config.yaml
 
+# Create data directory for persistent storage
+RUN mkdir -p /app/data && chown -R goclaw:goclaw /app/data
+
 # Change ownership to non-root user
 RUN chown -R goclaw:goclaw /app
 
 # Switch to non-root user
 USER goclaw
+
+# Declare volume for persistent data
+VOLUME ["/app/data"]
 
 # Expose ports
 EXPOSE 8080 9090 9091

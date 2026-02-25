@@ -13,8 +13,11 @@ services:
       - "9091:9091"   # Metrics
     volumes:
       - ./config/config.local.yaml:/app/config.yaml:ro
+      - goclaw-data:/app/data  # Persistent storage for Badger
     environment:
       - GOCLAW_ENV=production
+      - GOCLAW_STORAGE_TYPE=badger
+      - GOCLAW_STORAGE_BADGER_PATH=/app/data/badger
     networks:
       - goclaw-network
     depends_on:
@@ -81,6 +84,7 @@ services:
       - prometheus
 
 volumes:
+  goclaw-data:
   redis-data:
   consul-data:
   prometheus-data:
