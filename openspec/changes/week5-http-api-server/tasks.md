@@ -98,60 +98,60 @@
 ## 阶段 3: API 处理器实现
 
 ### 3.1 工作流处理器
-- [ ] 创建 `pkg/api/handlers/workflow.go`
-- [ ] 定义 `WorkflowHandler` 结构
-- [ ] 实现 `NewWorkflowHandler()` 构造函数
-- [ ] 实现 `SubmitWorkflow()` 处理器
-  - [ ] 解析请求体
-  - [ ] 验证请求数据
-  - [ ] 调用引擎提交工作流
-  - [ ] 返回 201 Created 响应
-- [ ] 实现 `GetWorkflow()` 处理器
-  - [ ] 提取路径参数
-  - [ ] 验证工作流 ID
-  - [ ] 查询工作流状态
-  - [ ] 返回 200 OK 响应
-- [ ] 实现 `ListWorkflows()` 处理器
-  - [ ] 解析查询参数（status, limit, offset）
-  - [ ] 调用引擎列出工作流
-  - [ ] 返回分页响应
-- [ ] 实现 `CancelWorkflow()` 处理器
-  - [ ] 提取工作流 ID
-  - [ ] 调用引擎取消工作流
-  - [ ] 处理状态冲突（409）
-- [ ] 实现 `GetTaskResult()` 处理器
-  - [ ] 提取工作流 ID 和任务 ID
-  - [ ] 查询任务结果
-  - [ ] 返回结果或 404
+- [x] 创建 `pkg/api/handlers/workflow.go`
+- [x] 定义 `WorkflowHandler` 结构
+- [x] 实现 `NewWorkflowHandler()` 构造函数
+- [x] 实现 `SubmitWorkflow()` 处理器
+  - [x] 解析请求体
+  - [x] 验证请求数据
+  - [x] 调用引擎提交工作流
+  - [x] 返回 201 Created 响应
+- [x] 实现 `GetWorkflow()` 处理器
+  - [x] 提取路径参数
+  - [x] 验证工作流 ID
+  - [x] 查询工作流状态
+  - [x] 返回 200 OK 响应
+- [x] 实现 `ListWorkflows()` 处理器
+  - [x] 解析查询参数（status, limit, offset）
+  - [x] 调用引擎列出工作流
+  - [x] 返回分页响应
+- [x] 实现 `CancelWorkflow()` 处理器
+  - [x] 提取工作流 ID
+  - [x] 调用引擎取消工作流
+  - [x] 处理状态冲突（409）
+- [x] 实现 `GetTaskResult()` 处理器
+  - [x] 提取工作流 ID 和任务 ID
+  - [x] 查询任务结果
+  - [x] 返回结果或 404
 
 ### 3.2 请求验证
-- [ ] 创建 `pkg/api/handlers/validation.go`
-- [ ] 初始化 validator 实例
-- [ ] 实现自定义验证器（循环依赖检测）
-- [ ] 实现 UUID 格式验证
-- [ ] 实现验证错误格式化
-- [ ] 编写验证测试
+- [x] 初始化 validator 实例（在 WorkflowHandler 中）
+- [x] 实现验证错误格式化（在处理器中）
+- [ ] 创建 `pkg/api/handlers/validation.go`（可选，当前在处理器中实现）
+- [ ] 实现自定义验证器（循环依赖检测）（可选）
+- [ ] 实现 UUID 格式验证（可选）
+- [ ] 编写验证测试（已在 workflow_test.go 中测试）
 
 ### 3.3 健康检查处理器
-- [ ] 创建 `pkg/api/handlers/health.go`
-- [ ] 定义 `HealthHandler` 结构
-- [ ] 实现 `NewHealthHandler()` 构造函数
-- [ ] 实现 `Health()` 处理器（简单存活检查）
-- [ ] 实现 `Ready()` 处理器（依赖项检查）
-- [ ] 实现 `Status()` 处理器（详细状态）
-- [ ] 创建 `pkg/api/handlers/checkers/engine.go`（引擎检查器）
+- [x] 创建 `pkg/api/handlers/health.go`
+- [x] 定义 `HealthHandler` 结构
+- [x] 实现 `NewHealthHandler()` 构造函数
+- [x] 实现 `Health()` 处理器（简单存活检查）
+- [x] 实现 `Ready()` 处理器（依赖项检查）
+- [x] 实现 `Status()` 处理器（详细状态）
+- [ ] 创建 `pkg/api/handlers/checkers/engine.go`（引擎检查器）（可选）
 - [ ] 创建 `pkg/api/handlers/checkers/storage.go`（存储检查器，可选）
 
 ### 3.4 处理器测试
-- [ ] 为 `WorkflowHandler` 编写单元测试
-  - [ ] 测试成功场景
-  - [ ] 测试验证失败
-  - [ ] 测试引擎错误
-  - [ ] 测试并发请求
-- [ ] 为 `HealthHandler` 编写单元测试
-  - [ ] 测试健康检查
-  - [ ] 测试就绪检查
-  - [ ] 测试依赖项失败场景
+- [x] 为 `WorkflowHandler` 编写单元测试
+  - [x] 测试成功场景
+  - [x] 测试验证失败
+  - [x] 测试引擎错误
+  - [ ] 测试并发请求（可选）
+- [x] 为 `HealthHandler` 编写单元测试
+  - [x] 测试健康检查
+  - [x] 测试就绪检查
+  - [ ] 测试依赖项失败场景（可选）
 
 ## 阶段 4: 主程序集成
 

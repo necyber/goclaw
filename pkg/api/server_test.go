@@ -7,6 +7,8 @@ import (
 	"time"
 
 	"github.com/goclaw/goclaw/config"
+	"github.com/goclaw/goclaw/pkg/api/handlers"
+	"github.com/goclaw/goclaw/pkg/engine"
 	"github.com/goclaw/goclaw/pkg/logger"
 )
 
@@ -32,8 +34,18 @@ func TestNewHTTPServer(t *testing.T) {
 		Output: "stdout",
 	})
 
-	handlers := &Handlers{}
-	server := NewHTTPServer(cfg, log, handlers)
+	// Create engine and handlers
+	eng, _ := engine.New(cfg, log)
+	ctx := context.Background()
+	eng.Start(ctx)
+	defer eng.Stop(ctx)
+
+	testHandlers := &Handlers{
+		Workflow: handlers.NewWorkflowHandler(eng, log),
+		Health:   handlers.NewHealthHandler(eng),
+	}
+
+	server := NewHTTPServer(cfg, log, testHandlers)
 
 	if server == nil {
 		t.Fatal("NewHTTPServer returned nil")
@@ -70,8 +82,18 @@ func TestHTTPServer_StartAndShutdown(t *testing.T) {
 		Output: "stdout",
 	})
 
-	handlers := &Handlers{}
-	server := NewHTTPServer(cfg, log, handlers)
+	// Create engine and handlers
+	eng, _ := engine.New(cfg, log)
+	ctx := context.Background()
+	eng.Start(ctx)
+	defer eng.Stop(ctx)
+
+	testHandlers := &Handlers{
+		Workflow: handlers.NewWorkflowHandler(eng, log),
+		Health:   handlers.NewHealthHandler(eng),
+	}
+
+	server := NewHTTPServer(cfg, log, testHandlers)
 
 	// Start server in goroutine
 	errChan := make(chan error, 1)

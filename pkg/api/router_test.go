@@ -1,13 +1,54 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"net/http/httptest"
 	"testing"
+	"time"
 
 	"github.com/goclaw/goclaw/config"
+	"github.com/goclaw/goclaw/pkg/api/handlers"
+	"github.com/goclaw/goclaw/pkg/engine"
 	"github.com/goclaw/goclaw/pkg/logger"
 )
+
+// createTestHandlers creates test handlers with a running engine
+func createTestHandlers(t *testing.T) (*Handlers, func()) {
+	cfg := &config.Config{
+		App: config.AppConfig{
+			Name:        "test",
+			Environment: "development",
+		},
+		Orchestration: config.OrchestrationConfig{
+			MaxAgents: 10,
+		},
+	}
+	log := logger.New(&logger.Config{
+		Level:  logger.InfoLevel,
+		Format: "json",
+		Output: "stdout",
+	})
+
+	eng, err := engine.New(cfg, log)
+	if err != nil {
+		t.Fatalf("Failed to create engine: %v", err)
+	}
+
+	ctx := context.Background()
+	if err := eng.Start(ctx); err != nil {
+		t.Fatalf("Failed to start engine: %v", err)
+	}
+
+	cleanup := func() {
+		eng.Stop(ctx)
+	}
+
+	return &Handlers{
+		Workflow: handlers.NewWorkflowHandler(eng, log),
+		Health:   handlers.NewHealthHandler(eng),
+	}, cleanup
+}
 
 func TestNewRouter(t *testing.T) {
 	// Create test config
@@ -69,7 +110,7 @@ func TestRegisterRoutes_HealthEndpoints(t *testing.T) {
 	cfg := &config.Config{
 		Server: config.ServerConfig{
 			HTTP: config.HTTPConfig{
-				ReadTimeout: 30,
+				ReadTimeout: 30 * time.Second,
 			},
 			CORS: config.CORSConfig{
 				Enabled: false,
@@ -83,8 +124,10 @@ func TestRegisterRoutes_HealthEndpoints(t *testing.T) {
 		Output: "stdout",
 	})
 
-	handlers := &Handlers{}
-	router := NewRouter(cfg, log, handlers)
+	testHandlers, cleanup := createTestHandlers(t)
+	defer cleanup()
+
+	router := NewRouter(cfg, log, testHandlers)
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -105,7 +148,7 @@ func TestRegisterRoutes_WorkflowEndpoints(t *testing.T) {
 	cfg := &config.Config{
 		Server: config.ServerConfig{
 			HTTP: config.HTTPConfig{
-				ReadTimeout: 30,
+				ReadTimeout: 30 * time.Second,
 			},
 			CORS: config.CORSConfig{
 				Enabled: false,
@@ -119,18 +162,20 @@ func TestRegisterRoutes_WorkflowEndpoints(t *testing.T) {
 		Output: "stdout",
 	})
 
-	handlers := &Handlers{}
-	router := NewRouter(cfg, log, handlers)
+	testHandlers, cleanup := createTestHandlers(t)
+	defer cleanup()
 
-	// Test workflow list endpoint (placeholder)
+	router := NewRouter(cfg, log, testHandlers)
+
+	// Test workflow list endpoint - should now work with real handler
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/workflows", nil)
 	w := httptest.NewRecorder()
 
 	router.ServeHTTP(w, req)
 
-	// Should return 501 Not Implemented for now
-	if w.Code != http.StatusNotImplemented {
-		t.Errorf("workflow endpoint status = %v, want %v", w.Code, http.StatusNotImplemented)
+	// Should return 200 OK with empty workflow list
+	if w.Code != http.StatusOK {
+		t.Errorf("workflow endpoint status = %v, want %v", w.Code, http.StatusOK)
 	}
 }
 
