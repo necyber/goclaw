@@ -39,15 +39,15 @@
 
 ## 4. Workflow Service Handlers
 
-- [ ] 4.1 Create `pkg/grpc/handlers/` package structure
-- [ ] 4.2 Implement WorkflowService.SubmitWorkflow handler
-- [ ] 4.3 Implement WorkflowService.ListWorkflows handler with pagination
-- [ ] 4.4 Implement WorkflowService.GetWorkflowStatus handler
-- [ ] 4.5 Implement WorkflowService.CancelWorkflow handler
-- [ ] 4.6 Implement WorkflowService.GetTaskResult handler
-- [ ] 4.7 Add request validation for all workflow handlers
-- [ ] 4.8 Add proper gRPC status code mapping for errors
-- [ ] 4.9 Add unit tests for workflow handlers
+- [x] 4.1 Create `pkg/grpc/handlers/` package structure
+- [x] 4.2 Implement WorkflowService.SubmitWorkflow handler
+- [x] 4.3 Implement WorkflowService.ListWorkflows handler with pagination
+- [x] 4.4 Implement WorkflowService.GetWorkflowStatus handler
+- [x] 4.5 Implement WorkflowService.CancelWorkflow handler
+- [x] 4.6 Implement WorkflowService.GetTaskResult handler
+- [x] 4.7 Add request validation for all workflow handlers
+- [x] 4.8 Add proper gRPC status code mapping for errors
+- [x] 4.9 Add unit tests for workflow handlers
 
 ## 5. Streaming Support
 
