@@ -31,6 +31,8 @@ type L1Cache struct {
 	maxSize  int
 	items    map[string]*list.Element
 	eviction *list.List
+	hits     int64
+	misses   int64
 }
 
 type l1Item struct {
@@ -54,8 +56,10 @@ func (c *L1Cache) Get(key string) (*MemoryEntry, bool) {
 
 	if elem, ok := c.items[key]; ok {
 		c.eviction.MoveToFront(elem)
+		c.hits++
 		return elem.Value.(*l1Item).entry, true
 	}
+	c.misses++
 	return nil, false
 }
 
@@ -94,6 +98,17 @@ func (c *L1Cache) Len() int {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 	return len(c.items)
+}
+
+// HitRate returns the cache hit rate (0.0-1.0) and total accesses.
+func (c *L1Cache) HitRate() (rate float64, total int64) {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	total = c.hits + c.misses
+	if total == 0 {
+		return 0, 0
+	}
+	return float64(c.hits) / float64(total), total
 }
 
 func (c *L1Cache) evictOldest() {

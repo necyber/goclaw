@@ -167,7 +167,7 @@ type fusedResult struct {
 
 // fuseRRF applies Reciprocal Rank Fusion: RRF(d) = Σ weight/(k + rank(d))
 func (h *HybridRetriever) fuseRRF(vectorIDs, bm25IDs []string) []fusedResult {
-	scores := make(map[string]float64)
+	scores := make(map[string]float64, len(vectorIDs)+len(bm25IDs))
 
 	for rank, id := range vectorIDs {
 		scores[id] += h.vectorWeight / (h.rrfK + float64(rank+1))

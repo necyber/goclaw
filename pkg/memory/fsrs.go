@@ -84,6 +84,10 @@ func (d *DecayManager) StartDecayLoop(parentCtx context.Context, processFunc fun
 
 // DecayEntries applies decay to a batch of entries and returns those below threshold.
 func (d *DecayManager) DecayEntries(entries []*MemoryEntry) (updated []*MemoryEntry, forgotten []string) {
+	// Pre-allocate with estimated capacity
+	updated = make([]*MemoryEntry, 0, len(entries))
+	forgotten = make([]string, 0, len(entries)/10)
+
 	d.mu.Lock()
 	defer d.mu.Unlock()
 

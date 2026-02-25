@@ -125,8 +125,8 @@ func (idx *BM25Index) Search(query string, topK int, sessionID string) ([]string
 
 	avgDL := float64(idx.totalLen) / float64(idx.totalDocs)
 
-	// Collect candidate documents
-	candidates := make(map[string]struct{})
+	// Collect candidate documents using pre-allocated map
+	candidates := make(map[string]struct{}, len(idx.invertedIndex))
 	for _, token := range queryTokens {
 		if docs, ok := idx.invertedIndex[token]; ok {
 			for id := range docs {
@@ -143,7 +143,7 @@ func (idx *BM25Index) Search(query string, topK int, sessionID string) ([]string
 		score float64
 	}
 
-	var results []scored
+	results := make([]scored, 0, len(candidates))
 	for id := range candidates {
 		score := idx.scoreLocked(id, queryTokens, avgDL)
 		if score > 0 {
@@ -160,8 +160,8 @@ func (idx *BM25Index) Search(query string, topK int, sessionID string) ([]string
 	}
 	results = results[:topK]
 
-	ids := make([]string, len(results))
-	scores := make([]float64, len(results))
+	ids := make([]string, topK)
+	scores := make([]float64, topK)
 	for i, r := range results {
 		ids[i] = r.id
 		scores[i] = r.score
@@ -221,7 +221,8 @@ func (idx *BM25Index) scoreLocked(docID string, queryTokens []string, avgDL floa
 func (idx *BM25Index) tokenize(text string) []string {
 	text = strings.ToLower(text)
 
-	var tokens []string
+	// Pre-allocate with estimated capacity
+	tokens := make([]string, 0, len(text)/4)
 	var current strings.Builder
 
 	for _, r := range text {

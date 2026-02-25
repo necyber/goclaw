@@ -76,7 +76,8 @@ func (v *VectorIndex) Search(query []float32, topK int, sessionID string) ([]str
 		score float64
 	}
 
-	var results []scored
+	// Pre-allocate with estimated capacity
+	results := make([]scored, 0, len(v.vectors))
 	for id, vec := range v.vectors {
 		if sessionID != "" && v.sessions[id] != sessionID {
 			continue
@@ -94,8 +95,8 @@ func (v *VectorIndex) Search(query []float32, topK int, sessionID string) ([]str
 	}
 	results = results[:topK]
 
-	ids := make([]string, len(results))
-	scores := make([]float64, len(results))
+	ids := make([]string, topK)
+	scores := make([]float64, topK)
 	for i, r := range results {
 		ids[i] = r.id
 		scores[i] = r.score
