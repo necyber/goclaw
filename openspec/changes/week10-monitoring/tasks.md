@@ -111,18 +111,18 @@
 
 ## 12. 测试
 
-- [ ] 12.1 编写 MetricsManager 单元测试
-- [ ] 12.2 编写各类指标的单元测试
-- [ ] 12.3 编写 metrics middleware 单元测试
-- [ ] 12.4 编写 metrics server 集成测试
-- [ ] 12.5 测试指标准确性（计数、时长）
-- [ ] 12.6 测试并发场景下的指标收集
-- [ ] 12.7 性能测试（开销 <1%）
-- [ ] 12.8 测试 metrics 禁用功能
+- [x] 12.1 编写 MetricsManager 单元测试
+- [x] 12.2 编写各类指标的单元测试
+- [x] 12.3 编写 metrics middleware 单元测试
+- [x] 12.4 编写 metrics server 集成测试
+- [x] 12.5 测试指标准确性（计数、时长）
+- [x] 12.6 测试并发场景下的指标收集
+- [x] 12.7 性能测试（开销 <1%）
+- [x] 12.8 测试 metrics 禁用功能
 
 ## 13. 文档
 
-- [ ] 13.1 更新 `README.md` 添加 metrics 说明
+- [x] 13.1 更新 `README.md` 添加 metrics 说明
 - [ ] 13.2 创建 `docs/monitoring-guide.md` 监控指南
 - [ ] 13.3 文档化所有指标及其含义
 - [ ] 13.4 添加 Prometheus 配置示例
