@@ -51,16 +51,16 @@
 
 ## 5. Streaming Support
 
-- [ ] 5.1 Add observer pattern to `pkg/engine/` for state change notifications
-- [ ] 5.2 Create `pkg/grpc/streaming/` package for stream management
-- [ ] 5.3 Implement subscriber registry for workflow watchers
-- [ ] 5.4 Implement StreamingService.WatchWorkflow (server streaming)
-- [ ] 5.5 Implement StreamingService.WatchTasks (server streaming)
-- [ ] 5.6 Implement StreamingService.StreamLogs (bidirectional streaming)
-- [ ] 5.7 Add backpressure handling (buffer limits, slow consumer detection)
-- [ ] 5.8 Add stream lifecycle management (subscribe, unsubscribe, cleanup)
-- [ ] 5.9 Implement stream reconnection with sequence numbers
-- [ ] 5.10 Add unit tests for streaming handlers
+- [x] 5.1 Add observer pattern to `pkg/engine/` for state change notifications
+- [x] 5.2 Create `pkg/grpc/streaming/` package for stream management
+- [x] 5.3 Implement subscriber registry for workflow watchers
+- [x] 5.4 Implement StreamingService.WatchWorkflow (server streaming)
+- [x] 5.5 Implement StreamingService.WatchTasks (server streaming)
+- [x] 5.6 Implement StreamingService.StreamLogs (bidirectional streaming)
+- [x] 5.7 Add backpressure handling (buffer limits, slow consumer detection)
+- [x] 5.8 Add stream lifecycle management (subscribe, unsubscribe, cleanup)
+- [x] 5.9 Implement stream reconnection with sequence numbers
+- [x] 5.10 Add unit tests for streaming handlers
 
 ## 6. Batch Operations
 
