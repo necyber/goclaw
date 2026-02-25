@@ -153,6 +153,8 @@ func TestLoader_LoadWithOverrides(t *testing.T) {
 		"orchestration.scheduler.type": "round_robin",
 		"metrics.port":      9092,
 		"storage.type":      "memory",
+		"storage.badger.value_log_file_size": 1073741824,
+		"storage.badger.num_versions_to_keep": 1,
 	}
 
 	cfg, err := loader.Load("", overrides)

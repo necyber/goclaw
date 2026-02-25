@@ -212,8 +212,14 @@ type BadgerConfig struct {
 	// Path is the database directory path.
 	Path string `mapstructure:"path"`
 
-	// SyncWrites enables synchronous writes.
+	// SyncWrites enables synchronous writes for durability.
 	SyncWrites bool `mapstructure:"sync_writes"`
+
+	// ValueLogFileSize is the maximum size of value log files in bytes.
+	ValueLogFileSize int64 `mapstructure:"value_log_file_size"`
+
+	// NumVersionsToKeep is the number of versions to keep per key.
+	NumVersionsToKeep int `mapstructure:"num_versions_to_keep"`
 }
 
 // RedisConfig holds Redis-specific settings.

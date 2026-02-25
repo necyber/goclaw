@@ -40,13 +40,13 @@
 
 ## 4. 存储配置
 
-- [ ] 4.1 在 `config/config.go` 添加 `StorageConfig` 结构
-- [ ] 4.2 添加 `BadgerConfig` 子结构（path, sync_writes, value_log_file_size）
-- [ ] 4.3 添加 storage type 字段（memory, badger）
-- [ ] 4.4 更新 `config.example.yaml` 添加 storage 配置示例
-- [ ] 4.5 添加配置验证规则
-- [ ] 4.6 添加默认值（type: memory）
-- [ ] 4.7 编写配置加载测试
+- [x] 4.1 在 `config/config.go` 添加 `StorageConfig` 结构
+- [x] 4.2 添加 `BadgerConfig` 子结构（path, sync_writes, value_log_file_size）
+- [x] 4.3 添加 storage type 字段（memory, badger）
+- [x] 4.4 更新 `config.example.yaml` 添加 storage 配置示例
+- [x] 4.5 添加配置验证规则
+- [x] 4.6 添加默认值（type: memory）
+- [x] 4.7 编写配置加载测试
 
 ## 5. 引擎集成
 

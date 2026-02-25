@@ -56,8 +56,10 @@ func DefaultConfig() *Config {
 		Storage: StorageConfig{
 			Type: "memory",
 			Badger: BadgerConfig{
-				Path:       "./data",
-				SyncWrites: false,
+				Path:              "./data/badger",
+				SyncWrites:        true,
+				ValueLogFileSize:  1073741824, // 1GB
+				NumVersionsToKeep: 1,
 			},
 			Redis: RedisConfig{
 				Address:  "localhost:6379",

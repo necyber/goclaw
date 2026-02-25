@@ -88,8 +88,10 @@ storage:
 
   # BadgerDB configuration (when type is badger)
   badger:
-    path: "./data"
-    sync_writes: false
+    path: "./data/badger"
+    sync_writes: true  # Enable for production (durability over performance)
+    value_log_file_size: 1073741824  # 1GB
+    num_versions_to_keep: 1
 
   # Redis configuration (when type is redis)
   redis:
