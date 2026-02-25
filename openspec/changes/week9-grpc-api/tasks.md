@@ -27,14 +27,14 @@
 - [x] 3.1 Create `pkg/grpc/interceptors/` package structure
 - [x] 3.2 Implement recovery interceptor with panic logging
 - [x] 3.3 Implement request ID interceptor (generate/propagate)
-- [ ] 3.4 Implement authentication interceptor (token + mTLS)
-- [ ] 3.5 Implement authorization interceptor (role-based)
-- [ ] 3.6 Implement rate limiting interceptor
+- [x] 3.4 Implement authentication interceptor (token + mTLS)
+- [x] 3.5 Implement authorization interceptor (role-based)
+- [x] 3.6 Implement rate limiting interceptor
 - [ ] 3.7 Implement validation interceptor for request payloads
-- [ ] 3.8 Implement logging interceptor (request/response logging)
+- [x] 3.8 Implement logging interceptor (request/response logging)
 - [ ] 3.9 Implement metrics interceptor (counters, histograms, gauges)
 - [ ] 3.10 Implement tracing interceptor (trace context propagation)
-- [ ] 3.11 Create interceptor chain builder with correct ordering
+- [x] 3.11 Create interceptor chain builder with correct ordering
 - [ ] 3.12 Add unit tests for each interceptor
 
 ## 4. Workflow Service Handlers
