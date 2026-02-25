@@ -10,6 +10,38 @@ import (
 	"github.com/goclaw/goclaw/pkg/storage"
 )
 
+// TestBadgerStorageSuite runs the full storage test suite against BadgerStorage.
+func TestBadgerStorageSuite(t *testing.T) {
+	suite := &storage.StorageTestSuite{
+		NewStorage: func(t *testing.T) storage.Storage {
+			tmpDir, err := os.MkdirTemp("", "badger-test-*")
+			if err != nil {
+				t.Fatalf("Failed to create temp dir: %v", err)
+			}
+
+			t.Cleanup(func() {
+				os.RemoveAll(tmpDir)
+			})
+
+			config := &Config{
+				Path:              tmpDir,
+				SyncWrites:        false,
+				ValueLogFileSize:  1 << 20,
+				NumVersionsToKeep: 1,
+			}
+
+			db, err := NewBadgerStorage(config)
+			if err != nil {
+				t.Fatalf("Failed to create BadgerStorage: %v", err)
+			}
+
+			return db
+		},
+	}
+
+	suite.RunAllTests(t)
+}
+
 func setupTestDB(t *testing.T) (*BadgerStorage, func()) {
 	tmpDir, err := os.MkdirTemp("", "badger-test-*")
 	if err != nil {

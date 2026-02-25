@@ -9,6 +9,17 @@ import (
 	"github.com/goclaw/goclaw/pkg/storage"
 )
 
+// TestMemoryStorageSuite runs the full storage test suite against MemoryStorage.
+func TestMemoryStorageSuite(t *testing.T) {
+	suite := &storage.StorageTestSuite{
+		NewStorage: func(t *testing.T) storage.Storage {
+			return NewMemoryStorage()
+		},
+	}
+
+	suite.RunAllTests(t)
+}
+
 func TestMemoryStorage_SaveAndGetWorkflow(t *testing.T) {
 	s := NewMemoryStorage()
 	ctx := context.Background()
