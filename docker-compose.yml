@@ -60,6 +60,7 @@ services:
       - "9092:9090"
     volumes:
       - ./config/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./config/prometheus/alerts.yml:/etc/prometheus/alerts.yml:ro
       - prometheus-data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -76,8 +77,10 @@ services:
       - "3000:3000"
     environment:
       - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_INSTALL_PLUGINS=
     volumes:
       - grafana-data:/var/lib/grafana
+      - ./config/grafana:/etc/grafana/provisioning/dashboards:ro
     networks:
       - goclaw-network
     depends_on:
