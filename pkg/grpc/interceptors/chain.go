@@ -69,9 +69,13 @@ func (b *ChainBuilder) WithLogging() *ChainBuilder {
 }
 
 // WithMetrics adds metrics interceptor
-func (b *ChainBuilder) WithMetrics() *ChainBuilder {
-	b.unaryInterceptors = append(b.unaryInterceptors, MetricsUnaryInterceptor(nil))
-	b.streamInterceptors = append(b.streamInterceptors, MetricsStreamInterceptor(nil))
+func (b *ChainBuilder) WithMetrics(m *Metrics) *ChainBuilder {
+	if m == nil {
+		// Create default metrics with default registerer
+		m = NewMetrics(nil)
+	}
+	b.unaryInterceptors = append(b.unaryInterceptors, MetricsUnaryInterceptor(m))
+	b.streamInterceptors = append(b.streamInterceptors, MetricsStreamInterceptor(m))
 	return b
 }
 
@@ -108,6 +112,6 @@ func DefaultChain() *ChainBuilder {
 		WithRateLimit(100, 200). // 100 req/s, burst of 200
 		WithValidation().
 		WithLogging().
-		WithMetrics().
+		WithMetrics(nil). // nil will create default metrics
 		WithTracing()
 }
