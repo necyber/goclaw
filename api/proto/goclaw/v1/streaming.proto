@@ -1,0 +1,84 @@
+syntax = "proto3";
+
+package goclaw.v1;
+
+option go_package = "github.com/yourusername/goclaw/pkg/grpc/pb/v1;pbv1";
+
+import "goclaw/v1/common.proto";
+import "goclaw/v1/workflow.proto";
+import "google/protobuf/timestamp.proto";
+
+// StreamingService provides real-time streaming operations
+service StreamingService {
+  rpc WatchWorkflow(WatchWorkflowRequest) returns (stream WorkflowStatusUpdate);
+  rpc WatchTasks(WatchTasksRequest) returns (stream TaskProgressUpdate);
+  rpc StreamLogs(stream LogStreamRequest) returns (stream LogStreamResponse);
+}
+
+// Watch workflow request
+message WatchWorkflowRequest {
+  string workflow_id = 1;
+  int64 resume_from_sequence = 2;
+}
+
+// Workflow status update
+message WorkflowStatusUpdate {
+  int64 sequence_number = 1;
+  google.protobuf.Timestamp timestamp = 2;
+  string workflow_id = 3;
+  WorkflowStatus status = 4;
+  string message = 5;
+  Error error = 6;
+}
+
+// Watch tasks request
+message WatchTasksRequest {
+  string workflow_id = 1;
+  repeated string task_ids = 2;
+  bool terminal_only = 3;
+  int64 resume_from_sequence = 4;
+}
+
+// Task progress update
+message TaskProgressUpdate {
+  int64 sequence_number = 1;
+  google.protobuf.Timestamp timestamp = 2;
+  string workflow_id = 3;
+  string task_id = 4;
+  TaskStatus status = 5;
+  int32 progress_percent = 6;
+  string message = 7;
+  Error error = 8;
+}
+
+// Log level enum
+enum LogLevel {
+  LOG_LEVEL_UNSPECIFIED = 0;
+  LOG_LEVEL_DEBUG = 1;
+  LOG_LEVEL_INFO = 2;
+  LOG_LEVEL_WARN = 3;
+  LOG_LEVEL_ERROR = 4;
+}
+
+// Log stream request (client to server)
+message LogStreamRequest {
+  string workflow_id = 1;
+  LogLevel min_level = 2;
+  repeated string task_ids = 3;
+}
+
+// Log entry
+message LogEntry {
+  google.protobuf.Timestamp timestamp = 1;
+  LogLevel level = 2;
+  string workflow_id = 3;
+  string task_id = 4;
+  string message = 5;
+  map<string, string> fields = 6;
+}
+
+// Log stream response (server to client)
+message LogStreamResponse {
+  repeated LogEntry entries = 1;
+  Error error = 2;
+}

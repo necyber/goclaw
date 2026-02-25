@@ -1,0 +1,133 @@
+syntax = "proto3";
+
+package goclaw.v1;
+
+option go_package = "github.com/yourusername/goclaw/pkg/grpc/pb/v1;pbv1";
+
+import "goclaw/v1/common.proto";
+import "google/protobuf/timestamp.proto";
+
+// WorkflowService provides workflow management operations
+service WorkflowService {
+  rpc SubmitWorkflow(SubmitWorkflowRequest) returns (SubmitWorkflowResponse);
+  rpc ListWorkflows(ListWorkflowsRequest) returns (ListWorkflowsResponse);
+  rpc GetWorkflowStatus(GetWorkflowStatusRequest) returns (GetWorkflowStatusResponse);
+  rpc CancelWorkflow(CancelWorkflowRequest) returns (CancelWorkflowResponse);
+  rpc GetTaskResult(GetTaskResultRequest) returns (GetTaskResultResponse);
+}
+
+// Task definition
+message TaskDefinition {
+  string id = 1;
+  string name = 2;
+  repeated string dependencies = 3;
+  map<string, string> metadata = 4;
+}
+
+// Workflow status enum
+enum WorkflowStatus {
+  WORKFLOW_STATUS_UNSPECIFIED = 0;
+  WORKFLOW_STATUS_PENDING = 1;
+  WORKFLOW_STATUS_RUNNING = 2;
+  WORKFLOW_STATUS_COMPLETED = 3;
+  WORKFLOW_STATUS_FAILED = 4;
+  WORKFLOW_STATUS_CANCELLED = 5;
+}
+
+// Task status enum
+enum TaskStatus {
+  TASK_STATUS_UNSPECIFIED = 0;
+  TASK_STATUS_PENDING = 1;
+  TASK_STATUS_RUNNING = 2;
+  TASK_STATUS_COMPLETED = 3;
+  TASK_STATUS_FAILED = 4;
+  TASK_STATUS_CANCELLED = 5;
+}
+
+// Submit workflow request
+message SubmitWorkflowRequest {
+  string name = 1;
+  repeated TaskDefinition tasks = 2;
+  map<string, string> metadata = 3;
+}
+
+// Submit workflow response
+message SubmitWorkflowResponse {
+  string workflow_id = 1;
+  Error error = 2;
+}
+
+// List workflows request
+message ListWorkflowsRequest {
+  PaginationRequest pagination = 1;
+  WorkflowStatus status_filter = 2;
+}
+
+// Workflow summary
+message WorkflowSummary {
+  string workflow_id = 1;
+  string name = 2;
+  WorkflowStatus status = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp updated_at = 5;
+}
+
+// List workflows response
+message ListWorkflowsResponse {
+  repeated WorkflowSummary workflows = 1;
+  PaginationResponse pagination = 2;
+  Error error = 3;
+}
+
+// Get workflow status request
+message GetWorkflowStatusRequest {
+  string workflow_id = 1;
+}
+
+// Task status detail
+message TaskStatusDetail {
+  string task_id = 1;
+  string name = 2;
+  TaskStatus status = 3;
+  google.protobuf.Timestamp started_at = 4;
+  google.protobuf.Timestamp completed_at = 5;
+  string error_message = 6;
+}
+
+// Get workflow status response
+message GetWorkflowStatusResponse {
+  string workflow_id = 1;
+  string name = 2;
+  WorkflowStatus status = 3;
+  repeated TaskStatusDetail tasks = 4;
+  google.protobuf.Timestamp created_at = 5;
+  google.protobuf.Timestamp updated_at = 6;
+  Error error = 7;
+}
+
+// Cancel workflow request
+message CancelWorkflowRequest {
+  string workflow_id = 1;
+  bool force = 2;
+}
+
+// Cancel workflow response
+message CancelWorkflowResponse {
+  bool success = 1;
+  Error error = 2;
+}
+
+// Get task result request
+message GetTaskResultRequest {
+  string workflow_id = 1;
+  string task_id = 2;
+}
+
+// Get task result response
+message GetTaskResultResponse {
+  string task_id = 1;
+  TaskStatus status = 2;
+  bytes result_data = 3;
+  string error_message = 4;
+  Error error = 5;
+}

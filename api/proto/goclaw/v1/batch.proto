@@ -1,0 +1,103 @@
+syntax = "proto3";
+
+package goclaw.v1;
+
+option go_package = "github.com/yourusername/goclaw/pkg/grpc/pb/v1;pbv1";
+
+import "goclaw/v1/common.proto";
+import "goclaw/v1/workflow.proto";
+
+// BatchService provides bulk workflow operations
+service BatchService {
+  rpc SubmitWorkflows(SubmitWorkflowsRequest) returns (SubmitWorkflowsResponse);
+  rpc GetWorkflowStatuses(GetWorkflowStatusesRequest) returns (GetWorkflowStatusesResponse);
+  rpc CancelWorkflows(CancelWorkflowsRequest) returns (CancelWorkflowsResponse);
+  rpc GetTaskResults(GetTaskResultsRequest) returns (GetTaskResultsResponse);
+}
+
+// Submit workflows request
+message SubmitWorkflowsRequest {
+  repeated SubmitWorkflowRequest workflows = 1;
+  bool atomic = 2;
+  string idempotency_key = 3;
+  bool ordered = 4;
+}
+
+// Workflow submission result
+message WorkflowSubmissionResult {
+  int32 index = 1;
+  bool success = 2;
+  string workflow_id = 3;
+  Error error = 4;
+}
+
+// Submit workflows response
+message SubmitWorkflowsResponse {
+  repeated WorkflowSubmissionResult results = 1;
+  PaginationResponse pagination = 2;
+  Error error = 3;
+}
+
+// Get workflow statuses request
+message GetWorkflowStatusesRequest {
+  repeated string workflow_ids = 1;
+  PaginationRequest pagination = 2;
+}
+
+// Workflow status result
+message WorkflowStatusResult {
+  string workflow_id = 1;
+  bool found = 2;
+  GetWorkflowStatusResponse status = 3;
+  Error error = 4;
+}
+
+// Get workflow statuses response
+message GetWorkflowStatusesResponse {
+  repeated WorkflowStatusResult results = 1;
+  PaginationResponse pagination = 2;
+  Error error = 3;
+}
+
+// Cancel workflows request
+message CancelWorkflowsRequest {
+  repeated string workflow_ids = 1;
+  bool force = 2;
+  int32 timeout_seconds = 3;
+}
+
+// Workflow cancellation result
+message WorkflowCancellationResult {
+  string workflow_id = 1;
+  bool success = 2;
+  bool already_terminal = 3;
+  Error error = 4;
+}
+
+// Cancel workflows response
+message CancelWorkflowsResponse {
+  repeated WorkflowCancellationResult results = 1;
+  Error error = 2;
+}
+
+// Get task results request
+message GetTaskResultsRequest {
+  string workflow_id = 1;
+  repeated string task_ids = 2;
+  PaginationRequest pagination = 3;
+}
+
+// Task result detail
+message TaskResultDetail {
+  string task_id = 1;
+  bool found = 2;
+  GetTaskResultResponse result = 3;
+  Error error = 4;
+}
+
+// Get task results response
+message GetTaskResultsResponse {
+  repeated TaskResultDetail results = 1;
+  PaginationResponse pagination = 2;
+  Error error = 3;
+}
