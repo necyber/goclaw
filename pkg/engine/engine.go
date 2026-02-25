@@ -68,6 +68,10 @@ type MetricsRecorder interface {
 	RecordWorkflowDuration(status string, duration time.Duration)
 	IncActiveWorkflows(status string)
 	DecActiveWorkflows(status string)
+	IncQueueDepth(laneName string)
+	DecQueueDepth(laneName string)
+	RecordWaitDuration(laneName string, duration time.Duration)
+	RecordThroughput(laneName string)
 }
 
 // Engine is the core orchestration engine.
@@ -134,9 +138,15 @@ func (e *Engine) Start(ctx context.Context) error {
 		MaxConcurrency: concurrency,
 		Backpressure:   lane.Block,
 	}
-	if _, err := e.laneManager.Register(defaultCfg); err != nil {
+	defaultLane, err := e.laneManager.Register(defaultCfg)
+	if err != nil {
 		e.state.Store(int32(stateError))
 		return fmt.Errorf("failed to register default lane: %w", err)
+	}
+
+	// Set metrics on the default lane
+	if channelLane, ok := defaultLane.(*lane.ChannelLane); ok {
+		channelLane.SetMetrics(e.metrics)
 	}
 
 	// Create scheduler (tracker is per-workflow, created in Submit).
@@ -366,3 +376,7 @@ func (n *nopMetrics) RecordWorkflowSubmission(status string)                    
 func (n *nopMetrics) RecordWorkflowDuration(status string, duration time.Duration) {}
 func (n *nopMetrics) IncActiveWorkflows(status string)                          {}
 func (n *nopMetrics) DecActiveWorkflows(status string)                          {}
+func (n *nopMetrics) IncQueueDepth(laneName string)                             {}
+func (n *nopMetrics) DecQueueDepth(laneName string)                             {}
+func (n *nopMetrics) RecordWaitDuration(laneName string, duration time.Duration) {}
+func (n *nopMetrics) RecordThroughput(laneName string)                          {}

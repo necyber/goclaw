@@ -8,28 +8,37 @@ import (
 	"time"
 )
 
+// MetricsRecorder defines the interface for recording lane metrics.
+type MetricsRecorder interface {
+	IncQueueDepth(laneName string)
+	DecQueueDepth(laneName string)
+	RecordWaitDuration(laneName string, duration time.Duration)
+	RecordThroughput(laneName string)
+}
+
 // ChannelLane implements Lane using Go channels.
 type ChannelLane struct {
 	config     *Config
 	taskCh     chan Task
 	workerPool *WorkerPool
 	rateLimiter *TokenBucket
-	
+	metrics    MetricsRecorder
+
 	// State
 	closed     atomic.Bool
 	closeCh    chan struct{}
 	closeOnce  sync.Once
-	
+
 	// Statistics
 	pending    atomic.Int32
 	running    atomic.Int32
 	completed  atomic.Int64
 	failed     atomic.Int64
 	dropped    atomic.Int64
-	
+
 	// For redirect strategy
 	manager    *Manager
-	
+
 	// Wait time tracking
 	totalWaitTime     atomic.Int64 // nanoseconds
 	totalProcessTime  atomic.Int64 // nanoseconds
@@ -41,22 +50,23 @@ func New(config *Config) (*ChannelLane, error) {
 	if err := config.Validate(); err != nil {
 		return nil, err
 	}
-	
+
 	l := &ChannelLane{
 		config:    config,
 		taskCh:    make(chan Task, config.Capacity),
 		closeCh:   make(chan struct{}),
+		metrics:   &nopMetrics{},
 	}
-	
+
 	// Initialize rate limiter if configured
 	if config.RateLimit > 0 {
 		l.rateLimiter = NewTokenBucket(config.RateLimit, config.RateLimit*2)
 	}
-	
+
 	// Initialize worker pool
 	l.workerPool = NewWorkerPool(config.MaxConcurrency, l.executeTask)
 	l.workerPool.Start()
-	
+
 	return l, nil
 }
 
@@ -103,6 +113,7 @@ func (l *ChannelLane) submitBlock(ctx context.Context, task Task) error {
 	select {
 	case l.taskCh <- task:
 		l.pending.Add(1)
+		l.metrics.IncQueueDepth(l.config.Name)
 		return nil
 	case <-ctx.Done():
 		return ctx.Err()
@@ -116,6 +127,7 @@ func (l *ChannelLane) submitDrop(task Task) error {
 	select {
 	case l.taskCh <- task:
 		l.pending.Add(1)
+		l.metrics.IncQueueDepth(l.config.Name)
 		return nil
 	default:
 		l.dropped.Add(1)
@@ -128,6 +140,7 @@ func (l *ChannelLane) submitRedirect(ctx context.Context, task Task) error {
 	select {
 	case l.taskCh <- task:
 		l.pending.Add(1)
+		l.metrics.IncQueueDepth(l.config.Name)
 		return nil
 	default:
 		// Try to redirect
@@ -149,19 +162,20 @@ func (l *ChannelLane) TrySubmit(task Task) bool {
 	if l.closed.Load() {
 		return false
 	}
-	
+
 	if task == nil {
 		return false
 	}
-	
+
 	// Check rate limit
 	if l.rateLimiter != nil && !l.rateLimiter.Allow() {
 		return false
 	}
-	
+
 	select {
 	case l.taskCh <- task:
 		l.pending.Add(1)
+		l.metrics.IncQueueDepth(l.config.Name)
 		return true
 	default:
 		return false
@@ -171,26 +185,37 @@ func (l *ChannelLane) TrySubmit(task Task) bool {
 // executeTask is called by the worker pool to execute a task.
 func (l *ChannelLane) executeTask(task Task) {
 	l.pending.Add(-1)
+	l.metrics.DecQueueDepth(l.config.Name)
+
+	// Record wait duration
+	if tw, ok := task.(interface{ EnqueuedAt() time.Time }); ok {
+		waitDuration := time.Since(tw.EnqueuedAt())
+		l.metrics.RecordWaitDuration(l.config.Name, waitDuration)
+	}
+
 	l.running.Add(1)
 	defer l.running.Add(-1)
-	
+
 	startTime := time.Now()
-	
+
 	// Execute the task
 	var err error
 	if taskFunc, ok := task.(*TaskFunc); ok {
 		err = taskFunc.Execute(context.Background())
 	}
-	
+
 	processTime := time.Since(startTime)
 	l.totalProcessTime.Add(int64(processTime))
 	l.taskCount.Add(1)
-	
+
 	if err != nil {
 		l.failed.Add(1)
 	} else {
 		l.completed.Add(1)
 	}
+
+	// Record throughput
+	l.metrics.RecordThroughput(l.config.Name)
 }
 
 // Stats returns current lane statistics.
@@ -255,6 +280,13 @@ func (l *ChannelLane) SetManager(m *Manager) {
 	l.manager = m
 }
 
+// SetMetrics sets the metrics recorder for the lane.
+func (l *ChannelLane) SetMetrics(m MetricsRecorder) {
+	if m != nil {
+		l.metrics = m
+	}
+}
+
 // Run starts the main loop that distributes tasks to workers.
 func (l *ChannelLane) Run() {
 	go func() {
@@ -263,3 +295,11 @@ func (l *ChannelLane) Run() {
 		}
 	}()
 }
+
+// nopMetrics is a no-op implementation of MetricsRecorder.
+type nopMetrics struct{}
+
+func (n *nopMetrics) IncQueueDepth(laneName string)                          {}
+func (n *nopMetrics) DecQueueDepth(laneName string)                          {}
+func (n *nopMetrics) RecordWaitDuration(laneName string, duration time.Duration) {}
+func (n *nopMetrics) RecordThroughput(laneName string)                       {}
