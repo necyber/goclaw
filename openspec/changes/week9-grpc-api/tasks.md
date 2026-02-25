@@ -64,16 +64,16 @@
 
 ## 6. Batch Operations
 
-- [ ] 6.1 Implement BatchService.SubmitWorkflows handler
-- [ ] 6.2 Implement BatchService.GetWorkflowStatuses handler
-- [ ] 6.3 Implement BatchService.CancelWorkflows handler
-- [ ] 6.4 Implement BatchService.GetTaskResults handler
-- [ ] 6.5 Add parallel processing with worker pools
-- [ ] 6.6 Implement atomic batch mode (all-or-nothing)
-- [ ] 6.7 Add idempotency key support for batch submissions
-- [ ] 6.8 Implement batch size limits and validation
-- [ ] 6.9 Add pagination for large batch responses
-- [ ] 6.10 Add unit tests for batch handlers
+- [x] 6.1 Implement BatchService.SubmitWorkflows handler
+- [x] 6.2 Implement BatchService.GetWorkflowStatuses handler
+- [x] 6.3 Implement BatchService.CancelWorkflows handler
+- [x] 6.4 Implement BatchService.GetTaskResults handler
+- [x] 6.5 Add parallel processing with worker pools
+- [x] 6.6 Implement atomic batch mode (all-or-nothing)
+- [x] 6.7 Add idempotency key support for batch submissions
+- [x] 6.8 Implement batch size limits and validation
+- [x] 6.9 Add pagination for large batch responses
+- [x] 6.10 Add unit tests for batch handlers
 
 ## 7. Admin API
 
