@@ -12,13 +12,13 @@
 
 ## 2. gRPC Server Infrastructure
 
-- [ ] 2.1 Create `pkg/grpc/server.go` with server initialization and lifecycle management
-- [ ] 2.2 Add TLS/mTLS configuration support in server options
-- [ ] 2.3 Implement graceful shutdown with request draining
-- [ ] 2.4 Add server reflection support (configurable)
-- [ ] 2.5 Implement gRPC health check service (grpc.health.v1)
-- [ ] 2.6 Add connection management (limits, idle timeout, keepalive)
-- [ ] 2.7 Create `pkg/grpc/config.go` for gRPC-specific configuration
+- [x] 2.1 Create `pkg/grpc/server.go` with server initialization and lifecycle management
+- [x] 2.2 Add TLS/mTLS configuration support in server options
+- [x] 2.3 Implement graceful shutdown with request draining
+- [x] 2.4 Add server reflection support (configurable)
+- [x] 2.5 Implement gRPC health check service (grpc.health.v1)
+- [x] 2.6 Add connection management (limits, idle timeout, keepalive)
+- [x] 2.7 Create `pkg/grpc/config.go` for gRPC-specific configuration
 - [ ] 2.8 Update `config/config.go` to include gRPC server settings
 - [ ] 2.9 Modify `cmd/goclaw/main.go` to start gRPC server alongside HTTP
 
