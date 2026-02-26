@@ -74,11 +74,11 @@
 
 ## 8. API 客户端层
 
-- [ ] 8.1 创建 `web/src/api/client.ts` HTTP 客户端（基于 fetch，统一错误处理）
-- [ ] 8.2 创建 `web/src/api/workflows.ts` 工作流 API（list, get, submit, cancel）
-- [ ] 8.3 创建 `web/src/api/admin.ts` 管理 API（engine status, lane stats, pause, resume, purge）
-- [ ] 8.4 创建 `web/src/api/metrics.ts` 指标 API（fetch /metrics 端点并解析）
-- [ ] 8.5 定义 TypeScript 类型（Workflow, Task, EngineStatus, LaneStats 等）
+- [x] 8.1 创建 `web/src/api/client.ts` HTTP 客户端（基于 fetch，统一错误处理）
+- [x] 8.2 创建 `web/src/api/workflows.ts` 工作流 API（list, get, submit, cancel）
+- [x] 8.3 创建 `web/src/api/admin.ts` 管理 API（engine status, lane stats, pause, resume, purge）
+- [x] 8.4 创建 `web/src/api/metrics.ts` 指标 API（fetch /metrics 端点并解析）
+- [x] 8.5 定义 TypeScript 类型（Workflow, Task, EngineStatus, LaneStats 等）
 
 ## 9. WebSocket 客户端
 
