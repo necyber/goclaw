@@ -81,6 +81,28 @@ func TestGraph_AddEdge(t *testing.T) {
 	}
 }
 
+func TestGraph_AddEdge_CycleRejected(t *testing.T) {
+	g := NewGraph()
+
+	g.AddTask(&Task{ID: "a", Name: "A", Agent: "test"})
+	g.AddTask(&Task{ID: "b", Name: "B", Agent: "test", Deps: []string{"a"}})
+
+	err := g.AddEdge("b", "a")
+	if err == nil {
+		t.Fatal("expected error for cycle edge")
+	}
+	if _, ok := err.(*CyclicDependencyError); !ok {
+		t.Fatalf("expected CyclicDependencyError, got %T", err)
+	}
+
+	if g.HasCycle() {
+		t.Error("graph should remain acyclic after failed AddEdge")
+	}
+	if g.tasks["a"].HasDependency("b") {
+		t.Error("edge should not be added when cycle detected")
+	}
+}
+
 func TestGraph_GetTask(t *testing.T) {
 	g := NewGraph()
 	task := &Task{ID: "task1", Name: "Task 1", Agent: "test"}
@@ -197,6 +219,52 @@ func TestGraph_RemoveTask(t *testing.T) {
 	// Remove non-existent
 	if err := g.RemoveTask("nonexistent"); err == nil {
 		t.Error("expected error for non-existent task")
+	}
+}
+
+func TestGraph_RemoveTask_DegreeConsistency(t *testing.T) {
+	g := NewGraph()
+
+	g.AddTask(&Task{ID: "a", Name: "A", Agent: "test"})
+	g.AddTask(&Task{ID: "b", Name: "B", Agent: "test", Deps: []string{"a"}})
+
+	if err := g.RemoveTask("a"); err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	b, _ := g.GetTask("b")
+	if len(b.Deps) != 0 {
+		t.Error("expected b's dependencies to be cleared")
+	}
+
+	if in, err := g.InDegree("b"); err != nil || in != 0 {
+		t.Errorf("expected InDegree(b)=0, got %d (err=%v)", in, err)
+	}
+
+	if _, err := g.OutDegree("a"); err == nil {
+		t.Error("expected error for removed task out-degree")
+	}
+}
+
+func TestGraph_DegreeQueries_RebuildEdges(t *testing.T) {
+	g := NewGraph()
+
+	g.AddTask(&Task{ID: "a", Name: "A", Agent: "test"})
+	g.AddTask(&Task{ID: "b", Name: "B", Agent: "test", Deps: []string{"a"}})
+
+	if in, err := g.InDegree("b"); err != nil || in != 1 {
+		t.Errorf("expected InDegree(b)=1, got %d (err=%v)", in, err)
+	}
+	if out, err := g.OutDegree("a"); err != nil || out != 1 {
+		t.Errorf("expected OutDegree(a)=1, got %d (err=%v)", out, err)
+	}
+
+	dependents, err := g.Dependents("a")
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(dependents) != 1 || dependents[0].ID != "b" {
+		t.Errorf("expected dependents [b], got %v", dependents)
 	}
 }
 

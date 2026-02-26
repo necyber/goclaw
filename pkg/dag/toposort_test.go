@@ -108,6 +108,34 @@ func TestGraph_TopologicalSort_Caching(t *testing.T) {
 	}
 }
 
+func TestGraph_TopologicalSort_CacheInvalidation(t *testing.T) {
+	g := NewGraph()
+
+	g.AddTask(&Task{ID: "a", Name: "A", Agent: "test"})
+	g.AddTask(&Task{ID: "b", Name: "B", Agent: "test", Deps: []string{"a"}})
+
+	order1, err := g.TopologicalSort()
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+	if len(order1) != 2 {
+		t.Fatalf("expected 2 tasks, got %d", len(order1))
+	}
+
+	g.AddTask(&Task{ID: "c", Name: "C", Agent: "test", Deps: []string{"b"}})
+
+	order2, err := g.TopologicalSort()
+	if err != nil {
+		t.Fatalf("unexpected error after mutation: %v", err)
+	}
+	if len(order2) != 3 {
+		t.Fatalf("expected 3 tasks after mutation, got %d", len(order2))
+	}
+	if !g.IsTopologicalOrder(order2) {
+		t.Error("expected valid topological order after mutation")
+	}
+}
+
 func TestGraph_TopologicalSortDFS(t *testing.T) {
 	g := NewGraph()
 
