@@ -66,6 +66,7 @@ func (g *Graph) AddTask(task *Task) error {
 
 // AddEdge adds a dependency edge from 'from' to 'to' (to depends on from).
 // Returns error if either task doesn't exist or if the edge would create a cycle.
+// The graph remains unchanged when a cycle is detected.
 func (g *Graph) AddEdge(from, to string) error {
 	if from == "" || to == "" {
 		return fmt.Errorf("task IDs cannot be empty")
@@ -221,6 +222,7 @@ func (g *Graph) Dependencies(id string) ([]*Task, error) {
 }
 
 // Dependents returns the tasks that depend on the given task.
+// Rebuilds edge metadata if the graph is marked dirty.
 func (g *Graph) Dependents(id string) ([]*Task, error) {
 	if _, exists := g.tasks[id]; !exists {
 		return nil, &TaskNotFoundError{ID: id}
@@ -239,6 +241,7 @@ func (g *Graph) Dependents(id string) ([]*Task, error) {
 }
 
 // InDegree returns the number of dependencies for a task.
+// Rebuilds edge metadata if the graph is marked dirty.
 func (g *Graph) InDegree(id string) (int, error) {
 	if _, exists := g.tasks[id]; !exists {
 		return 0, &TaskNotFoundError{ID: id}
@@ -248,6 +251,7 @@ func (g *Graph) InDegree(id string) (int, error) {
 }
 
 // OutDegree returns the number of tasks that depend on the given task.
+// Rebuilds edge metadata if the graph is marked dirty.
 func (g *Graph) OutDegree(id string) (int, error) {
 	if _, exists := g.tasks[id]; !exists {
 		return 0, &TaskNotFoundError{ID: id}
