@@ -299,6 +299,9 @@ func (g *Graph) rebuildEdges() {
 		return
 	}
 
+	// Invalidate cached topological order when structure changes.
+	g.sorted = nil
+
 	// Clear existing edges and degrees
 	g.edges = make(map[string][]string, len(g.tasks))
 	g.inDegree = make(map[string]int, len(g.tasks))
