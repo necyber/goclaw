@@ -109,10 +109,17 @@ func TestServerStartup(t *testing.T) {
 	// Initialize HTTP server with handlers
 	workflowHandler := handlers.NewWorkflowHandler(eng, log)
 	healthHandler := handlers.NewHealthHandler(eng)
+	wsHandler := handlers.NewWebSocketHandler(log, handlers.WebSocketConfig{
+		AllowedOrigins: cfg.Server.CORS.AllowedOrigins,
+		MaxConnections: 10,
+		PingInterval:   30 * time.Second,
+		PongTimeout:    10 * time.Second,
+	})
 
 	apiHandlers := &api.Handlers{
-		Workflow: workflowHandler,
-		Health:   healthHandler,
+		Workflow:  workflowHandler,
+		Health:    healthHandler,
+		WebSocket: wsHandler,
 	}
 
 	httpServer := api.NewHTTPServer(cfg, log, apiHandlers)
@@ -169,7 +176,20 @@ func TestServerStartup(t *testing.T) {
 		t.Errorf("Status endpoint returned status %d, want %d", resp.StatusCode, http.StatusOK)
 	}
 
-	// Graceful shutdown
+	// Validate websocket route registration in startup path.
+	wsResp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/ws/events", cfg.Server.Port))
+	if err != nil {
+		t.Fatalf("Failed to call websocket endpoint: %v", err)
+	}
+	defer wsResp.Body.Close()
+	if wsResp.StatusCode != http.StatusBadRequest {
+		t.Fatalf("Websocket endpoint status = %d, want %d", wsResp.StatusCode, http.StatusBadRequest)
+	}
+
+	// Graceful shutdown sequence aligns with main: close websocket manager first, then HTTP server.
+	wsHandler.Close()
+
+	// Graceful shutdown.
 	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
 

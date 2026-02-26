@@ -168,7 +168,7 @@
 - [x] 15.3 传递 WebSocket handler 到 API Server
 - [x] 15.4 在 shutdown 时关闭所有 WebSocket 连接
 - [x] 15.5 添加 UI 启动日志（"Web UI available at http://localhost:8080/ui"）
-- [ ] 15.6 测试完整启动和关闭流程
+- [x] 15.6 测试完整启动和关闭流程
 
 ## 16. 测试
 
