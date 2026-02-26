@@ -65,7 +65,7 @@ func (e *CyclicDependencyError) Error() string {
 	if len(e.Path) == 0 {
 		return "cyclic dependency detected"
 	}
-	return fmt.Sprintf("cyclic dependency detected: %s", strings.Join(e.Path, " → "))
+	return fmt.Sprintf("cyclic dependency detected: %s", strings.Join(e.Path, " -> "))
 }
 
 // TaskID returns the first task ID in the cycle.
