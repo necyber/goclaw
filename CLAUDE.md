@@ -8,12 +8,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 # Build
 make build          # Build binary to ./bin/goclaw
 make build-race     # Build with race detector
+make build-ui       # Build frontend assets into web/dist
 
 # Test
 make test           # Run all tests with race detector
 make test-short     # Run short tests only
 make test-coverage  # Generate HTML coverage report
 go test ./pkg/dag/... -run TestName  # Run a single test
+cd web && npm run test               # Run frontend vitest suite
 
 # Integration & Benchmark Tests
 go test ./pkg/api -run TestIntegration  # Run integration tests
@@ -24,10 +26,12 @@ make fmt            # Format code
 make vet            # Run go vet
 make lint           # Run golangci-lint (requires golangci-lint installed)
 make check          # Run fmt + vet + test + lint
+cd web && npm run lint               # Run eslint + prettier check
 
 # Run
 make run            # Build and run
 make run-dev        # Hot reload (requires air)
+cd web && npm run dev                # Frontend dev server (Vite, default :5173)
 
 # API Documentation
 # Generate Swagger docs after modifying API handlers
@@ -90,6 +94,17 @@ Goclaw is a distributed multi-agent orchestration engine. The core execution mod
 **`pkg/logger/`** — Thin wrapper around Go's `log/slog` with JSON/text format and file/stdout output.
 
 **`cmd/goclaw/main.go`** — CLI entry point: loads config, initializes logger, starts engine and HTTP server, handles graceful shutdown on SIGINT/SIGTERM.
+
+### Web UI architecture
+
+- `web/` is a Vite + React + TypeScript SPA.
+- `web/src/api/*` wraps REST and Prometheus metrics endpoints.
+- `web/src/lib/websocket.ts` handles `/ws/events` connection lifecycle and subscriptions.
+- `web/src/stores/*` uses Zustand for workflows, websocket, and theme state.
+- `web/src/pages/*` and `web/src/components/*` provide dashboard and management views.
+- `pkg/api/router.go` mounts `/ui/*` static routes and `/ws/events` websocket endpoint.
+- `pkg/api/ui_embed.go` + `pkg/api/ui_noembed.go` switch embedded UI behavior via build tags.
+- Production serving uses embedded assets (`-tags embed_ui`); development can proxy to Vite via `ui.dev_proxy`.
 
 ### Distributed lane + signal integration notes
 

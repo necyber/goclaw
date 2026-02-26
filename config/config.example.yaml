@@ -100,9 +100,9 @@ server:
 # Web UI configuration
 ui:
   enabled: true
-  base_path: "/ui"                      # Must start with "/"
-  dev_proxy: ""                         # Example: "http://localhost:5173" for Vite dev server
-  max_ws_connections: 100               # Max concurrent /ws/events websocket clients
+  base_path: "/ui"                      # Public UI mount path, must start with "/"
+  dev_proxy: ""                         # Optional Vite proxy URL in dev mode, e.g. "http://localhost:5173"
+  max_ws_connections: 100               # Max concurrent /ws/events clients (per API process)
 
 # Logging configuration
 log:

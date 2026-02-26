@@ -48,6 +48,18 @@ make test
 make run
 ```
 
+### Web UI
+
+The built-in Web UI is served by the same Go binary and is enabled by default.
+
+- Open `http://localhost:8080/ui` after starting the server.
+- Real-time workflow updates are pushed through `GET /ws/events`.
+- In local frontend development, set `ui.dev_proxy` to your Vite dev server (for example `http://localhost:5173`).
+
+**Screenshot (placeholder):**
+
+![Web UI screenshot placeholder](docs/images/web-ui-screenshot-placeholder.svg)
+
 ### Installation
 
 ```bash
