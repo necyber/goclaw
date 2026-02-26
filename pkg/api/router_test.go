@@ -292,6 +292,43 @@ func TestRegisterRoutes_UIDevProxy(t *testing.T) {
 	}
 }
 
+func TestRegisterRoutes_UIDevProxyInvalidFallsBack(t *testing.T) {
+	cfg := &config.Config{
+		Server: config.ServerConfig{
+			HTTP: config.HTTPConfig{
+				ReadTimeout: 30 * time.Second,
+			},
+			CORS: config.CORSConfig{
+				Enabled: false,
+			},
+		},
+		UI: config.UIConfig{
+			Enabled:  true,
+			BasePath: "ui", // missing leading slash, should be normalized
+			DevProxy: "://invalid-url",
+		},
+	}
+
+	log := logger.New(&logger.Config{
+		Level:  logger.InfoLevel,
+		Format: "json",
+		Output: "stdout",
+	})
+
+	router := NewRouter(cfg, log, &Handlers{})
+
+	req := httptest.NewRequest(http.MethodGet, "/ui", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotImplemented {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusNotImplemented)
+	}
+	if !strings.Contains(w.Body.String(), "UI not included") {
+		t.Fatalf("unexpected response body: %q", w.Body.String())
+	}
+}
+
 func TestRegisterRoutes_WebSocket(t *testing.T) {
 	cfg := &config.Config{
 		Server: config.ServerConfig{

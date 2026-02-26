@@ -218,3 +218,53 @@ func TestErrorCodeFromStatus(t *testing.T) {
 		})
 	}
 }
+
+func TestHandleError(t *testing.T) {
+	w := httptest.NewRecorder()
+	HandleError(w, ErrNotFound, "req-handle")
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusNotFound)
+	}
+
+	var resp ErrorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+
+	if resp.Error.Code != ErrCodeNotFound {
+		t.Fatalf("code = %s, want %s", resp.Error.Code, ErrCodeNotFound)
+	}
+	if resp.Error.RequestID != "req-handle" {
+		t.Fatalf("request_id = %s, want req-handle", resp.Error.RequestID)
+	}
+}
+
+func TestErrorWithDetails(t *testing.T) {
+	w := httptest.NewRecorder()
+	details := map[string]interface{}{"field": "name", "reason": "required"}
+	ErrorWithDetails(
+		w,
+		http.StatusBadRequest,
+		ErrCodeValidationFailed,
+		"validation failed",
+		details,
+		"req-details",
+	)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusBadRequest)
+	}
+
+	var resp ErrorResponse
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("failed to unmarshal response: %v", err)
+	}
+
+	if resp.Error.Code != ErrCodeValidationFailed {
+		t.Fatalf("code = %s, want %s", resp.Error.Code, ErrCodeValidationFailed)
+	}
+	if resp.Error.Details["field"] != "name" {
+		t.Fatalf("details.field = %v, want name", resp.Error.Details["field"])
+	}
+}

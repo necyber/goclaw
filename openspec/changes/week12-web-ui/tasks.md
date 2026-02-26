@@ -190,6 +190,6 @@
 - [x] 17.5 运行前端 lint（eslint + prettier）
 - [x] 17.6 运行 `golangci-lint`
 - [x] 17.7 修复所有 lint 警告
-- [ ] 17.8 更新 go.mod 和 go.sum
-- [ ] 17.9 验证 Go 测试覆盖率 > 80%
-- [ ] 17.10 验证前端构建产物体积 < 5MB（Gzip 前）
+- [x] 17.8 更新 go.mod 和 go.sum
+- [x] 17.9 验证 Go 测试覆盖率 > 80%
+- [x] 17.10 验证前端构建产物体积 < 5MB（Gzip 前）
