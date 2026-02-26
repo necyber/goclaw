@@ -2,6 +2,8 @@ package logger
 
 import (
 	"context"
+	"os"
+	"path/filepath"
 	"testing"
 )
 
@@ -160,4 +162,114 @@ func TestSetLevel(t *testing.T) {
 	// Should not panic
 	SetLevel(DebugLevel)
 	SetLevel(InfoLevel)
+}
+
+func TestSlogLogger_Close(t *testing.T) {
+	t.Run("stdout output returns nil closer", func(t *testing.T) {
+		cfg := &Config{
+			Level:  InfoLevel,
+			Format: "text",
+			Output: "stdout",
+		}
+		log := New(cfg).(*SlogLogger)
+
+		// Close should return nil for stdout
+		if err := log.Close(); err != nil {
+			t.Errorf("expected nil error, got %v", err)
+		}
+	})
+
+	t.Run("stderr output returns nil closer", func(t *testing.T) {
+		cfg := &Config{
+			Level:  InfoLevel,
+			Format: "text",
+			Output: "stderr",
+		}
+		log := New(cfg).(*SlogLogger)
+
+		if err := log.Close(); err != nil {
+			t.Errorf("expected nil error, got %v", err)
+		}
+	})
+
+	t.Run("file output can be closed", func(t *testing.T) {
+		tmpDir := t.TempDir()
+		logFile := filepath.Join(tmpDir, "test.log")
+
+		cfg := &Config{
+			Level:  InfoLevel,
+			Format: "json",
+			Output: logFile,
+		}
+		log := New(cfg).(*SlogLogger)
+
+		// Write something
+		log.Info("test message", "key", "value")
+
+		// Close should work
+		if err := log.Close(); err != nil {
+			t.Errorf("unexpected error on close: %v", err)
+		}
+
+		// Verify file was created and has content
+		content, err := os.ReadFile(logFile)
+		if err != nil {
+			t.Fatalf("failed to read log file: %v", err)
+		}
+		if len(content) == 0 {
+			t.Error("expected log file to have content")
+		}
+	})
+
+	t.Run("derived logger has nil closer", func(t *testing.T) {
+		cfg := &Config{
+			Level:  InfoLevel,
+			Format: "text",
+			Output: "stdout",
+		}
+		log := New(cfg).With("component", "test").(*SlogLogger)
+
+		// Derived loggers have nil closer
+		if err := log.Close(); err != nil {
+			t.Errorf("expected nil error for derived logger, got %v", err)
+		}
+	})
+
+	t.Run("invalid path falls back to stdout", func(t *testing.T) {
+		cfg := &Config{
+			Level:  InfoLevel,
+			Format: "text",
+			Output: "/nonexistent/path/to/file.log",
+		}
+		log := New(cfg).(*SlogLogger)
+
+		// Should not panic and should have nil closer (stdout fallback)
+		if err := log.Close(); err != nil {
+			t.Errorf("expected nil error for stdout fallback, got %v", err)
+		}
+	})
+}
+
+func TestGetWriter(t *testing.T) {
+	tests := []struct {
+		name       string
+		output     string
+		wantCloser bool
+	}{
+		{"stdout", "stdout", false},
+		{"stderr", "stderr", false},
+		{"empty", "", false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			_, closer := getWriter(tt.output)
+			if tt.wantCloser && closer == nil {
+				t.Error("expected non-nil closer")
+			}
+			if !tt.wantCloser && closer != nil {
+				t.Error("expected nil closer")
+			}
+		})
+	}
 }

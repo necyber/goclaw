@@ -75,12 +75,16 @@ type Logger interface {
 
 	SetLevel(level Level)
 	GetLevel() Level
+
+	// Close closes any resources held by the logger (e.g., file handles).
+	Close() error
 }
 
 // SlogLogger is a Logger implementation using log/slog.
 type SlogLogger struct {
 	logger *slog.Logger
 	level  *slog.LevelVar
+	closer io.Closer // holds the closer for file output, if any
 }
 
 var (
@@ -119,7 +123,7 @@ func New(cfg *Config) Logger {
 		ReplaceAttr: replaceAttr,
 	}
 
-	writer := getWriter(cfg.Output)
+	writer, closer := getWriter(cfg.Output)
 
 	if cfg.Format == "text" {
 		handler = slog.NewTextHandler(writer, opts)
@@ -130,26 +134,28 @@ func New(cfg *Config) Logger {
 	return &SlogLogger{
 		logger: slog.New(handler),
 		level:  levelVar,
+		closer: closer,
 	}
 }
 
-// getWriter returns an io.Writer for the given output specification.
-func getWriter(output string) io.Writer {
+// getWriter returns an io.Writer and io.Closer for the given output specification.
+// The closer may be nil if the output doesn't need explicit closing (e.g., stdout/stderr).
+func getWriter(output string) (io.Writer, io.Closer) {
 	switch output {
 	case "stdout":
-		return os.Stdout
+		return os.Stdout, nil
 	case "stderr":
-		return os.Stderr
+		return os.Stderr, nil
 	case "":
-		return os.Stdout
+		return os.Stdout, nil
 	default:
 		// Try to open as file
 		f, err := os.OpenFile(output, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0666)
 		if err != nil {
 			// Fall back to stdout on error
-			return os.Stdout
+			return os.Stdout, nil
 		}
-		return f
+		return f, f
 	}
 }
 
@@ -227,6 +233,7 @@ func (l *SlogLogger) With(args ...any) Logger {
 	return &SlogLogger{
 		logger: l.logger.With(args...),
 		level:  l.level,
+		closer: nil, // derived loggers don't own the closer
 	}
 }
 
@@ -245,6 +252,15 @@ func (l *SlogLogger) GetLevel() Level {
 	// This is a simplification - slog doesn't expose the current level
 	// In production, you'd track this separately
 	return InfoLevel
+}
+
+// Close closes any resources held by the logger.
+// This is important when logging to a file to ensure all data is flushed.
+func (l *SlogLogger) Close() error {
+	if l.closer != nil {
+		return l.closer.Close()
+	}
+	return nil
 }
 
 type loggerKey struct{}
