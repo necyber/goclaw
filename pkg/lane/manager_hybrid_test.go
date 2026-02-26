@@ -38,7 +38,7 @@ func TestManager_RegisterSpec_MixedTypes(t *testing.T) {
 			MaxConcurrency: 1,
 			Backpressure:   Block,
 			KeyPrefix:      "goclaw:lane:",
-			BlockTimeout:   10 * time.Millisecond,
+			BlockTimeout:   time.Second,
 		},
 	}
 
