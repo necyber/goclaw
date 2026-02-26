@@ -12,7 +12,7 @@ type TokenBucket struct {
 	capacity   float64   // bucket capacity
 	tokens     float64   // current tokens
 	lastUpdate time.Time // last time tokens were updated
-	
+
 	mu sync.Mutex
 }
 
@@ -33,9 +33,9 @@ func NewTokenBucket(rate, capacity float64) *TokenBucket {
 func (tb *TokenBucket) Allow() bool {
 	tb.mu.Lock()
 	defer tb.mu.Unlock()
-	
+
 	tb.addTokens(time.Now())
-	
+
 	if tb.tokens >= 1 {
 		tb.tokens--
 		return true
@@ -50,11 +50,11 @@ func (tb *TokenBucket) Wait(ctx context.Context) error {
 	if tb.Allow() {
 		return nil
 	}
-	
+
 	// Slow path: wait for a token
 	ticker := time.NewTicker(time.Millisecond * 10)
 	defer ticker.Stop()
-	
+
 	for {
 		select {
 		case <-ctx.Done():
@@ -72,7 +72,7 @@ func (tb *TokenBucket) Wait(ctx context.Context) error {
 func (tb *TokenBucket) WaitTimeout(timeout time.Duration) bool {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
-	
+
 	return tb.Wait(ctx) == nil
 }
 
@@ -80,11 +80,11 @@ func (tb *TokenBucket) WaitTimeout(timeout time.Duration) bool {
 func (tb *TokenBucket) addTokens(now time.Time) {
 	elapsed := now.Sub(tb.lastUpdate).Seconds()
 	tb.tokens += elapsed * tb.rate
-	
+
 	if tb.tokens > tb.capacity {
 		tb.tokens = tb.capacity
 	}
-	
+
 	tb.lastUpdate = now
 }
 
@@ -92,7 +92,7 @@ func (tb *TokenBucket) addTokens(now time.Time) {
 func (tb *TokenBucket) Tokens() float64 {
 	tb.mu.Lock()
 	defer tb.mu.Unlock()
-	
+
 	tb.addTokens(time.Now())
 	return tb.tokens
 }
@@ -111,7 +111,7 @@ func (tb *TokenBucket) Capacity() float64 {
 func (tb *TokenBucket) SetRate(rate float64) {
 	tb.mu.Lock()
 	defer tb.mu.Unlock()
-	
+
 	tb.rate = rate
 }
 
@@ -119,7 +119,7 @@ func (tb *TokenBucket) SetRate(rate float64) {
 func (tb *TokenBucket) SetCapacity(capacity float64) {
 	tb.mu.Lock()
 	defer tb.mu.Unlock()
-	
+
 	tb.capacity = capacity
 	if tb.tokens > capacity {
 		tb.tokens = capacity
@@ -145,16 +145,16 @@ func NewLeakyBucket(rate float64, capacity int) *LeakyBucket {
 		queue:    make(chan struct{}, capacity),
 		stopCh:   make(chan struct{}),
 	}
-	
+
 	// Start the leak goroutine
 	interval := time.Second / time.Duration(rate)
 	if interval < time.Millisecond {
 		interval = time.Millisecond
 	}
 	lb.leakTicker = time.NewTicker(interval)
-	
+
 	go lb.leak()
-	
+
 	return lb
 }
 

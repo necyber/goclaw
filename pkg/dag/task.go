@@ -102,14 +102,14 @@ func (t *Task) Validate() error {
 // Clone creates a deep copy of the task.
 func (t *Task) Clone() *Task {
 	cloned := &Task{
-		ID:       t.ID,
-		Name:     t.Name,
-		Agent:    t.Agent,
-		Lane:     t.Lane,
-		Timeout:  t.Timeout,
-		Retries:  t.Retries,
-		Input:    t.Input,
-		Output:   t.Output,
+		ID:      t.ID,
+		Name:    t.Name,
+		Agent:   t.Agent,
+		Lane:    t.Lane,
+		Timeout: t.Timeout,
+		Retries: t.Retries,
+		Input:   t.Input,
+		Output:  t.Output,
 	}
 
 	if t.Deps != nil {

@@ -53,8 +53,8 @@ func (e *DuplicateLaneError) Error() string {
 
 // RateLimitError is returned when rate limit is exceeded.
 type RateLimitError struct {
-	LaneName  string
-	WaitTime  float64 // seconds
+	LaneName string
+	WaitTime float64 // seconds
 }
 
 func (e *RateLimitError) Error() string {

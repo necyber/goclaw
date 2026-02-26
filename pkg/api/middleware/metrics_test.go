@@ -26,7 +26,7 @@ func (m *mockMetricsRecorder) DecActiveConnections() {
 
 func TestMetrics_Success(t *testing.T) {
 	mock := &mockMetricsRecorder{}
-	
+
 	handler := Metrics(mock)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 		w.Write([]byte("OK"))
@@ -52,7 +52,7 @@ func TestMetrics_Success(t *testing.T) {
 
 func TestMetrics_SkipMetricsEndpoint(t *testing.T) {
 	mock := &mockMetricsRecorder{}
-	
+
 	handler := Metrics(mock)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	}))
@@ -69,7 +69,7 @@ func TestMetrics_SkipMetricsEndpoint(t *testing.T) {
 
 func TestMetrics_CaptureStatusCode(t *testing.T) {
 	mock := &mockMetricsRecorder{}
-	
+
 	handler := Metrics(mock)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
 	}))
@@ -90,7 +90,7 @@ func TestMetrics_CaptureStatusCode(t *testing.T) {
 
 func TestMetrics_HandlePanic(t *testing.T) {
 	mock := &mockMetricsRecorder{}
-	
+
 	handler := Metrics(mock)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		panic("test panic")
 	}))

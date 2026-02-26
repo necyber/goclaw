@@ -315,7 +315,6 @@ func TestEngine_Submit_ThreeLayerDAG(t *testing.T) {
 	}
 }
 
-
 func TestEngine_Submit_TaskFailure(t *testing.T) {
 	eng, _ := New(minConfig(), nil, memory.NewMemoryStorage())
 	ctx := context.Background()

@@ -20,27 +20,27 @@ type ErrorDetail struct {
 
 // Common error codes
 const (
-	ErrCodeBadRequest          = "BAD_REQUEST"
-	ErrCodeUnauthorized        = "UNAUTHORIZED"
-	ErrCodeForbidden           = "FORBIDDEN"
-	ErrCodeNotFound            = "NOT_FOUND"
-	ErrCodeMethodNotAllowed    = "METHOD_NOT_ALLOWED"
-	ErrCodeConflict            = "CONFLICT"
-	ErrCodeValidationFailed    = "VALIDATION_FAILED"
-	ErrCodeInternalServer      = "INTERNAL_SERVER_ERROR"
-	ErrCodeServiceUnavailable  = "SERVICE_UNAVAILABLE"
-	ErrCodeGatewayTimeout      = "GATEWAY_TIMEOUT"
+	ErrCodeBadRequest         = "BAD_REQUEST"
+	ErrCodeUnauthorized       = "UNAUTHORIZED"
+	ErrCodeForbidden          = "FORBIDDEN"
+	ErrCodeNotFound           = "NOT_FOUND"
+	ErrCodeMethodNotAllowed   = "METHOD_NOT_ALLOWED"
+	ErrCodeConflict           = "CONFLICT"
+	ErrCodeValidationFailed   = "VALIDATION_FAILED"
+	ErrCodeInternalServer     = "INTERNAL_SERVER_ERROR"
+	ErrCodeServiceUnavailable = "SERVICE_UNAVAILABLE"
+	ErrCodeGatewayTimeout     = "GATEWAY_TIMEOUT"
 )
 
 // Common errors
 var (
-	ErrNotFound            = errors.New("resource not found")
-	ErrInvalidInput        = errors.New("invalid input")
-	ErrValidationFailed    = errors.New("validation failed")
-	ErrConflict            = errors.New("resource conflict")
-	ErrServiceUnavailable  = errors.New("service unavailable")
-	ErrTimeout             = errors.New("request timeout")
-	ErrInternalServer      = errors.New("internal server error")
+	ErrNotFound           = errors.New("resource not found")
+	ErrInvalidInput       = errors.New("invalid input")
+	ErrValidationFailed   = errors.New("validation failed")
+	ErrConflict           = errors.New("resource conflict")
+	ErrServiceUnavailable = errors.New("service unavailable")
+	ErrTimeout            = errors.New("request timeout")
+	ErrInternalServer     = errors.New("internal server error")
 )
 
 // HTTPStatusFromError maps common errors to HTTP status codes.

@@ -10,13 +10,13 @@ type WorkerPool struct {
 	maxWorkers int
 	taskCh     chan Task
 	workerFn   func(Task)
-	
+
 	// State
-	running    atomic.Bool
-	stopCh     chan struct{}
-	stopOnce   sync.Once
-	wg         sync.WaitGroup
-	
+	running  atomic.Bool
+	stopCh   chan struct{}
+	stopOnce sync.Once
+	wg       sync.WaitGroup
+
 	// Metrics
 	tasksProcessed atomic.Int64
 }
@@ -36,9 +36,9 @@ func (p *WorkerPool) Start() {
 	if p.running.Load() {
 		return
 	}
-	
+
 	p.running.Store(true)
-	
+
 	// Start workers
 	for i := 0; i < p.maxWorkers; i++ {
 		p.wg.Add(1)
@@ -62,7 +62,7 @@ func (p *WorkerPool) Submit(task Task) {
 	if !p.running.Load() {
 		return
 	}
-	
+
 	select {
 	case p.taskCh <- task:
 	case <-p.stopCh:
@@ -76,7 +76,7 @@ func (p *WorkerPool) TrySubmit(task Task) bool {
 	if !p.running.Load() {
 		return false
 	}
-	
+
 	select {
 	case p.taskCh <- task:
 		return true
@@ -88,7 +88,7 @@ func (p *WorkerPool) TrySubmit(task Task) bool {
 // worker is the main loop for each worker goroutine.
 func (p *WorkerPool) worker(id int) {
 	defer p.wg.Done()
-	
+
 	for {
 		select {
 		case task, ok := <-p.taskCh:
@@ -138,10 +138,10 @@ func (p *WorkerPool) IsRunning() bool {
 // DynamicWorkerPool is a worker pool that can dynamically adjust its size.
 type DynamicWorkerPool struct {
 	*WorkerPool
-	
+
 	minWorkers int
 	maxWorkers int
-	
+
 	// Metrics for auto-scaling
 	idleTime    atomic.Int64
 	busyCount   atomic.Int32
@@ -164,15 +164,15 @@ func (p *DynamicWorkerPool) Start() {
 	if p.running.Load() {
 		return
 	}
-	
+
 	p.running.Store(true)
-	
+
 	// Start minimum number of workers
 	for i := 0; i < p.minWorkers; i++ {
 		p.wg.Add(1)
 		go p.worker(i)
 	}
-	
+
 	// Start auto-scaling goroutine
 	go p.autoScale()
 }
@@ -180,7 +180,7 @@ func (p *DynamicWorkerPool) Start() {
 // autoScale handles dynamic scaling of workers.
 func (p *DynamicWorkerPool) autoScale() {
 	currentWorkers := p.minWorkers
-	
+
 	for {
 		select {
 		case <-p.stopCh:

@@ -211,11 +211,11 @@ func (s *WorkflowServiceServer) GetWorkflowStatus(ctx context.Context, req *pb.G
 	pbTasks := make([]*pb.TaskStatusDetail, len(ws.Tasks))
 	for i, t := range ws.Tasks {
 		pbTasks[i] = &pb.TaskStatusDetail{
-			TaskId:      t.TaskID,
-			Name:        t.Name,
-			Status:      convertToProtoTaskStatus(t.Status),
-			StartedAt:   timestampFromUnix(t.StartedAt),
-			CompletedAt: timestampFromUnix(t.CompletedAt),
+			TaskId:       t.TaskID,
+			Name:         t.Name,
+			Status:       convertToProtoTaskStatus(t.Status),
+			StartedAt:    timestampFromUnix(t.StartedAt),
+			CompletedAt:  timestampFromUnix(t.CompletedAt),
 			ErrorMessage: t.ErrorMsg,
 		}
 	}

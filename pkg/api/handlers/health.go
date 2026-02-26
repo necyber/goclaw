@@ -71,5 +71,3 @@ func (h *HealthHandler) Status(w http.ResponseWriter, r *http.Request) {
 	status := h.engine.GetStatus()
 	response.JSON(w, http.StatusOK, status)
 }
-
-

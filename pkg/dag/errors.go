@@ -92,8 +92,8 @@ func (e *SelfDependencyError) TaskID() string {
 
 // InvalidEdgeError is returned when an invalid edge is added.
 type InvalidEdgeError struct {
-	From string
-	To   string
+	From   string
+	To     string
 	Reason string
 }
 

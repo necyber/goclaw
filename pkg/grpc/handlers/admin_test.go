@@ -13,26 +13,26 @@ import (
 
 // Mock AdminEngine for testing
 type mockAdminEngine struct {
-	state              string
-	metrics            *EngineMetrics
-	uptime             time.Time
-	lastError          string
-	healthy            bool
-	updateConfigErr    error
-	listNodesErr       error
-	addNodeErr         error
-	removeNodeErr      error
-	pauseErr           error
-	resumeErr          error
-	purgeErr           error
-	laneStatsErr       error
-	exportMetricsErr   error
-	nodes              []*ClusterNode
-	pausedCount        int32
-	resumedCount       int32
-	purgedCount        int32
-	laneStats          []*LaneStats
-	metricsData        string
+	state            string
+	metrics          *EngineMetrics
+	uptime           time.Time
+	lastError        string
+	healthy          bool
+	updateConfigErr  error
+	listNodesErr     error
+	addNodeErr       error
+	removeNodeErr    error
+	pauseErr         error
+	resumeErr        error
+	purgeErr         error
+	laneStatsErr     error
+	exportMetricsErr error
+	nodes            []*ClusterNode
+	pausedCount      int32
+	resumedCount     int32
+	purgedCount      int32
+	laneStats        []*LaneStats
+	metricsData      string
 }
 
 func (m *mockAdminEngine) GetEngineState() string {

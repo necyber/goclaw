@@ -76,15 +76,15 @@ func AuthorizationStreamInterceptor() grpc.StreamServerInterceptor {
 func requiresAdminRole(method string) bool {
 	// Admin-only methods (from AdminService)
 	adminMethods := map[string]bool{
-		"/goclaw.v1.AdminService/GetEngineStatus":  true,
-		"/goclaw.v1.AdminService/UpdateConfig":     true,
-		"/goclaw.v1.AdminService/ManageCluster":    true,
-		"/goclaw.v1.AdminService/PauseWorkflows":   true,
-		"/goclaw.v1.AdminService/ResumeWorkflows":  true,
-		"/goclaw.v1.AdminService/PurgeWorkflows":   true,
-		"/goclaw.v1.AdminService/GetLaneStats":     true,
-		"/goclaw.v1.AdminService/ExportMetrics":    true,
-		"/goclaw.v1.AdminService/GetDebugInfo":     true,
+		"/goclaw.v1.AdminService/GetEngineStatus": true,
+		"/goclaw.v1.AdminService/UpdateConfig":    true,
+		"/goclaw.v1.AdminService/ManageCluster":   true,
+		"/goclaw.v1.AdminService/PauseWorkflows":  true,
+		"/goclaw.v1.AdminService/ResumeWorkflows": true,
+		"/goclaw.v1.AdminService/PurgeWorkflows":  true,
+		"/goclaw.v1.AdminService/GetLaneStats":    true,
+		"/goclaw.v1.AdminService/ExportMetrics":   true,
+		"/goclaw.v1.AdminService/GetDebugInfo":    true,
 	}
 
 	return adminMethods[method]

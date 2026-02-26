@@ -12,11 +12,11 @@ import (
 
 // MockWorkflowEngine is a mock implementation of WorkflowEngine for testing
 type MockWorkflowEngine struct {
-	SubmitWorkflowFunc      func(ctx context.Context, name string, tasks []WorkflowTask) (string, error)
-	GetWorkflowStatusFunc   func(ctx context.Context, workflowID string) (*WorkflowStatus, error)
-	ListWorkflowsFunc       func(ctx context.Context, filter WorkflowFilter) ([]*WorkflowSummary, string, error)
-	CancelWorkflowFunc      func(ctx context.Context, workflowID string, force bool) error
-	GetTaskResultFunc       func(ctx context.Context, workflowID, taskID string) (*TaskResult, error)
+	SubmitWorkflowFunc    func(ctx context.Context, name string, tasks []WorkflowTask) (string, error)
+	GetWorkflowStatusFunc func(ctx context.Context, workflowID string) (*WorkflowStatus, error)
+	ListWorkflowsFunc     func(ctx context.Context, filter WorkflowFilter) ([]*WorkflowSummary, string, error)
+	CancelWorkflowFunc    func(ctx context.Context, workflowID string, force bool) error
+	GetTaskResultFunc     func(ctx context.Context, workflowID, taskID string) (*TaskResult, error)
 }
 
 func (m *MockWorkflowEngine) SubmitWorkflow(ctx context.Context, name string, tasks []WorkflowTask) (string, error) {

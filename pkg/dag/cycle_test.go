@@ -22,13 +22,13 @@ func TestGraph_DetectCycle_SelfLoop(t *testing.T) {
 	g := NewGraph()
 
 	g.AddTask(&Task{ID: "a", Name: "A", Agent: "test"})
-	
+
 	// Try to add self-loop via AddEdge (should return error)
 	err := g.AddEdge("a", "a")
 	if err == nil {
 		t.Fatal("expected error for self-loop via AddEdge")
 	}
-	
+
 	// Create self-loop by manually modifying task (simulating load from invalid config)
 	g.tasks["a"].Deps = []string{"a"}
 	g.dirty = true

@@ -10,14 +10,14 @@ import (
 
 // Subscriber represents a workflow event subscriber
 type Subscriber struct {
-	ID            string
-	WorkflowID    string
-	EventChan     chan interface{}
-	ErrorChan     chan error
-	LastSequence  int64
-	CreatedAt     time.Time
-	BufferSize    int
-	SlowConsumer  bool
+	ID           string
+	WorkflowID   string
+	EventChan    chan interface{}
+	ErrorChan    chan error
+	LastSequence int64
+	CreatedAt    time.Time
+	BufferSize   int
+	SlowConsumer bool
 }
 
 // SubscriberRegistry manages streaming subscribers

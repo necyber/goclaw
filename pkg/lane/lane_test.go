@@ -538,9 +538,9 @@ func TestBackpressureStrategy_String(t *testing.T) {
 
 func TestStats_Utilization(t *testing.T) {
 	tests := []struct {
-		name string
+		name  string
 		stats Stats
-		want float64
+		want  float64
 	}{
 		{
 			name: "empty",

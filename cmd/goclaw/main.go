@@ -42,15 +42,15 @@ import (
 )
 
 var (
-	configPath = flag.String("config", "", "Path to configuration file")
+	configPath  = flag.String("config", "", "Path to configuration file")
 	versionFlag = flag.Bool("version", false, "Print version information")
 	helpFlag    = flag.Bool("help", false, "Print help information")
 
 	// CLI overrides
-	appName     = flag.String("app-name", "", "Override app name")
-	serverPort  = flag.Int("port", 0, "Override server port")
-	logLevel    = flag.String("log-level", "", "Override log level")
-	debugMode   = flag.Bool("debug", false, "Enable debug mode")
+	appName    = flag.String("app-name", "", "Override app name")
+	serverPort = flag.Int("port", 0, "Override server port")
+	logLevel   = flag.String("log-level", "", "Override log level")
+	debugMode  = flag.Bool("debug", false, "Enable debug mode")
 )
 
 func main() {

@@ -19,14 +19,14 @@ import (
 
 // Client is the gRPC client for Goclaw
 type Client struct {
-	conn              *grpc.ClientConn
-	workflowClient    pb.WorkflowServiceClient
-	streamingClient   pb.StreamingServiceClient
-	batchClient       pb.BatchServiceClient
-	adminClient       pb.AdminServiceClient
-	healthClient      grpc_health_v1.HealthClient
-	opts              *Options
-	retryPolicy       *RetryPolicy
+	conn            *grpc.ClientConn
+	workflowClient  pb.WorkflowServiceClient
+	streamingClient pb.StreamingServiceClient
+	batchClient     pb.BatchServiceClient
+	adminClient     pb.AdminServiceClient
+	healthClient    grpc_health_v1.HealthClient
+	opts            *Options
+	retryPolicy     *RetryPolicy
 }
 
 // Options contains client configuration options
@@ -63,9 +63,9 @@ type KeepAliveOptions struct {
 
 // RetryPolicy defines retry behavior
 type RetryPolicy struct {
-	MaxAttempts     int
-	InitialBackoff  time.Duration
-	MaxBackoff      time.Duration
+	MaxAttempts       int
+	InitialBackoff    time.Duration
+	MaxBackoff        time.Duration
 	BackoffMultiplier float64
 	RetryableErrors   []string
 }
@@ -75,8 +75,8 @@ func DefaultOptions(address string) *Options {
 	return &Options{
 		Address:        address,
 		TLSEnabled:     false,
-		MaxRecvMsgSize: 4 * 1024 * 1024,  // 4MB
-		MaxSendMsgSize: 4 * 1024 * 1024,  // 4MB
+		MaxRecvMsgSize: 4 * 1024 * 1024, // 4MB
+		MaxSendMsgSize: 4 * 1024 * 1024, // 4MB
 		Timeout:        30 * time.Second,
 		KeepAlive: &KeepAliveOptions{
 			Time:                10 * time.Second,

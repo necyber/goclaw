@@ -28,7 +28,7 @@ const defaultLaneName = "default"
 type engineState int32
 
 const (
-	stateIdle    engineState = iota
+	stateIdle engineState = iota
 	stateRunning
 	stateStopped
 	stateError
@@ -395,11 +395,11 @@ func (n *nopLogger) Error(msg string, args ...any) {}
 // nopMetrics is a no-op implementation of MetricsRecorder used when no metrics are provided.
 type nopMetrics struct{}
 
-func (n *nopMetrics) RecordWorkflowSubmission(status string)                    {}
+func (n *nopMetrics) RecordWorkflowSubmission(status string)                       {}
 func (n *nopMetrics) RecordWorkflowDuration(status string, duration time.Duration) {}
-func (n *nopMetrics) IncActiveWorkflows(status string)                          {}
-func (n *nopMetrics) DecActiveWorkflows(status string)                          {}
-func (n *nopMetrics) IncQueueDepth(laneName string)                             {}
-func (n *nopMetrics) DecQueueDepth(laneName string)                             {}
-func (n *nopMetrics) RecordWaitDuration(laneName string, duration time.Duration) {}
-func (n *nopMetrics) RecordThroughput(laneName string)                          {}
+func (n *nopMetrics) IncActiveWorkflows(status string)                             {}
+func (n *nopMetrics) DecActiveWorkflows(status string)                             {}
+func (n *nopMetrics) IncQueueDepth(laneName string)                                {}
+func (n *nopMetrics) DecQueueDepth(laneName string)                                {}
+func (n *nopMetrics) RecordWaitDuration(laneName string, duration time.Duration)   {}
+func (n *nopMetrics) RecordThroughput(laneName string)                             {}

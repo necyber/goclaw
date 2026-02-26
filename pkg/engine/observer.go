@@ -44,13 +44,13 @@ func (t WorkflowEventType) String() string {
 
 // TaskEvent represents a task state change event
 type TaskEvent struct {
-	WorkflowID  string
-	TaskID      string
-	EventType   TaskEventType
-	Status      string
-	Progress    int
-	Message     string
-	Timestamp   int64
+	WorkflowID string
+	TaskID     string
+	EventType  TaskEventType
+	Status     string
+	Progress   int
+	Message    string
+	Timestamp  int64
 }
 
 // TaskEventType represents the type of task event

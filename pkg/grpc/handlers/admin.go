@@ -54,11 +54,11 @@ type ClusterNode struct {
 
 // LaneStats represents lane statistics
 type LaneStats struct {
-	LaneName        string
-	QueueDepth      int32
-	WorkerCount     int32
+	LaneName         string
+	QueueDepth       int32
+	WorkerCount      int32
 	ThroughputPerSec float64
-	ErrorRate       float64
+	ErrorRate        float64
 }
 
 // AdminServiceServer implements the gRPC AdminService
@@ -426,10 +426,10 @@ func getCPUProfile(ctx context.Context, duration time.Duration) ([]byte, error) 
 	// This is a simplified version that returns CPU stats
 	var buf []byte
 	data := map[string]interface{}{
-		"num_cpu":      runtime.NumCPU(),
+		"num_cpu":       runtime.NumCPU(),
 		"num_goroutine": runtime.NumGoroutine(),
-		"duration_sec": duration.Seconds(),
-		"note":         "Full CPU profiling requires pprof endpoint",
+		"duration_sec":  duration.Seconds(),
+		"note":          "Full CPU profiling requires pprof endpoint",
 	}
 
 	buf, err := json.Marshal(data)

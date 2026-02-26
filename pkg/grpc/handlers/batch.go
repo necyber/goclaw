@@ -468,9 +468,9 @@ func (s *BatchServiceServer) cancelSingleWorkflow(ctx context.Context, workflowI
 		ws, statusErr := s.engine.GetWorkflowStatus(ctx, workflowID)
 		if statusErr == nil && isTerminalStatus(ws.Status) {
 			return &pb.WorkflowCancellationResult{
-				WorkflowId:       workflowID,
-				Success:          true,
-				AlreadyTerminal:  true,
+				WorkflowId:      workflowID,
+				Success:         true,
+				AlreadyTerminal: true,
 			}
 		}
 

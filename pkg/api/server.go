@@ -76,4 +76,3 @@ func (s *HTTPServer) Shutdown(ctx context.Context) error {
 	s.logger.Info("HTTP server stopped")
 	return nil
 }
-

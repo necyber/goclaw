@@ -50,8 +50,8 @@ func (a *AdminOperations) ListClusterNodes(ctx context.Context) (*pb.ManageClust
 // AddClusterNode adds a node to the cluster
 func (a *AdminOperations) AddClusterNode(ctx context.Context, nodeID, address string) (*pb.ManageClusterResponse, error) {
 	req := &pb.ManageClusterRequest{
-		Operation: pb.ClusterOperation_CLUSTER_OPERATION_ADD,
-		NodeId:    nodeID,
+		Operation:   pb.ClusterOperation_CLUSTER_OPERATION_ADD,
+		NodeId:      nodeID,
 		NodeAddress: address,
 	}
 

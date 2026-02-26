@@ -15,9 +15,9 @@ import (
 
 // mockBatchEngine implements WorkflowEngine for batch testing
 type mockBatchEngine struct {
-	submitFunc       func(ctx context.Context, name string, tasks []WorkflowTask) (string, error)
-	getStatusFunc    func(ctx context.Context, workflowID string) (*WorkflowStatus, error)
-	cancelFunc       func(ctx context.Context, workflowID string, force bool) error
+	submitFunc        func(ctx context.Context, name string, tasks []WorkflowTask) (string, error)
+	getStatusFunc     func(ctx context.Context, workflowID string) (*WorkflowStatus, error)
+	cancelFunc        func(ctx context.Context, workflowID string, force bool) error
 	getTaskResultFunc func(ctx context.Context, workflowID, taskID string) (*TaskResult, error)
 }
 

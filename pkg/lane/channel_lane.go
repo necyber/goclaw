@@ -18,31 +18,31 @@ type MetricsRecorder interface {
 
 // ChannelLane implements Lane using Go channels.
 type ChannelLane struct {
-	config     *Config
-	taskCh     chan Task
-	workerPool *WorkerPool
+	config      *Config
+	taskCh      chan Task
+	workerPool  *WorkerPool
 	rateLimiter *TokenBucket
-	metrics    MetricsRecorder
+	metrics     MetricsRecorder
 
 	// State
-	closed     atomic.Bool
-	closeCh    chan struct{}
-	closeOnce  sync.Once
+	closed    atomic.Bool
+	closeCh   chan struct{}
+	closeOnce sync.Once
 
 	// Statistics
-	pending    atomic.Int32
-	running    atomic.Int32
-	completed  atomic.Int64
-	failed     atomic.Int64
-	dropped    atomic.Int64
+	pending   atomic.Int32
+	running   atomic.Int32
+	completed atomic.Int64
+	failed    atomic.Int64
+	dropped   atomic.Int64
 
 	// For redirect strategy
-	manager    *Manager
+	manager *Manager
 
 	// Wait time tracking
-	totalWaitTime     atomic.Int64 // nanoseconds
-	totalProcessTime  atomic.Int64 // nanoseconds
-	taskCount         atomic.Int64
+	totalWaitTime    atomic.Int64 // nanoseconds
+	totalProcessTime atomic.Int64 // nanoseconds
+	taskCount        atomic.Int64
 }
 
 // New creates a new ChannelLane with the given configuration.
@@ -52,10 +52,10 @@ func New(config *Config) (*ChannelLane, error) {
 	}
 
 	l := &ChannelLane{
-		config:    config,
-		taskCh:    make(chan Task, config.Capacity),
-		closeCh:   make(chan struct{}),
-		metrics:   &nopMetrics{},
+		config:  config,
+		taskCh:  make(chan Task, config.Capacity),
+		closeCh: make(chan struct{}),
+		metrics: &nopMetrics{},
 	}
 
 	// Initialize rate limiter if configured
@@ -84,18 +84,18 @@ func (l *ChannelLane) Submit(ctx context.Context, task Task) error {
 	if l.closed.Load() {
 		return &LaneClosedError{LaneName: l.config.Name}
 	}
-	
+
 	if task == nil {
 		return fmt.Errorf("task cannot be nil")
 	}
-	
+
 	// Check rate limit
 	if l.rateLimiter != nil {
 		if err := l.rateLimiter.Wait(ctx); err != nil {
 			return err
 		}
 	}
-	
+
 	switch l.config.Backpressure {
 	case Block:
 		return l.submitBlock(ctx, task)
@@ -230,35 +230,35 @@ func (l *ChannelLane) Stats() Stats {
 		Capacity:       l.config.Capacity,
 		MaxConcurrency: l.config.MaxConcurrency,
 	}
-	
+
 	// Calculate average times
 	count := l.taskCount.Load()
 	if count > 0 {
 		stats.ProcessTime = time.Duration(l.totalProcessTime.Load() / count)
 	}
-	
+
 	return stats
 }
 
 // Close gracefully shuts down the lane.
 func (l *ChannelLane) Close(ctx context.Context) error {
 	var closeErr error
-	
+
 	l.closeOnce.Do(func() {
 		// Mark as closed
 		l.closed.Store(true)
 		close(l.closeCh)
-		
+
 		// Stop accepting new tasks
 		close(l.taskCh)
-		
+
 		// Wait for worker pool to finish with timeout
 		done := make(chan struct{})
 		go func() {
 			l.workerPool.Stop()
 			close(done)
 		}()
-		
+
 		select {
 		case <-done:
 			// Successfully stopped
@@ -266,7 +266,7 @@ func (l *ChannelLane) Close(ctx context.Context) error {
 			closeErr = ctx.Err()
 		}
 	})
-	
+
 	return closeErr
 }
 
@@ -299,7 +299,7 @@ func (l *ChannelLane) Run() {
 // nopMetrics is a no-op implementation of MetricsRecorder.
 type nopMetrics struct{}
 
-func (n *nopMetrics) IncQueueDepth(laneName string)                          {}
-func (n *nopMetrics) DecQueueDepth(laneName string)                          {}
+func (n *nopMetrics) IncQueueDepth(laneName string)                              {}
+func (n *nopMetrics) DecQueueDepth(laneName string)                              {}
 func (n *nopMetrics) RecordWaitDuration(laneName string, duration time.Duration) {}
-func (n *nopMetrics) RecordThroughput(laneName string)                       {}
+func (n *nopMetrics) RecordThroughput(laneName string)                           {}

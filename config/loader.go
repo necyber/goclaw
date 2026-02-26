@@ -66,7 +66,7 @@ func (l *Loader) Load(configPath string, overrides map[string]interface{}) (*Con
 			return nil, fmt.Errorf("failed to apply overrides: %w", err)
 		}
 	}
-	
+
 	// Workaround: Koanf replaces nested structs, so we need to reload defaults
 	// for fields that weren't overridden. We do this by checking if critical
 	// fields are zero and re-applying defaults.
@@ -186,19 +186,19 @@ func (l *Loader) Set(key string, value interface{}) error {
 // fillDefaults fills in default values for any zero-value critical fields.
 func (l *Loader) fillDefaults() error {
 	defaults := DefaultConfig()
-	
+
 	// Helper to set default if key is not set or is zero
 	setIfZero := func(key string, defaultVal interface{}) {
 		if l.k.Get(key) == nil {
 			l.k.Set(key, defaultVal)
 		}
 	}
-	
+
 	// App defaults
 	setIfZero("app.name", defaults.App.Name)
 	setIfZero("app.version", defaults.App.Version)
 	setIfZero("app.environment", defaults.App.Environment)
-	
+
 	// Server defaults
 	setIfZero("server.host", defaults.Server.Host)
 	setIfZero("server.port", defaults.Server.Port)
@@ -218,17 +218,17 @@ func (l *Loader) fillDefaults() error {
 	setIfZero("log.level", defaults.Log.Level)
 	setIfZero("log.format", defaults.Log.Format)
 	setIfZero("log.output", defaults.Log.Output)
-	
+
 	// Orchestration defaults
 	setIfZero("orchestration.max_agents", defaults.Orchestration.MaxAgents)
 	setIfZero("orchestration.queue.type", defaults.Orchestration.Queue.Type)
 	setIfZero("orchestration.queue.size", defaults.Orchestration.Queue.Size)
 	setIfZero("orchestration.scheduler.type", defaults.Orchestration.Scheduler.Type)
 	setIfZero("orchestration.scheduler.check_interval", defaults.Orchestration.Scheduler.CheckInterval)
-	
+
 	// Storage defaults
 	setIfZero("storage.type", defaults.Storage.Type)
-	
+
 	// Metrics defaults
 	setIfZero("metrics.enabled", defaults.Metrics.Enabled)
 	setIfZero("metrics.path", defaults.Metrics.Path)

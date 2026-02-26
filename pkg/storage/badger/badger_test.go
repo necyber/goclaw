@@ -50,7 +50,7 @@ func setupTestDB(t *testing.T) (*BadgerStorage, func()) {
 
 	config := &Config{
 		Path:              tmpDir,
-		SyncWrites:        false, // Faster for tests
+		SyncWrites:        false,   // Faster for tests
 		ValueLogFileSize:  1 << 20, // 1MB
 		NumVersionsToKeep: 1,
 	}

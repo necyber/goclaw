@@ -18,8 +18,8 @@ func DefaultConfig() *Config {
 				Enabled:           false,
 				Port:              9090,
 				MaxConnections:    1000,
-				MaxRecvMsgSize:    4 * 1024 * 1024,  // 4MB
-				MaxSendMsgSize:    4 * 1024 * 1024,  // 4MB
+				MaxRecvMsgSize:    4 * 1024 * 1024, // 4MB
+				MaxSendMsgSize:    4 * 1024 * 1024, // 4MB
 				EnableReflection:  false,
 				EnableHealthCheck: true,
 				Keepalive: GRPCKeepaliveConfig{
