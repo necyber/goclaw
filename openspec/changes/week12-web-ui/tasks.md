@@ -93,22 +93,22 @@
 
 ## 10. 工作流管理页面
 
-- [ ] 10.1 创建 `web/src/pages/Workflows.tsx` 工作流列表页
-- [ ] 10.2 实现工作流表格（ID、名称、状态、创建时间、任务数）
-- [ ] 10.3 实现状态徽章组件（pending=灰、running=蓝、completed=绿、failed=红、cancelled=黄）
-- [ ] 10.4 实现分页控件（上一页/下一页，每页 20 条）
-- [ ] 10.5 实现状态过滤下拉框
-- [ ] 10.6 实现名称搜索输入框
-- [ ] 10.7 创建 `web/src/pages/WorkflowDetail.tsx` 工作流详情页
-- [ ] 10.8 实现详情头部（ID、名称、状态、时间戳、元数据）
-- [ ] 10.9 实现任务列表表格（ID、名称、状态、耗时、错误信息）
-- [ ] 10.10 实现任务结果 JSON 查看器（点击任务展开结果）
-- [ ] 10.11 实现取消工作流按钮（带确认对话框，仅 running 状态显示）
-- [ ] 10.12 创建 `web/src/components/SubmitWorkflowDialog.tsx` 提交工作流对话框
-- [ ] 10.13 实现 JSON 编辑器输入（带语法校验）
-- [ ] 10.14 实现提交和错误处理
-- [ ] 10.15 创建 `web/src/stores/workflows.ts` Zustand 工作流 store
-- [ ] 10.16 实现自动刷新（非终态工作流每 2s 刷新，或通过 WebSocket 更新）
+- [x] 10.1 创建 `web/src/pages/Workflows.tsx` 工作流列表页
+- [x] 10.2 实现工作流表格（ID、名称、状态、创建时间、任务数）
+- [x] 10.3 实现状态徽章组件（pending=灰、running=蓝、completed=绿、failed=红、cancelled=黄）
+- [x] 10.4 实现分页控件（上一页/下一页，每页 20 条）
+- [x] 10.5 实现状态过滤下拉框
+- [x] 10.6 实现名称搜索输入框
+- [x] 10.7 创建 `web/src/pages/WorkflowDetail.tsx` 工作流详情页
+- [x] 10.8 实现详情头部（ID、名称、状态、时间戳、元数据）
+- [x] 10.9 实现任务列表表格（ID、名称、状态、耗时、错误信息）
+- [x] 10.10 实现任务结果 JSON 查看器（点击任务展开结果）
+- [x] 10.11 实现取消工作流按钮（带确认对话框，仅 running 状态显示）
+- [x] 10.12 创建 `web/src/components/SubmitWorkflowDialog.tsx` 提交工作流对话框
+- [x] 10.13 实现 JSON 编辑器输入（带语法校验）
+- [x] 10.14 实现提交和错误处理
+- [x] 10.15 创建 `web/src/stores/workflows.ts` Zustand 工作流 store
+- [x] 10.16 实现自动刷新（非终态工作流每 2s 刷新，或通过 WebSocket 更新）
 
 ## 11. DAG 可视化
 
