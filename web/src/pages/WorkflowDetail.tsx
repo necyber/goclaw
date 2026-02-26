@@ -4,6 +4,7 @@ import { useParams } from "react-router-dom";
 import { EmptyState } from "../components/common/EmptyState";
 import { ErrorState } from "../components/common/ErrorState";
 import { Loading } from "../components/common/Loading";
+import { DagView } from "../components/DagView";
 import { StatusBadge } from "../components/StatusBadge";
 import { useWorkflowStore } from "../stores/workflows";
 import { useWebSocketStore } from "../stores/websocket";
@@ -34,6 +35,7 @@ export function WorkflowDetailPage() {
   const subscribeWorkflow = useWebSocketStore((state) => state.subscribeWorkflow);
   const unsubscribeWorkflow = useWebSocketStore((state) => state.unsubscribeWorkflow);
   const [expandedTaskID, setExpandedTaskID] = useState<string | null>(null);
+  const [activeTab, setActiveTab] = useState<"tasks" | "dag">("tasks");
 
   useEffect(() => {
     if (!id) {
@@ -124,51 +126,82 @@ export function WorkflowDetailPage() {
       ) : null}
 
       {!loading && !error && workflow && workflow.tasks.length > 0 ? (
-        <div className="overflow-x-auto rounded-xl border border-[var(--ui-border)] bg-[var(--ui-panel)]">
-          <table className="min-w-full divide-y divide-[var(--ui-border)] text-sm">
-            <thead>
-              <tr className="text-left text-xs uppercase tracking-wide text-[var(--ui-muted)]">
-                <th className="px-4 py-3">ID</th>
-                <th className="px-4 py-3">Name</th>
-                <th className="px-4 py-3">Status</th>
-                <th className="px-4 py-3">Duration</th>
-                <th className="px-4 py-3">Error</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-[var(--ui-border)]">
-              {workflow.tasks.map((task) => (
-                <Fragment key={task.id}>
-                  <tr
-                    className="cursor-pointer hover:bg-black/5 dark:hover:bg-white/5"
-                    onClick={() =>
-                      setExpandedTaskID((current) => (current === task.id ? null : task.id))
-                    }
-                  >
-                    <td className="px-4 py-3 font-mono text-xs">{task.id}</td>
-                    <td className="px-4 py-3">{task.name}</td>
-                    <td className="px-4 py-3">
-                      <StatusBadge status={task.status} />
-                    </td>
-                    <td className="px-4 py-3 text-[var(--ui-muted)]">
-                      {formatDuration(task.started_at, task.completed_at)}
-                    </td>
-                    <td className="px-4 py-3 text-xs text-red-600 dark:text-red-300">
-                      {task.error || "-"}
-                    </td>
+        <div className="space-y-3">
+          <div className="inline-flex rounded-md border border-[var(--ui-border)] bg-[var(--ui-panel)] p-1">
+            <button
+              type="button"
+              onClick={() => setActiveTab("tasks")}
+              className={`rounded px-3 py-1 text-sm ${
+                activeTab === "tasks"
+                  ? "bg-[var(--ui-accent)] text-[var(--ui-accent-fg)]"
+                  : "text-[var(--ui-muted)]"
+              }`}
+            >
+              Tasks
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("dag")}
+              className={`rounded px-3 py-1 text-sm ${
+                activeTab === "dag"
+                  ? "bg-[var(--ui-accent)] text-[var(--ui-accent-fg)]"
+                  : "text-[var(--ui-muted)]"
+              }`}
+            >
+              DAG
+            </button>
+          </div>
+
+          {activeTab === "dag" ? <DagView tasks={workflow.tasks} /> : null}
+
+          {activeTab === "tasks" ? (
+            <div className="overflow-x-auto rounded-xl border border-[var(--ui-border)] bg-[var(--ui-panel)]">
+              <table className="min-w-full divide-y divide-[var(--ui-border)] text-sm">
+                <thead>
+                  <tr className="text-left text-xs uppercase tracking-wide text-[var(--ui-muted)]">
+                    <th className="px-4 py-3">ID</th>
+                    <th className="px-4 py-3">Name</th>
+                    <th className="px-4 py-3">Status</th>
+                    <th className="px-4 py-3">Duration</th>
+                    <th className="px-4 py-3">Error</th>
                   </tr>
-                  {expandedTaskID === task.id ? (
-                    <tr>
-                      <td className="px-4 pb-4" colSpan={5}>
-                        <pre className="overflow-auto rounded-md border border-[var(--ui-border)] bg-black/5 p-3 text-xs dark:bg-white/5">
-                          {JSON.stringify(task.result ?? { message: "No result data" }, null, 2)}
-                        </pre>
-                      </td>
-                    </tr>
-                  ) : null}
-                </Fragment>
-              ))}
-            </tbody>
-          </table>
+                </thead>
+                <tbody className="divide-y divide-[var(--ui-border)]">
+                  {workflow.tasks.map((task) => (
+                    <Fragment key={task.id}>
+                      <tr
+                        className="cursor-pointer hover:bg-black/5 dark:hover:bg-white/5"
+                        onClick={() =>
+                          setExpandedTaskID((current) => (current === task.id ? null : task.id))
+                        }
+                      >
+                        <td className="px-4 py-3 font-mono text-xs">{task.id}</td>
+                        <td className="px-4 py-3">{task.name}</td>
+                        <td className="px-4 py-3">
+                          <StatusBadge status={task.status} />
+                        </td>
+                        <td className="px-4 py-3 text-[var(--ui-muted)]">
+                          {formatDuration(task.started_at, task.completed_at)}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-red-600 dark:text-red-300">
+                          {task.error || "-"}
+                        </td>
+                      </tr>
+                      {expandedTaskID === task.id ? (
+                        <tr>
+                          <td className="px-4 pb-4" colSpan={5}>
+                            <pre className="overflow-auto rounded-md border border-[var(--ui-border)] bg-black/5 p-3 text-xs dark:bg-white/5">
+                              {JSON.stringify(task.result ?? { message: "No result data" }, null, 2)}
+                            </pre>
+                          </td>
+                        </tr>
+                      ) : null}
+                    </Fragment>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
         </div>
       ) : null}
     </section>

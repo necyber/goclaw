@@ -19,6 +19,7 @@ export interface WorkflowTask {
   id: string;
   name: string;
   status: WorkflowState;
+  depends_on?: string[];
   started_at?: string | null;
   completed_at?: string | null;
   error?: string;
@@ -106,4 +107,3 @@ export interface PrometheusSample {
   labels: Record<string, string>;
   value: number;
 }
-
