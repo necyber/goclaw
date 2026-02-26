@@ -259,6 +259,8 @@ func (g *Graph) Dependents(id string) ([]*Task, error) {
 		return nil, &TaskNotFoundError{ID: id}
 	}
 
+	g.rebuildEdges()
+
 	dependentIDs := g.edges[id]
 	dependents := make([]*Task, 0, len(dependentIDs))
 	for _, depID := range dependentIDs {
@@ -274,6 +276,7 @@ func (g *Graph) InDegree(id string) (int, error) {
 	if _, exists := g.tasks[id]; !exists {
 		return 0, &TaskNotFoundError{ID: id}
 	}
+	g.rebuildEdges()
 	return g.inDegree[id], nil
 }
 
@@ -282,6 +285,7 @@ func (g *Graph) OutDegree(id string) (int, error) {
 	if _, exists := g.tasks[id]; !exists {
 		return 0, &TaskNotFoundError{ID: id}
 	}
+	g.rebuildEdges()
 	return g.outDegree[id], nil
 }
 
