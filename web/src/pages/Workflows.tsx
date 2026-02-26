@@ -85,7 +85,9 @@ export function WorkflowsPage() {
       </div>
 
       {loading ? <Loading label="Loading workflows..." skeletonRows={5} /> : null}
-      {!loading && error ? <ErrorState message={error} onRetry={() => void loadWorkflows()} /> : null}
+      {!loading && error ? (
+        <ErrorState message={error} onRetry={() => void loadWorkflows()} />
+      ) : null}
       {!loading && !error && workflows.length === 0 ? (
         <EmptyState
           title="No workflows found"
@@ -160,4 +162,3 @@ export function WorkflowsPage() {
     </section>
   );
 }
-

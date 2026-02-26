@@ -22,8 +22,8 @@ describe("ThroughputChart", () => {
             {
               timestamp: Date.now(),
               submitted: 3,
-              completed: 2
-            }
+              completed: 2,
+            },
           ]}
           visible={{ submitted: true, completed: true }}
           onToggle={vi.fn()}
@@ -44,8 +44,8 @@ describe("DagView", () => {
             id: "task-1",
             name: "Task 1",
             status: "pending",
-            depends_on: []
-          }
+            depends_on: [],
+          },
         ]}
       />
     );

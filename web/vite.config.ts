@@ -8,7 +8,7 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
-    sourcemap: true
+    sourcemap: true,
   },
   server: {
     host: "0.0.0.0",
@@ -18,11 +18,11 @@ export default defineConfig({
       "/metrics": "http://localhost:8080",
       "/ws": {
         target: "ws://localhost:8080",
-        ws: true
+        ws: true,
       },
       "/health": "http://localhost:8080",
       "/ready": "http://localhost:8080",
-      "/status": "http://localhost:8080"
-    }
-  }
+      "/status": "http://localhost:8080",
+    },
+  },
 });

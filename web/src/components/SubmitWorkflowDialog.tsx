@@ -20,12 +20,12 @@ const DEFAULT_JSON = JSON.stringify(
         type: "function",
         depends_on: [],
         timeout: 30,
-        retries: 0
-      }
+        retries: 0,
+      },
     ],
     metadata: {
-      source: "web-ui"
-    }
+      source: "web-ui",
+    },
   },
   null,
   2
@@ -93,7 +93,9 @@ export function SubmitWorkflowDialog({ open, onClose }: SubmitWorkflowDialogProp
           {error ? (
             <p className="mt-2 text-sm text-red-600 dark:text-red-300">{error}</p>
           ) : jsonError ? (
-            <p className="mt-2 text-sm text-amber-600 dark:text-amber-300">Invalid JSON: {jsonError}</p>
+            <p className="mt-2 text-sm text-amber-600 dark:text-amber-300">
+              Invalid JSON: {jsonError}
+            </p>
           ) : (
             <p className="mt-2 text-sm text-[var(--ui-muted)]">JSON syntax is valid.</p>
           )}
@@ -121,4 +123,3 @@ export function SubmitWorkflowDialog({ open, onClose }: SubmitWorkflowDialogProp
     </Dialog>
   );
 }
-

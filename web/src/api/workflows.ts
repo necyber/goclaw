@@ -5,7 +5,7 @@ import type {
   TaskResultResponse,
   WorkflowDetail,
   WorkflowListResponse,
-  WorkflowState
+  WorkflowState,
 } from "../types/api";
 
 export type ListWorkflowParams = {
@@ -26,15 +26,15 @@ export async function listWorkflows(
       status: params.status,
       search: params.search,
       limit: params.limit ?? 20,
-      offset: params.offset ?? 0
-    }
+      offset: params.offset ?? 0,
+    },
   });
 }
 
 export async function getWorkflow(id: string, signal?: AbortSignal): Promise<WorkflowDetail> {
   return requestJSON<WorkflowDetail>(`/api/v1/workflows/${encodeURIComponent(id)}`, {
     method: "GET",
-    signal
+    signal,
   });
 }
 
@@ -45,14 +45,17 @@ export async function submitWorkflow(
   return requestJSON<SubmitWorkflowResponse>("/api/v1/workflows", {
     method: "POST",
     body: payload,
-    signal
+    signal,
   });
 }
 
-export async function cancelWorkflow(id: string, signal?: AbortSignal): Promise<{ message: string }> {
+export async function cancelWorkflow(
+  id: string,
+  signal?: AbortSignal
+): Promise<{ message: string }> {
   return requestJSON<{ message: string }>(`/api/v1/workflows/${encodeURIComponent(id)}/cancel`, {
     method: "POST",
-    signal
+    signal,
   });
 }
 
@@ -65,8 +68,7 @@ export async function getTaskResult(
     `/api/v1/workflows/${encodeURIComponent(workflowID)}/tasks/${encodeURIComponent(taskID)}/result`,
     {
       method: "GET",
-      signal
+      signal,
     }
   );
 }
-

@@ -2,14 +2,14 @@ import type { WebSocketEventMessage } from "../lib/websocket";
 
 const wsMock = vi.hoisted(() => ({
   workflowStateHandler: null as ((event: WebSocketEventMessage) => void) | null,
-  taskStateHandler: null as ((event: WebSocketEventMessage) => void) | null
+  taskStateHandler: null as ((event: WebSocketEventMessage) => void) | null,
 }));
 
 vi.mock("../api/workflows", () => ({
   listWorkflows: vi.fn(),
   getWorkflow: vi.fn(),
   submitWorkflow: vi.fn(),
-  cancelWorkflow: vi.fn()
+  cancelWorkflow: vi.fn(),
 }));
 
 vi.mock("./websocket", () => ({
@@ -23,9 +23,9 @@ vi.mock("./websocket", () => ({
           wsMock.taskStateHandler = handler;
         }
         return () => {};
-      }
-    })
-  }
+      },
+    }),
+  },
 }));
 
 import { listWorkflows, submitWorkflow } from "../api/workflows";
@@ -40,7 +40,7 @@ const baseWorkflow: WorkflowSummary = {
   name: "Workflow 1",
   status: "pending",
   created_at: new Date().toISOString(),
-  task_count: 1
+  task_count: 1,
 };
 
 const baseDetail: WorkflowDetail = {
@@ -52,9 +52,9 @@ const baseDetail: WorkflowDetail = {
     {
       id: "task-1",
       name: "Task 1",
-      status: "pending"
-    }
-  ]
+      status: "pending",
+    },
+  ],
 };
 
 describe("workflow store", () => {
@@ -71,7 +71,7 @@ describe("workflow store", () => {
       selectedWorkflow: null,
       loadingList: false,
       loadingDetail: false,
-      error: null
+      error: null,
     });
   });
 
@@ -80,7 +80,7 @@ describe("workflow store", () => {
       workflows: [baseWorkflow],
       total: 1,
       limit: 20,
-      offset: 0
+      offset: 0,
     });
 
     await useWorkflowStore.getState().loadWorkflows();
@@ -94,13 +94,13 @@ describe("workflow store", () => {
     mockedSubmitWorkflow.mockResolvedValue({
       id: "wf-new",
       name: "Created",
-      status: "pending"
+      status: "pending",
     });
     mockedListWorkflows.mockResolvedValue({
       workflows: [baseWorkflow],
       total: 1,
       limit: 20,
-      offset: 0
+      offset: 0,
     });
 
     const workflowID = await useWorkflowStore
@@ -115,7 +115,7 @@ describe("workflow store", () => {
   it("applies websocket workflow and task state updates", () => {
     useWorkflowStore.setState({
       workflows: [baseWorkflow],
-      selectedWorkflow: baseDetail
+      selectedWorkflow: baseDetail,
     });
 
     expect(wsMock.workflowStateHandler).not.toBeNull();
@@ -126,8 +126,8 @@ describe("workflow store", () => {
       timestamp: new Date().toISOString(),
       payload: {
         workflow_id: "wf-1",
-        new_state: "running"
-      }
+        new_state: "running",
+      },
     });
 
     let state = useWorkflowStore.getState();
@@ -141,8 +141,8 @@ describe("workflow store", () => {
         workflow_id: "wf-1",
         task_id: "task-1",
         new_state: "completed",
-        result: { ok: true }
-      }
+        result: { ok: true },
+      },
     });
 
     state = useWorkflowStore.getState();

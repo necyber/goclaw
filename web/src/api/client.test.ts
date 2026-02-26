@@ -16,12 +16,12 @@ describe("requestJSON", () => {
     fetchMock.mockResolvedValue(
       new Response(JSON.stringify({ ok: true }), {
         status: 200,
-        headers: { "Content-Type": "application/json" }
+        headers: { "Content-Type": "application/json" },
       })
     );
 
     const response = await requestJSON<{ ok: boolean }>("/api/v1/workflows", {
-      query: { limit: 20, search: "demo" }
+      query: { limit: 20, search: "demo" },
     });
 
     expect(response.ok).toBe(true);
@@ -44,21 +44,23 @@ describe("requestJSON", () => {
     fetchMock.mockResolvedValue(
       new Response(
         JSON.stringify({
-          error: { message: "invalid payload", code: "INVALID", request_id: "req-123" }
+          error: { message: "invalid payload", code: "INVALID", request_id: "req-123" },
         }),
         {
           status: 400,
-          headers: { "Content-Type": "application/json" }
+          headers: { "Content-Type": "application/json" },
         }
       )
     );
 
-    await expect(requestJSON("/api/v1/workflows", { method: "POST", body: {} })).rejects.toMatchObject({
+    await expect(
+      requestJSON("/api/v1/workflows", { method: "POST", body: {} })
+    ).rejects.toMatchObject({
       name: "ApiError",
       message: "invalid payload",
       status: 400,
       code: "INVALID",
-      requestId: "req-123"
+      requestId: "req-123",
     } satisfies Partial<ApiError>);
   });
 });

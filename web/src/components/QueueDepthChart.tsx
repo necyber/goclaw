@@ -6,7 +6,7 @@ import {
   ResponsiveContainer,
   Tooltip,
   XAxis,
-  YAxis
+  YAxis,
 } from "recharts";
 
 export type QueueDepthPoint = {
@@ -29,7 +29,7 @@ const COLOR_PALETTE = [
   "#be123c",
   "#0e7490",
   "#4d7c0f",
-  "#9a3412"
+  "#9a3412",
 ];
 
 function laneColor(index: number) {
@@ -39,7 +39,7 @@ function laneColor(index: number) {
 function formatTimeTick(value: number) {
   return new Date(value).toLocaleTimeString([], {
     hour: "2-digit",
-    minute: "2-digit"
+    minute: "2-digit",
   });
 }
 
@@ -66,7 +66,7 @@ export function QueueDepthChart({ data, lanes, visible, onToggle }: QueueDepthCh
               formatter={(value: number, name: string) => [value.toFixed(0), name]}
             />
             <Legend
-              onClick={(payload: any) => {
+              onClick={(payload: { dataKey?: unknown }) => {
                 if (typeof payload.dataKey === "string") {
                   onToggle(payload.dataKey);
                 }

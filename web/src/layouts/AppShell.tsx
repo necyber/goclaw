@@ -14,7 +14,7 @@ const NAV_ITEMS: NavItem[] = [
   { path: "/", label: "Dashboard", icon: "DB" },
   { path: "/workflows", label: "Workflows", icon: "WF" },
   { path: "/metrics", label: "Metrics", icon: "MX" },
-  { path: "/admin", label: "Admin", icon: "AD" }
+  { path: "/admin", label: "Admin", icon: "AD" },
 ];
 
 function getAutoCollapsed(width: number) {
@@ -101,7 +101,7 @@ export function AppShell() {
                     "group flex items-center gap-3 rounded-md px-3 py-2 text-sm transition",
                     isActive
                       ? "bg-[var(--ui-accent)] text-[var(--ui-accent-fg)]"
-                      : "text-[var(--ui-muted)] hover:bg-black/5 hover:text-[var(--ui-fg)] dark:hover:bg-white/5"
+                      : "text-[var(--ui-muted)] hover:bg-black/5 hover:text-[var(--ui-fg)] dark:hover:bg-white/5",
                   ].join(" ")
                 }
               >

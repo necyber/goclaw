@@ -8,7 +8,7 @@ import {
   ResponsiveContainer,
   Tooltip,
   XAxis,
-  YAxis
+  YAxis,
 } from "recharts";
 
 export type ErrorRatePoint = {
@@ -32,7 +32,7 @@ type ErrorRateChartProps = {
 function formatTimeTick(value: number) {
   return new Date(value).toLocaleTimeString([], {
     hour: "2-digit",
-    minute: "2-digit"
+    minute: "2-digit",
   });
 }
 
@@ -70,8 +70,11 @@ export function ErrorRateChart({ data, spikes, visible, onToggle }: ErrorRateCha
             ))}
             <ReferenceLine y={10} stroke="#dc2626" strokeDasharray="4 4" />
             <Legend
-              onClick={(payload: any) => {
-                if (payload.dataKey === "workflowErrorRate" || payload.dataKey === "taskErrorRate") {
+              onClick={(payload: { dataKey?: unknown }) => {
+                if (
+                  payload.dataKey === "workflowErrorRate" ||
+                  payload.dataKey === "taskErrorRate"
+                ) {
                   onToggle(payload.dataKey);
                 }
               }}

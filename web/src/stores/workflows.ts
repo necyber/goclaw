@@ -6,7 +6,7 @@ import type {
   WorkflowDetail,
   WorkflowListResponse,
   WorkflowState,
-  WorkflowSummary
+  WorkflowSummary,
 } from "../types/api";
 import { useWebSocketStore } from "./websocket";
 import type { WebSocketEventMessage } from "../lib/websocket";
@@ -69,7 +69,7 @@ function applyTaskStateEvent(state: WorkflowStoreState, event: WebSocketEventMes
           ...task,
           status: nextState,
           error: payload.error ? String(payload.error) : task.error,
-          result: payload.result ?? task.result
+          result: payload.result ?? task.result,
         }
       : task
   );
@@ -78,12 +78,14 @@ function applyTaskStateEvent(state: WorkflowStoreState, event: WebSocketEventMes
     ...state,
     selectedWorkflow: {
       ...state.selectedWorkflow,
-      tasks
-    }
+      tasks,
+    },
   };
 }
 
-function registerWebSocketBridge(set: (updater: (state: WorkflowStoreState) => WorkflowStoreState) => void) {
+function registerWebSocketBridge(
+  set: (updater: (state: WorkflowStoreState) => WorkflowStoreState) => void
+) {
   if (subscribedToWS) {
     return;
   }
@@ -123,13 +125,13 @@ export const useWorkflowStore = create<WorkflowStoreState>((set, get) => {
           limit: get().limit,
           offset: get().offset,
           status: statusFilter === "all" ? undefined : statusFilter,
-          search: get().search || undefined
+          search: get().search || undefined,
         });
         set({
           workflows: response.workflows,
           total: response.total,
           loadingList: false,
-          error: null
+          error: null,
         });
       } catch (err) {
         set({ loadingList: false, error: (err as Error).message });
@@ -161,6 +163,6 @@ export const useWorkflowStore = create<WorkflowStoreState>((set, get) => {
         await get().loadWorkflowDetail(workflowID);
       }
       await get().loadWorkflows();
-    }
+    },
   };
 });

@@ -6,7 +6,7 @@ import {
   ResponsiveContainer,
   Tooltip,
   XAxis,
-  YAxis
+  YAxis,
 } from "recharts";
 
 export type ThroughputPoint = {
@@ -26,7 +26,7 @@ type ThroughputChartProps = {
 function formatTimeTick(value: number) {
   return new Date(value).toLocaleTimeString([], {
     hour: "2-digit",
-    minute: "2-digit"
+    minute: "2-digit",
   });
 }
 
@@ -53,17 +53,29 @@ export function ThroughputChart({ data, visible, onToggle }: ThroughputChartProp
               formatter={(value: number, name: string) => [value.toFixed(2), name]}
             />
             <Legend
-              onClick={(payload: any) => {
+              onClick={(payload: { dataKey?: unknown }) => {
                 if (payload.dataKey === "submitted" || payload.dataKey === "completed") {
                   onToggle(payload.dataKey);
                 }
               }}
             />
             {visible.submitted ? (
-              <Line type="monotone" dataKey="submitted" stroke="#1d4ed8" strokeWidth={2} dot={false} />
+              <Line
+                type="monotone"
+                dataKey="submitted"
+                stroke="#1d4ed8"
+                strokeWidth={2}
+                dot={false}
+              />
             ) : null}
             {visible.completed ? (
-              <Line type="monotone" dataKey="completed" stroke="#059669" strokeWidth={2} dot={false} />
+              <Line
+                type="monotone"
+                dataKey="completed"
+                stroke="#059669"
+                strokeWidth={2}
+                dot={false}
+              />
             ) : null}
           </LineChart>
         </ResponsiveContainer>

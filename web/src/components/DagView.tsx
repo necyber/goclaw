@@ -11,7 +11,7 @@ import {
   useNodesState,
   useReactFlow,
   type Edge,
-  type Node
+  type Node,
 } from "@xyflow/react";
 import { useEffect, useMemo, useState } from "react";
 
@@ -76,12 +76,12 @@ function createLayout(tasks: WorkflowTask[]) {
       ? { x: 0, y: 0 }
       : {
           x: index * (NODE_WIDTH + 40),
-          y: 80
+          y: 80,
         },
     style: {
       width: NODE_WIDTH,
-      height: NODE_HEIGHT
-    }
+      height: NODE_HEIGHT,
+    },
   }));
 
   const edges: Edge[] = [];
@@ -92,7 +92,7 @@ function createLayout(tasks: WorkflowTask[]) {
         source: dep,
         target: task.id,
         animated: task.status === "running",
-        markerEnd: { type: "arrowclosed" }
+        markerEnd: { type: "arrowclosed" },
       });
     }
   });
@@ -120,8 +120,8 @@ function createLayout(tasks: WorkflowTask[]) {
       ...node,
       position: {
         x: position.x - NODE_WIDTH / 2,
-        y: position.y - NODE_HEIGHT / 2
-      }
+        y: position.y - NODE_HEIGHT / 2,
+      },
     };
   });
 
@@ -134,7 +134,9 @@ function styleForEdge(edge: Edge, taskByID: Record<string, WorkflowTask>) {
   const completed = source?.status === "completed" && target?.status === "completed";
   return {
     ...edge,
-    style: completed ? { stroke: "#21a56b", strokeWidth: 2 } : { stroke: "#8b97a2", strokeDasharray: "6 4" }
+    style: completed
+      ? { stroke: "#21a56b", strokeWidth: 2 }
+      : { stroke: "#8b97a2", strokeDasharray: "6 4" },
   };
 }
 
@@ -165,7 +167,7 @@ function DagCanvas({ tasks }: DagViewProps) {
     setNodes(
       nextNodes.map((node) => ({
         ...node,
-        className: `rounded-lg border ${nodeClass(taskByID[node.id]?.status ?? "pending")}`
+        className: `rounded-lg border ${nodeClass(taskByID[node.id]?.status ?? "pending")}`,
       }))
     );
     setEdges(nextEdges.map((edge) => styleForEdge(edge, taskByID)));
@@ -177,9 +179,9 @@ function DagCanvas({ tasks }: DagViewProps) {
         ...node,
         data: {
           ...node.data,
-          status: taskByID[node.id]?.status ?? node.data.status
+          status: taskByID[node.id]?.status ?? node.data.status,
         },
-        className: `rounded-lg border ${nodeClass(taskByID[node.id]?.status ?? "pending")}`
+        className: `rounded-lg border ${nodeClass(taskByID[node.id]?.status ?? "pending")}`,
       }))
     );
     setEdges((current) => current.map((edge) => styleForEdge(edge, taskByID)));
@@ -225,7 +227,9 @@ function DagCanvas({ tasks }: DagViewProps) {
           Task Details
         </h3>
         {!selectedTask ? (
-          <p className="mt-3 text-sm text-[var(--ui-muted)]">Click a node to inspect task details.</p>
+          <p className="mt-3 text-sm text-[var(--ui-muted)]">
+            Click a node to inspect task details.
+          </p>
         ) : (
           <div className="mt-3 space-y-3 text-sm">
             <p className="font-semibold">{selectedTask.name}</p>
@@ -235,7 +239,10 @@ function DagCanvas({ tasks }: DagViewProps) {
               <span className="capitalize">{selectedTask.status}</span>
             </p>
             <p className="text-xs text-[var(--ui-muted)]">
-              Dependencies: {(selectedTask.depends_on ?? []).length === 0 ? "None" : (selectedTask.depends_on ?? []).join(", ")}
+              Dependencies:{" "}
+              {(selectedTask.depends_on ?? []).length === 0
+                ? "None"
+                : (selectedTask.depends_on ?? []).join(", ")}
             </p>
             {selectedTask.error ? (
               <p className="rounded border border-red-300/50 bg-red-50/60 p-2 text-xs text-red-700 dark:border-red-500/50 dark:bg-red-900/20 dark:text-red-200">
@@ -256,4 +263,3 @@ export function DagView(props: DagViewProps) {
     </ReactFlowProvider>
   );
 }
-

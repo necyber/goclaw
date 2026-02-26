@@ -6,7 +6,7 @@ import {
   ResponsiveContainer,
   Tooltip,
   XAxis,
-  YAxis
+  YAxis,
 } from "recharts";
 
 import {
@@ -15,7 +15,7 @@ import {
   getLaneStats,
   pauseWorkflows,
   purgeWorkflows,
-  resumeWorkflows
+  resumeWorkflows,
 } from "../api/admin";
 import { fetchMetrics } from "../api/metrics";
 import { EmptyState } from "../components/common/EmptyState";
@@ -119,7 +119,7 @@ function parseClusterNodes(value: unknown): ClusterNode[] {
         id: String(row.id ?? row.node_id ?? "unknown"),
         address: String(row.address ?? row.addr ?? "-"),
         status: String(row.status ?? "unknown"),
-        lastHeartbeat: String(row.last_heartbeat ?? row.lastHeartbeat ?? "-")
+        lastHeartbeat: String(row.last_heartbeat ?? row.lastHeartbeat ?? "-"),
       };
     })
     .filter((item): item is ClusterNode => item !== null);
@@ -149,7 +149,7 @@ function extractClusterNodes(debugInfo: AdminDebugInfo | null): ClusterNode[] {
 function formatTimeTick(value: number) {
   return new Date(value).toLocaleTimeString([], {
     hour: "2-digit",
-    minute: "2-digit"
+    minute: "2-digit",
   });
 }
 
@@ -171,9 +171,9 @@ export function AdminPage() {
   const [debugError, setDebugError] = useState<string | null>(null);
   const [actionMessage, setActionMessage] = useState<string | null>(null);
   const [expandedLane, setExpandedLane] = useState<string | null>(null);
-  const [busyAction, setBusyAction] = useState<"pause" | "resume" | "purge" | "debug" | "metrics" | null>(
-    null
-  );
+  const [busyAction, setBusyAction] = useState<
+    "pause" | "resume" | "purge" | "debug" | "metrics" | null
+  >(null);
   const [purgeEstimate, setPurgeEstimate] = useState(0);
 
   useEffect(() => {
@@ -183,7 +183,10 @@ export function AdminPage() {
   }, []);
 
   const refreshAdmin = useCallback(async () => {
-    const [statusResult, lanesResult] = await Promise.allSettled([getEngineStatus(), getLaneStats()]);
+    const [statusResult, lanesResult] = await Promise.allSettled([
+      getEngineStatus(),
+      getLaneStats(),
+    ]);
 
     if (!mountedRef.current) {
       return;
@@ -348,7 +351,7 @@ export function AdminPage() {
     try {
       const response = await fetch("/metrics", {
         method: "GET",
-        headers: { Accept: "text/plain" }
+        headers: { Accept: "text/plain" },
       });
       if (!response.ok) {
         throw new Error(`metrics export HTTP ${response.status}`);
@@ -433,12 +436,16 @@ export function AdminPage() {
       ) : null}
 
       <section className="rounded-xl border border-[var(--ui-border)] bg-[var(--ui-panel)] p-4">
-        <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--ui-muted)]">Engine Status</h2>
+        <h2 className="text-sm font-semibold uppercase tracking-wide text-[var(--ui-muted)]">
+          Engine Status
+        </h2>
         <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
           <article className="rounded-lg border border-[var(--ui-border)] bg-[var(--ui-bg)]/40 p-3">
             <p className="text-xs uppercase tracking-wide text-[var(--ui-muted)]">State</p>
             <p className="mt-2 inline-flex items-center gap-2 text-lg font-semibold capitalize">
-              <span className={`h-2.5 w-2.5 rounded-full ${stateBadgeClass(engineStatus?.state)}`} />
+              <span
+                className={`h-2.5 w-2.5 rounded-full ${stateBadgeClass(engineStatus?.state)}`}
+              />
               {state}
             </p>
           </article>
@@ -451,8 +458,12 @@ export function AdminPage() {
             <p className="mt-2 text-lg font-semibold">{engineStatus?.version ?? "-"}</p>
           </article>
           <article className="rounded-lg border border-[var(--ui-border)] bg-[var(--ui-bg)]/40 p-3">
-            <p className="text-xs uppercase tracking-wide text-[var(--ui-muted)]">Active Workflows</p>
-            <p className="mt-2 text-lg font-semibold">{formatNumber(engineStatus?.active_workflows)}</p>
+            <p className="text-xs uppercase tracking-wide text-[var(--ui-muted)]">
+              Active Workflows
+            </p>
+            <p className="mt-2 text-lg font-semibold">
+              {formatNumber(engineStatus?.active_workflows)}
+            </p>
           </article>
           <article className="rounded-lg border border-[var(--ui-border)] bg-[var(--ui-bg)]/40 p-3">
             <p className="text-xs uppercase tracking-wide text-[var(--ui-muted)]">Goroutines</p>
@@ -473,7 +484,9 @@ export function AdminPage() {
           <p className="text-xs text-[var(--ui-muted)]">Auto-refresh: 5s</p>
         </div>
 
-        {loading && lanes.length === 0 ? <Loading label="Loading lane stats..." skeletonRows={4} /> : null}
+        {loading && lanes.length === 0 ? (
+          <Loading label="Loading lane stats..." skeletonRows={4} />
+        ) : null}
 
         {!loading && lanes.length === 0 ? (
           <EmptyState
@@ -502,7 +515,9 @@ export function AdminPage() {
                     <Fragment key={lane.name}>
                       <tr
                         className="cursor-pointer hover:bg-black/5 dark:hover:bg-white/5"
-                        onClick={() => setExpandedLane((current) => (current === lane.name ? null : lane.name))}
+                        onClick={() =>
+                          setExpandedLane((current) => (current === lane.name ? null : lane.name))
+                        }
                       >
                         <td className="px-4 py-3 font-semibold">{lane.name}</td>
                         <td className="px-4 py-3">{formatNumber(lane.queue_depth)}</td>
@@ -527,8 +542,13 @@ export function AdminPage() {
                                     />
                                     <YAxis allowDecimals={false} />
                                     <Tooltip
-                                      labelFormatter={(value) => new Date(Number(value)).toLocaleString()}
-                                      formatter={(value: number) => [value.toFixed(0), "queue depth"]}
+                                      labelFormatter={(value) =>
+                                        new Date(Number(value)).toLocaleString()
+                                      }
+                                      formatter={(value: number) => [
+                                        value.toFixed(0),
+                                        "queue depth",
+                                      ]}
                                     />
                                     <Line
                                       type="monotone"

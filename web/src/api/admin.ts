@@ -8,7 +8,7 @@ export async function getEngineStatus(signal?: AbortSignal): Promise<EngineStatu
 export async function getLaneStats(signal?: AbortSignal): Promise<LaneStats[]> {
   const response = await requestJSON<{ lanes: LaneStats[] }>("/api/v1/admin/lanes", {
     method: "GET",
-    signal
+    signal,
   });
   return response.lanes;
 }
@@ -21,14 +21,15 @@ export async function resumeWorkflows(signal?: AbortSignal): Promise<{ message: 
   return requestJSON<{ message: string }>("/api/v1/admin/resume", { method: "POST", signal });
 }
 
-export async function purgeWorkflows(signal?: AbortSignal): Promise<{ message: string; deleted?: number }> {
+export async function purgeWorkflows(
+  signal?: AbortSignal
+): Promise<{ message: string; deleted?: number }> {
   return requestJSON<{ message: string; deleted?: number }>("/api/v1/admin/purge", {
     method: "POST",
-    signal
+    signal,
   });
 }
 
 export async function getDebugInfo(signal?: AbortSignal): Promise<AdminDebugInfo> {
   return requestJSON<AdminDebugInfo>("/api/v1/admin/debug", { method: "GET", signal });
 }
-

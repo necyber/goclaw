@@ -3,10 +3,18 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getEngineStatus, getLaneStats } from "../api/admin";
 import { fetchMetrics } from "../api/metrics";
 import { DurationHistogram, type DurationBucketPoint } from "../components/DurationHistogram";
-import { ErrorRateChart, type ErrorRatePoint, type ErrorRateVisibility } from "../components/ErrorRateChart";
+import {
+  ErrorRateChart,
+  type ErrorRatePoint,
+  type ErrorRateVisibility,
+} from "../components/ErrorRateChart";
 import { QueueDepthChart, type QueueDepthPoint } from "../components/QueueDepthChart";
 import { ResourceGauges } from "../components/ResourceGauges";
-import { ThroughputChart, type ThroughputPoint, type ThroughputVisibility } from "../components/ThroughputChart";
+import {
+  ThroughputChart,
+  type ThroughputPoint,
+  type ThroughputVisibility,
+} from "../components/ThroughputChart";
 import { EmptyState } from "../components/common/EmptyState";
 import { ErrorState } from "../components/common/ErrorState";
 import { Loading } from "../components/common/Loading";
@@ -31,7 +39,7 @@ const TIME_RANGES: Array<{ value: TimeRange; label: string; durationMs: number }
   { value: "15m", label: "15m", durationMs: 15 * ONE_MINUTE_MS },
   { value: "1h", label: "1h", durationMs: ONE_HOUR_MS },
   { value: "6h", label: "6h", durationMs: 6 * ONE_HOUR_MS },
-  { value: "24h", label: "24h", durationMs: 24 * ONE_HOUR_MS }
+  { value: "24h", label: "24h", durationMs: 24 * ONE_HOUR_MS },
 ];
 
 type LabelMatcher = (labels: Record<string, string>) => boolean;
@@ -160,7 +168,8 @@ function buildThroughputData(snapshots: MetricsSnapshot[]): ThroughputPoint[] {
     return [];
   }
 
-  const endMinute = Math.floor(snapshots[snapshots.length - 1].timestamp / ONE_MINUTE_MS) * ONE_MINUTE_MS;
+  const endMinute =
+    Math.floor(snapshots[snapshots.length - 1].timestamp / ONE_MINUTE_MS) * ONE_MINUTE_MS;
   const startMinute = endMinute - (60 - 1) * ONE_MINUTE_MS;
   const buckets = new Map<number, { submitted: number; completed: number }>();
 
@@ -174,8 +183,16 @@ function buildThroughputData(snapshots: MetricsSnapshot[]): ThroughputPoint[] {
       0
     );
     const completedDelta = Math.max(
-      (readMetric(current.samples, "workflow_submissions_total", (labels) => labels.status === "completed") ?? 0) -
-        (readMetric(previous.samples, "workflow_submissions_total", (labels) => labels.status === "completed") ?? 0),
+      (readMetric(
+        current.samples,
+        "workflow_submissions_total",
+        (labels) => labels.status === "completed"
+      ) ?? 0) -
+        (readMetric(
+          previous.samples,
+          "workflow_submissions_total",
+          (labels) => labels.status === "completed"
+        ) ?? 0),
       0
     );
 
@@ -195,7 +212,7 @@ function buildThroughputData(snapshots: MetricsSnapshot[]): ThroughputPoint[] {
     output.push({
       timestamp: ts,
       submitted: Number(bucket.submitted.toFixed(2)),
-      completed: Number(bucket.completed.toFixed(2))
+      completed: Number(bucket.completed.toFixed(2)),
     });
   }
   return output;
@@ -235,7 +252,7 @@ function buildDurationHistogram(snapshots: MetricsSnapshot[]): DurationBucketPoi
 
     output.push({
       bucket: bucketLabel,
-      count: Math.round(count)
+      count: Math.round(count),
     });
 
     previousCumulative = cumulative;
@@ -295,7 +312,10 @@ function buildQueueDepthData(snapshots: MetricsSnapshot[], lanes: string[]): Que
   });
 }
 
-function buildErrorRateData(snapshots: MetricsSnapshot[]): { points: ErrorRatePoint[]; spikes: number[] } {
+function buildErrorRateData(snapshots: MetricsSnapshot[]): {
+  points: ErrorRatePoint[];
+  spikes: number[];
+} {
   const points: ErrorRatePoint[] = [];
   const spikes: number[] = [];
 
@@ -309,8 +329,16 @@ function buildErrorRateData(snapshots: MetricsSnapshot[]): { points: ErrorRatePo
       0
     );
     const workflowFailed = Math.max(
-      (readMetric(current.samples, "workflow_submissions_total", (labels) => labels.status === "failed") ?? 0) -
-        (readMetric(previous.samples, "workflow_submissions_total", (labels) => labels.status === "failed") ?? 0),
+      (readMetric(
+        current.samples,
+        "workflow_submissions_total",
+        (labels) => labels.status === "failed"
+      ) ?? 0) -
+        (readMetric(
+          previous.samples,
+          "workflow_submissions_total",
+          (labels) => labels.status === "failed"
+        ) ?? 0),
       0
     );
     const taskTotal = Math.max(
@@ -319,8 +347,16 @@ function buildErrorRateData(snapshots: MetricsSnapshot[]): { points: ErrorRatePo
       0
     );
     const taskFailed = Math.max(
-      (readMetric(current.samples, "task_executions_total", (labels) => labels.status === "failed") ?? 0) -
-        (readMetric(previous.samples, "task_executions_total", (labels) => labels.status === "failed") ?? 0),
+      (readMetric(
+        current.samples,
+        "task_executions_total",
+        (labels) => labels.status === "failed"
+      ) ?? 0) -
+        (readMetric(
+          previous.samples,
+          "task_executions_total",
+          (labels) => labels.status === "failed"
+        ) ?? 0),
       0
     );
 
@@ -330,7 +366,7 @@ function buildErrorRateData(snapshots: MetricsSnapshot[]): { points: ErrorRatePo
     points.push({
       timestamp: current.timestamp,
       workflowErrorRate,
-      taskErrorRate
+      taskErrorRate,
     });
 
     if (workflowErrorRate > 10 || taskErrorRate > 10) {
@@ -416,11 +452,11 @@ export function MetricsPage() {
   const [timeRange, setTimeRange] = useState<TimeRange>("1h");
   const [throughputVisible, setThroughputVisible] = useState<ThroughputVisibility>({
     submitted: true,
-    completed: true
+    completed: true,
   });
   const [errorRateVisible, setErrorRateVisible] = useState<ErrorRateVisibility>({
     workflowErrorRate: true,
-    taskErrorRate: true
+    taskErrorRate: true,
   });
   const [queueVisible, setQueueVisible] = useState<Record<string, boolean>>({});
 
@@ -434,7 +470,7 @@ export function MetricsPage() {
     const [metricsResult, engineResult, lanesResult] = await Promise.allSettled([
       fetchMetrics(),
       getEngineStatus(),
-      getLaneStats()
+      getLaneStats(),
     ]);
 
     if (!mountedRef.current) {
@@ -452,7 +488,7 @@ export function MetricsPage() {
       timestamp: now,
       samples: metricsResult.value,
       laneStats: lanesResult.status === "fulfilled" ? lanesResult.value : [],
-      engineStatus: engineResult.status === "fulfilled" ? engineResult.value : null
+      engineStatus: engineResult.status === "fulfilled" ? engineResult.value : null,
     };
 
     setSnapshots((previous) => {
@@ -468,7 +504,7 @@ export function MetricsPage() {
     if (engineResult.status === "rejected" || lanesResult.status === "rejected") {
       const reasons = [
         engineResult.status === "rejected" ? "engine status" : null,
-        lanesResult.status === "rejected" ? "lane stats" : null
+        lanesResult.status === "rejected" ? "lane stats" : null,
       ]
         .filter((item): item is string => Boolean(item))
         .join(" + ");
@@ -492,7 +528,10 @@ export function MetricsPage() {
   const oneHourHistory = useMemo(() => filterSnapshots(snapshots, ONE_HOUR_MS), [snapshots]);
   const rangeMs = TIME_RANGES.find((item) => item.value === timeRange)?.durationMs ?? ONE_HOUR_MS;
   const selectedHistory = useMemo(() => filterSnapshots(snapshots, rangeMs), [snapshots, rangeMs]);
-  const selectedHistoryForChart = useMemo(() => downsample(selectedHistory, 240), [selectedHistory]);
+  const selectedHistoryForChart = useMemo(
+    () => downsample(selectedHistory, 240),
+    [selectedHistory]
+  );
   const history24h = useMemo(() => filterSnapshots(snapshots, 24 * ONE_HOUR_MS), [snapshots]);
 
   const throughputData = useMemo(() => buildThroughputData(oneHourHistory), [oneHourHistory]);
@@ -505,7 +544,10 @@ export function MetricsPage() {
     () => buildQueueDepthData(selectedHistoryForChart, laneNames),
     [selectedHistoryForChart, laneNames]
   );
-  const errorRate = useMemo(() => buildErrorRateData(selectedHistoryForChart), [selectedHistoryForChart]);
+  const errorRate = useMemo(
+    () => buildErrorRateData(selectedHistoryForChart),
+    [selectedHistoryForChart]
+  );
 
   useEffect(() => {
     setQueueVisible((current) => {
@@ -526,16 +568,14 @@ export function MetricsPage() {
         activeWorkflows: 0,
         completed24h: 0,
         failed24h: 0,
-        averageDurationSeconds: null as number | null
+        averageDurationSeconds: null as number | null,
       };
     }
 
     let activeWorkflows = latest.engineStatus?.active_workflows ?? null;
     if (activeWorkflows === null) {
-      const activeFromStatus = readMetric(
-        latest.samples,
-        "workflow_active_count",
-        (labels) => ACTIVE_STATUSES.has(labels.status)
+      const activeFromStatus = readMetric(latest.samples, "workflow_active_count", (labels) =>
+        ACTIVE_STATUSES.has(labels.status)
       );
       activeWorkflows =
         activeFromStatus !== null && activeFromStatus > 0
@@ -555,7 +595,7 @@ export function MetricsPage() {
         "workflow_submissions_total",
         (labels) => labels.status === "failed"
       ),
-      averageDurationSeconds: averageWorkflowDurationSeconds(history24h)
+      averageDurationSeconds: averageWorkflowDurationSeconds(history24h),
     };
   }, [history24h, latest]);
 
@@ -566,7 +606,7 @@ export function MetricsPage() {
         memoryPercent: null as number | null,
         goroutines: null as number | null,
         goroutinePercent: null as number | null,
-        cpuPercent: null as number | null
+        cpuPercent: null as number | null,
       };
     }
 
@@ -592,7 +632,7 @@ export function MetricsPage() {
       memoryPercent,
       goroutines,
       goroutinePercent,
-      cpuPercent: resolveCPUPercent(snapshots)
+      cpuPercent: resolveCPUPercent(snapshots),
     };
   }, [latest, selectedHistory, snapshots]);
 
@@ -625,7 +665,9 @@ export function MetricsPage() {
         </div>
       </header>
 
-      {loading && snapshots.length === 0 ? <Loading label="Loading metrics..." skeletonRows={4} /> : null}
+      {loading && snapshots.length === 0 ? (
+        <Loading label="Loading metrics..." skeletonRows={4} />
+      ) : null}
 
       {metricsError && snapshots.length === 0 ? (
         <ErrorState message={metricsError} onRetry={() => void refreshMetrics()} />
@@ -688,7 +730,7 @@ export function MetricsPage() {
             onToggle={(key) =>
               setThroughputVisible((current) => ({
                 ...current,
-                [key]: !current[key]
+                [key]: !current[key],
               }))
             }
           />
@@ -702,7 +744,7 @@ export function MetricsPage() {
               onToggle={(key) =>
                 setErrorRateVisible((current) => ({
                   ...current,
-                  [key]: !current[key]
+                  [key]: !current[key],
                 }))
               }
             />
@@ -715,7 +757,7 @@ export function MetricsPage() {
             onToggle={(lane) =>
               setQueueVisible((current) => ({
                 ...current,
-                [lane]: !current[lane]
+                [lane]: !current[lane],
               }))
             }
           />

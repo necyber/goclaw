@@ -20,4 +20,3 @@ export function ErrorState({ message, onRetry }: ErrorStateProps) {
     </section>
   );
 }
-

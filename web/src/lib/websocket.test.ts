@@ -10,18 +10,18 @@ class MockWebSocket {
   readonly url: string;
   readyState = MockWebSocket.CONNECTING;
   sent: string[] = [];
-  private listeners: Record<string, Array<(event: any) => void>> = {};
+  private listeners: Record<string, Array<(event: unknown) => void>> = {};
 
   constructor(url: string) {
     this.url = url;
     MockWebSocket.instances.push(this);
   }
 
-  addEventListener(type: string, listener: (event: any) => void) {
+  addEventListener(type: string, listener: (event: unknown) => void) {
     this.listeners[type] = [...(this.listeners[type] ?? []), listener];
   }
 
-  removeEventListener(type: string, listener: (event: any) => void) {
+  removeEventListener(type: string, listener: (event: unknown) => void) {
     this.listeners[type] = (this.listeners[type] ?? []).filter((item) => item !== listener);
   }
 
@@ -48,7 +48,7 @@ class MockWebSocket {
     this.emit("close", {});
   }
 
-  emit(type: string, event: any) {
+  emit(type: string, event: unknown) {
     for (const listener of this.listeners[type] ?? []) {
       listener(event);
     }
@@ -69,10 +69,7 @@ describe("RealtimeWebSocketClient", () => {
 
   it("connects and sends heartbeat pings", () => {
     const stateChanges: string[] = [];
-    const client = new RealtimeWebSocketClient(
-      (state) => stateChanges.push(state),
-      vi.fn()
-    );
+    const client = new RealtimeWebSocketClient((state) => stateChanges.push(state), vi.fn());
 
     client.connect();
     expect(MockWebSocket.instances.length).toBe(1);
@@ -97,7 +94,9 @@ describe("RealtimeWebSocketClient", () => {
     const socket = MockWebSocket.instances[0];
     socket.open();
 
-    socket.emitMessage(JSON.stringify({ type: "workflow.state_changed", timestamp: "now", payload: {} }));
+    socket.emitMessage(
+      JSON.stringify({ type: "workflow.state_changed", timestamp: "now", payload: {} })
+    );
     socket.emitMessage("not-json");
 
     expect(received).toEqual([{ type: "workflow.state_changed" }]);

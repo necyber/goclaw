@@ -46,7 +46,7 @@ function GaugeCard({
   subtitle,
   value,
   percent,
-  percentageLabel
+  percentageLabel,
 }: {
   title: string;
   subtitle: string;
@@ -57,7 +57,9 @@ function GaugeCard({
   const width = percent === null ? 0 : Math.max(0, Math.min(percent, 100));
   return (
     <article className="rounded-lg border border-[var(--ui-border)] bg-[var(--ui-bg)]/40 p-3">
-      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ui-muted)]">{title}</p>
+      <p className="text-xs font-semibold uppercase tracking-wide text-[var(--ui-muted)]">
+        {title}
+      </p>
       <p className="mt-1 text-lg font-semibold">{value}</p>
       <p className="text-xs text-[var(--ui-muted)]">{subtitle}</p>
       <div className="mt-3 h-2 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
@@ -75,7 +77,7 @@ export function ResourceGauges({
   memoryPercent,
   goroutines,
   goroutinePercent,
-  cpuPercent
+  cpuPercent,
 }: ResourceGaugesProps) {
   return (
     <section className="rounded-xl border border-[var(--ui-border)] bg-[var(--ui-panel)] p-4">

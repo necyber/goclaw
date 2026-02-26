@@ -52,10 +52,7 @@ async function parseError(response: Response): Promise<ApiError> {
   }
 
   const message =
-    payload?.error?.message ||
-    payload?.message ||
-    response.statusText ||
-    "Request failed";
+    payload?.error?.message || payload?.message || response.statusText || "Request failed";
   return new ApiError(message, response.status, payload?.error?.code, payload?.error?.request_id);
 }
 
@@ -66,7 +63,7 @@ export async function requestJSON<T>(path: string, options: RequestOptions = {})
   const init: RequestInit = {
     method: options.method ?? "GET",
     headers,
-    signal: options.signal
+    signal: options.signal,
   };
 
   if (options.body !== undefined) {
@@ -84,4 +81,3 @@ export async function requestJSON<T>(path: string, options: RequestOptions = {})
   }
   return (await response.json()) as T;
 }
-

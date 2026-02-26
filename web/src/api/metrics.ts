@@ -5,7 +5,7 @@ export async function fetchMetrics(signal?: AbortSignal): Promise<PrometheusSamp
   const response = await fetch("/metrics", {
     method: "GET",
     headers: { Accept: "text/plain" },
-    signal
+    signal,
   });
   if (!response.ok) {
     throw new Error(`Metrics request failed with ${response.status}`);

@@ -13,7 +13,7 @@ function parseLabels(raw: string): Record<string, string> {
     const value = match[2]
       .replace(/\\n/g, "\n")
       .replace(/\\t/g, "\t")
-      .replace(/\\"/g, "\"")
+      .replace(/\\"/g, '"')
       .replace(/\\\\/g, "\\");
     labels[key] = value;
     match = pairRegex.exec(raw);

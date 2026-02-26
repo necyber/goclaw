@@ -1,6 +1,10 @@
 import { create } from "zustand";
 
-import { RealtimeWebSocketClient, type WebSocketConnectionState, type WebSocketEventMessage } from "../lib/websocket";
+import {
+  RealtimeWebSocketClient,
+  type WebSocketConnectionState,
+  type WebSocketEventMessage,
+} from "../lib/websocket";
 
 type EventHandler = (event: WebSocketEventMessage) => void;
 
@@ -36,7 +40,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
   setStatus: (status) =>
     set({
       status,
-      connectionLost: status === "disconnected" ? get().connectionLost : false
+      connectionLost: status === "disconnected" ? get().connectionLost : false,
     }),
   connect: () => {
     let client = get().client;
@@ -45,7 +49,7 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
         (status) => {
           set((state) => ({
             status,
-            connectionLost: status === "disconnected" && state.status === "reconnecting"
+            connectionLost: status === "disconnected" && state.status === "reconnecting",
           }));
         },
         (event) => {
@@ -90,17 +94,16 @@ export const useWebSocketStore = create<WebSocketState>((set, get) => ({
     set((state) => ({
       handlers: {
         ...state.handlers,
-        [eventType]: [...(state.handlers[eventType] ?? []), handler]
-      }
+        [eventType]: [...(state.handlers[eventType] ?? []), handler],
+      },
     }));
     return () => {
       set((state) => ({
         handlers: {
           ...state.handlers,
-          [eventType]: (state.handlers[eventType] ?? []).filter((item) => item !== handler)
-        }
+          [eventType]: (state.handlers[eventType] ?? []).filter((item) => item !== handler),
+        },
       }));
     };
-  }
+  },
 }));
-

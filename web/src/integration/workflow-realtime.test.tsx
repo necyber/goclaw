@@ -4,14 +4,14 @@ import { MemoryRouter } from "react-router-dom";
 import type { WebSocketEventMessage } from "../lib/websocket";
 
 const wsMock = vi.hoisted(() => ({
-  workflowStateHandler: null as ((event: WebSocketEventMessage) => void) | null
+  workflowStateHandler: null as ((event: WebSocketEventMessage) => void) | null,
 }));
 
 vi.mock("../api/workflows", () => ({
   listWorkflows: vi.fn(),
   getWorkflow: vi.fn(),
   submitWorkflow: vi.fn(),
-  cancelWorkflow: vi.fn()
+  cancelWorkflow: vi.fn(),
 }));
 
 vi.mock("../stores/websocket", () => ({
@@ -22,9 +22,9 @@ vi.mock("../stores/websocket", () => ({
           wsMock.workflowStateHandler = handler;
         }
         return () => {};
-      }
-    })
-  }
+      },
+    }),
+  },
 }));
 
 import { listWorkflows, submitWorkflow } from "../api/workflows";
@@ -46,17 +46,17 @@ describe("workflow realtime integration", () => {
           name: "Realtime Demo",
           status: "pending",
           created_at: new Date().toISOString(),
-          task_count: 1
-        }
+          task_count: 1,
+        },
       ],
       total: 1,
       limit: 20,
-      offset: 0
+      offset: 0,
     });
     mockedSubmitWorkflow.mockResolvedValue({
       id: "wf-1",
       name: "Realtime Demo",
-      status: "pending"
+      status: "pending",
     });
 
     useWorkflowStore.setState({
@@ -69,7 +69,7 @@ describe("workflow realtime integration", () => {
       selectedWorkflow: null,
       loadingList: false,
       loadingDetail: false,
-      error: null
+      error: null,
     });
   });
 
@@ -97,8 +97,8 @@ describe("workflow realtime integration", () => {
       timestamp: new Date().toISOString(),
       payload: {
         workflow_id: "wf-1",
-        new_state: "completed"
-      }
+        new_state: "completed",
+      },
     });
 
     await waitFor(() => {

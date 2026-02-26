@@ -39,7 +39,7 @@ export const useThemeStore = create<ThemeState>()(
       toggleTheme: () => {
         const nextTheme = get().theme === "light" ? "dark" : "light";
         set({ theme: nextTheme, initialized: true });
-      }
+      },
     }),
     {
       name: "goclaw-theme",
@@ -53,8 +53,7 @@ export const useThemeStore = create<ThemeState>()(
           state.theme = detectSystemTheme();
         }
         state.initialized = true;
-      }
+      },
     }
   )
 );
-

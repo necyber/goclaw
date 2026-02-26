@@ -85,7 +85,9 @@ export function WorkflowDetailPage() {
       <header className="rounded-xl border border-[var(--ui-border)] bg-[var(--ui-panel)] p-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h1 className="text-xl font-semibold tracking-tight">{workflow?.name || "Workflow Detail"}</h1>
+            <h1 className="text-xl font-semibold tracking-tight">
+              {workflow?.name || "Workflow Detail"}
+            </h1>
             <p className="mt-1 break-all text-xs text-[var(--ui-muted)]">ID: {id || "-"}</p>
           </div>
           <div className="flex items-center gap-2">
@@ -105,9 +107,12 @@ export function WorkflowDetailPage() {
         {workflow ? (
           <div className="mt-3 grid gap-2 text-sm text-[var(--ui-muted)] md:grid-cols-3">
             <p>Created: {new Date(workflow.created_at).toLocaleString()}</p>
-            <p>Started: {workflow.started_at ? new Date(workflow.started_at).toLocaleString() : "-"}</p>
             <p>
-              Completed: {workflow.completed_at ? new Date(workflow.completed_at).toLocaleString() : "-"}
+              Started: {workflow.started_at ? new Date(workflow.started_at).toLocaleString() : "-"}
+            </p>
+            <p>
+              Completed:{" "}
+              {workflow.completed_at ? new Date(workflow.completed_at).toLocaleString() : "-"}
             </p>
           </div>
         ) : null}
@@ -120,9 +125,14 @@ export function WorkflowDetailPage() {
       </header>
 
       {loading ? <Loading label="Loading workflow detail..." skeletonRows={6} /> : null}
-      {!loading && error ? <ErrorState message={error} onRetry={() => void loadWorkflowDetail(id)} /> : null}
+      {!loading && error ? (
+        <ErrorState message={error} onRetry={() => void loadWorkflowDetail(id)} />
+      ) : null}
       {!loading && !error && workflow && workflow.tasks.length === 0 ? (
-        <EmptyState title="No tasks" description="This workflow does not contain task status records." />
+        <EmptyState
+          title="No tasks"
+          description="This workflow does not contain task status records."
+        />
       ) : null}
 
       {!loading && !error && workflow && workflow.tasks.length > 0 ? (
@@ -191,7 +201,11 @@ export function WorkflowDetailPage() {
                         <tr>
                           <td className="px-4 pb-4" colSpan={5}>
                             <pre className="overflow-auto rounded-md border border-[var(--ui-border)] bg-black/5 p-3 text-xs dark:bg-white/5">
-                              {JSON.stringify(task.result ?? { message: "No result data" }, null, 2)}
+                              {JSON.stringify(
+                                task.result ?? { message: "No result data" },
+                                null,
+                                2
+                              )}
                             </pre>
                           </td>
                         </tr>

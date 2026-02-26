@@ -22,4 +22,3 @@ export function Loading({ label = "Loading...", skeletonRows = 3 }: LoadingProps
     </section>
   );
 }
-
