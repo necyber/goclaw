@@ -100,7 +100,7 @@ func TestWebSocketHandler_ConnectionLimit(t *testing.T) {
 	}
 	var handshakeErr websocket.HandshakeError
 	if !errors.As(err, &handshakeErr) {
-		// gorilla may return other wrapped errors depending on transport; status is definitive.
+		t.Logf("dial returned non-handshake error type: %T", err)
 	}
 	if resp == nil {
 		t.Fatal("expected HTTP response for failed upgrade")
