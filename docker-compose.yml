@@ -18,6 +18,11 @@ services:
       - GOCLAW_ENV=production
       - GOCLAW_STORAGE_TYPE=badger
       - GOCLAW_STORAGE_BADGER_PATH=/app/data/badger
+      - GOCLAW_ORCHESTRATION_QUEUE_TYPE=redis
+      - GOCLAW_REDIS_ENABLED=true
+      - GOCLAW_REDIS_ADDRESS=redis:6379
+      - GOCLAW_SIGNAL_MODE=redis
+      - GOCLAW_SIGNAL_CHANNEL_PREFIX=goclaw:signal:
     networks:
       - goclaw-network
     depends_on:

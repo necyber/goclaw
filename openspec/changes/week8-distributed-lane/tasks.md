@@ -167,14 +167,14 @@
 
 ## 18. 文档
 
-- [ ] 18.1 创建 `docs/distributed-lane-guide.md` 使用指南
-- [ ] 18.2 文档化 Redis Lane 配置选项
-- [ ] 18.3 文档化消息模式使用方法和示例
-- [ ] 18.4 文档化 Signal Bus 配置
-- [ ] 18.5 添加 Redis 部署和配置指南
-- [ ] 18.6 更新 `README.md` 添加分布式 Lane 说明
-- [ ] 18.7 更新 `CLAUDE.md` 添加 signal 架构说明
-- [ ] 18.8 更新 `docker-compose.yml` 添加 Redis 服务
+- [x] 18.1 创建 `docs/distributed-lane-guide.md` 使用指南
+- [x] 18.2 文档化 Redis Lane 配置选项
+- [x] 18.3 文档化消息模式使用方法和示例
+- [x] 18.4 文档化 Signal Bus 配置
+- [x] 18.5 添加 Redis 部署和配置指南
+- [x] 18.6 更新 `README.md` 添加分布式 Lane 说明
+- [x] 18.7 更新 `CLAUDE.md` 添加 signal 架构说明
+- [x] 18.8 更新 `docker-compose.yml` 添加 Redis 服务
 
 ## 19. 清理和验收
 

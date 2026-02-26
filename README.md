@@ -332,6 +332,34 @@ The monitoring stack includes:
 
 For detailed monitoring setup, see [config/prometheus.yml](config/prometheus.yml) and [config/grafana/](config/grafana/).
 
+### Distributed Lane and Signal Bus
+
+Goclaw supports Redis-backed queueing and signal delivery for distributed deployment.
+
+#### Distributed Runtime Config
+
+```yaml
+orchestration:
+  queue:
+    type: redis
+
+redis:
+  enabled: true
+  address: "localhost:6379"
+
+signal:
+  mode: redis
+  channel_prefix: "goclaw:signal:"
+```
+
+When Redis is unavailable, startup falls back automatically to local mode and reports:
+
+- effective queue mode (`redis` or `memory(fallback)`)
+- effective signal mode (`redis` or `local(fallback)`)
+- redis connection status (`redis_connected`)
+
+See [docs/distributed-lane-guide.md](docs/distributed-lane-guide.md) for configuration details, signal patterns (steer/interrupt/collect), and deployment steps.
+
 ### Hybrid Memory System
 
 Goclaw includes a hybrid memory system for intelligent agent memory management, combining vector-based semantic search, BM25 full-text retrieval, and FSRS-6 spaced-repetition decay.

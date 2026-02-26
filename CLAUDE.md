@@ -52,6 +52,14 @@ Goclaw is a distributed multi-agent orchestration engine. The core execution mod
 - `worker_pool.go` manages concurrent workers; `priority_queue.go` orders tasks
 - `rate_limiter.go` handles backpressure (Block / Drop / Redirect strategies)
 - `manager.go` coordinates multiple named lanes
+- `redis_lane.go` provides Redis-backed lane execution with optional fallback
+
+**`pkg/signal/`** — Inter-task signal bus and patterns:
+- `bus.go` defines the signal bus contract
+- `local_bus.go` is in-process channel delivery
+- `redis_bus.go` is Redis Pub/Sub delivery for distributed mode
+- `steer.go`, `interrupt.go`, `collect.go` implement the message patterns
+- `message.go` defines signal payload and context injection helpers
 
 **`pkg/engine/`** — Orchestration engine: wires DAG + Lane together; manages state (Idle → Running → Stopped/Error); provides workflow management API.
 
@@ -82,6 +90,14 @@ Goclaw is a distributed multi-agent orchestration engine. The core execution mod
 **`pkg/logger/`** — Thin wrapper around Go's `log/slog` with JSON/text format and file/stdout output.
 
 **`cmd/goclaw/main.go`** — CLI entry point: loads config, initializes logger, starts engine and HTTP server, handles graceful shutdown on SIGINT/SIGTERM.
+
+### Distributed lane + signal integration notes
+
+- Redis is initialized when `redis.enabled=true`, or queue/signal mode requires Redis.
+- Queue mode: `orchestration.queue.type` supports `memory` and `redis`.
+- Signal mode: `signal.mode` supports `local` and `redis`.
+- Startup auto-falls back to local queue/signal when Redis is unavailable.
+- Runtime mode is logged with `queue_type`, `signal_mode`, and `redis_connected`.
 
 ### Configuration
 
