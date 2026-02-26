@@ -147,6 +147,7 @@ log:
 		if err != nil {
 			t.Fatalf("NewWatcher failed: %v", err)
 		}
+		defer watcher.Stop()
 
 		ctx, cancel := context.WithCancel(context.Background())
 
