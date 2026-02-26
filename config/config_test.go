@@ -33,6 +33,17 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.Log.Format != "json" {
 		t.Errorf("expected log format 'json', got %s", cfg.Log.Format)
 	}
+
+	// Test UI defaults
+	if !cfg.UI.Enabled {
+		t.Error("expected ui.enabled to be true")
+	}
+	if cfg.UI.BasePath != "/ui" {
+		t.Errorf("expected ui.base_path '/ui', got %s", cfg.UI.BasePath)
+	}
+	if cfg.UI.MaxWebSocketConnections != 100 {
+		t.Errorf("expected max_ws_connections 100, got %d", cfg.UI.MaxWebSocketConnections)
+	}
 }
 
 func TestConfig_Validate(t *testing.T) {
@@ -86,6 +97,15 @@ func TestConfig_Validate(t *testing.T) {
 			cfg: func() *Config {
 				cfg := DefaultConfig()
 				cfg.App.Environment = "invalid" // 无效环境
+				return cfg
+			}(),
+			wantErr: true,
+		},
+		{
+			name: "invalid ui base path",
+			cfg: func() *Config {
+				cfg := DefaultConfig()
+				cfg.UI.BasePath = "ui" // 必须以 / 开头
 				return cfg
 			}(),
 			wantErr: true,
@@ -244,6 +264,10 @@ app:
   environment: production
 server:
   port: 9999
+ui:
+  enabled: true
+  base_path: /dashboard
+  dev_proxy: http://localhost:5173
 log:
   level: debug
   format: text
@@ -269,6 +293,12 @@ log:
 	}
 	if cfg.Log.Format != "text" {
 		t.Errorf("expected 'text', got '%s'", cfg.Log.Format)
+	}
+	if cfg.UI.BasePath != "/dashboard" {
+		t.Errorf("expected '/dashboard', got '%s'", cfg.UI.BasePath)
+	}
+	if cfg.UI.DevProxy != "http://localhost:5173" {
+		t.Errorf("expected dev proxy to be set, got '%s'", cfg.UI.DevProxy)
 	}
 }
 

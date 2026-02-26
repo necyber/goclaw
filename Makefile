@@ -48,11 +48,29 @@ all: clean fmt vet test build
 # ================================================
 # Build targets
 # ================================================
+.PHONY: build-ui
+build-ui: ## Build Web UI assets
+	@echo "🌐 Building Web UI..."
+	@if [ ! -f web/package.json ]; then \
+		echo "ℹ️  web/package.json not found, skipping UI build"; \
+		exit 0; \
+	fi
+	@cd web && npm install && npm run build
+	@mkdir -p pkg/api/web
+	@rm -rf pkg/api/web/dist
+	@cp -R web/dist pkg/api/web/
+	@echo "✅ Web UI build complete: web/dist"
+
 .PHONY: build
 build: ## Build the application binary
 	@echo "🔨 Building $(APP_NAME)..."
 	@mkdir -p $(BIN_DIR)
-	$(GOBUILD) $(BUILD_FLAGS) -o $(BIN_DIR)/$(APP_NAME) $(CMD_DIR)/$(APP_NAME)/main.go
+	@BUILD_TAGS=""; \
+	if [ -f web/package.json ]; then \
+		$(MAKE) build-ui; \
+		BUILD_TAGS="-tags embed_ui"; \
+	fi; \
+	$(GOBUILD) $$BUILD_TAGS $(BUILD_FLAGS) -o $(BIN_DIR)/$(APP_NAME) $(CMD_DIR)/$(APP_NAME)/main.go
 	@echo "✅ Build complete: $(BIN_DIR)/$(APP_NAME)"
 
 .PHONY: build-all
@@ -193,6 +211,8 @@ clean: ## Clean build artifacts
 	@echo "🧹 Cleaning..."
 	$(GOCLEAN)
 	@rm -rf $(BIN_DIR)
+	@rm -rf web/dist web/node_modules
+	@rm -rf pkg/api/web/dist
 	@rm -f coverage.out coverage.html coverage.xml
 	@echo "✅ Clean complete"
 

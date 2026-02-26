@@ -97,6 +97,13 @@ server:
     allow_credentials: false
     max_age: 3600
 
+# Web UI configuration
+ui:
+  enabled: true
+  base_path: "/ui"                      # Must start with "/"
+  dev_proxy: ""                         # Example: "http://localhost:5173" for Vite dev server
+  max_ws_connections: 100               # Max concurrent /ws/events websocket clients
+
 # Logging configuration
 log:
   level: info  # debug, info, warn, error

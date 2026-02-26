@@ -39,6 +39,12 @@ func DefaultConfig() *Config {
 				MaxHeaderBytes: 1 << 20, // 1MB
 			},
 		},
+		UI: UIConfig{
+			Enabled:                 true,
+			BasePath:                "/ui",
+			DevProxy:                "",
+			MaxWebSocketConnections: 100,
+		},
 		Log: LogConfig{
 			Level:  "info",
 			Format: "json",

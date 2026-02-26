@@ -43,3 +43,12 @@ func WithRedisClient(client redis.Cmdable) Option {
 		}
 	}
 }
+
+// WithEventBroadcaster sets an event broadcaster for workflow/task state changes.
+func WithEventBroadcaster(broadcaster EventBroadcaster) Option {
+	return func(e *Engine) {
+		if broadcaster != nil {
+			e.events = broadcaster
+		}
+	}
+}

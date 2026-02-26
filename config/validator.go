@@ -72,6 +72,15 @@ func ValidateWithDetails(cfg *Config) error {
 		}
 		return err
 	}
+	if cfg != nil && cfg.UI.BasePath != "" && !strings.HasPrefix(cfg.UI.BasePath, "/") {
+		return ValidationErrors{
+			{
+				Field:   "Config.UI.BasePath",
+				Message: "must start with /",
+				Value:   cfg.UI.BasePath,
+			},
+		}
+	}
 	return nil
 }
 

@@ -82,6 +82,12 @@ type MemoryHub interface {
 	Stop(ctx context.Context) error
 }
 
+// EventBroadcaster publishes workflow/task state changes.
+type EventBroadcaster interface {
+	BroadcastWorkflowStateChanged(workflowID, name, oldState, newState string, updatedAt time.Time)
+	BroadcastTaskStateChanged(workflowID, taskID, taskName, oldState, newState, errorMessage string, result any, updatedAt time.Time)
+}
+
 // Engine is the core orchestration engine.
 type Engine struct {
 	cfg         *config.Config
@@ -93,6 +99,7 @@ type Engine struct {
 	memoryHub   MemoryHub
 	signalBus   signal.Bus
 	redisClient redis.Cmdable
+	events      EventBroadcaster
 	state       atomic.Int32
 }
 
@@ -261,6 +268,7 @@ func (e *Engine) Submit(ctx context.Context, wf *Workflow) (*WorkflowResult, err
 	}
 
 	e.logger.Info("submitting workflow", "workflow_id", wf.ID, "tasks", len(wf.Tasks))
+	e.emitWorkflowStateChanged(wf.ID, wf.ID, "pending", "running")
 
 	// Record workflow submission
 	e.metrics.RecordWorkflowSubmission("pending")
@@ -295,11 +303,20 @@ func (e *Engine) Submit(ctx context.Context, wf *Workflow) (*WorkflowResult, err
 
 	// Initialise per-workflow state tracker.
 	tracker := newStateTracker()
+	taskNameByID := make(map[string]string, len(wf.Tasks))
 	taskIDs := make([]string, 0, len(wf.Tasks))
 	for _, t := range wf.Tasks {
 		taskIDs = append(taskIDs, t.ID)
+		taskNameByID[t.ID] = t.Name
 	}
 	tracker.InitTasks(taskIDs)
+	tracker.SetOnStateChange(func(taskID string, oldState, newState TaskState, result TaskResult) {
+		errorMessage := ""
+		if result.Error != nil {
+			errorMessage = result.Error.Error()
+		}
+		e.emitTaskStateChanged(wf.ID, taskID, taskNameByID[taskID], oldState.String(), newState.String(), errorMessage, nil)
+	})
 
 	// Create a scheduler with this workflow's tracker.
 	sched := newScheduler(tracker, e.logger, e.signalBus)
@@ -323,6 +340,7 @@ func (e *Engine) Submit(ctx context.Context, wf *Workflow) (*WorkflowResult, err
 			statusStr = "failed"
 		}
 	}
+	e.emitWorkflowStateChanged(wf.ID, wf.ID, "running", statusStr)
 
 	// Record workflow duration
 	duration := time.Since(start)
@@ -450,3 +468,29 @@ func (n *nopMetrics) IncQueueDepth(laneName string)                             
 func (n *nopMetrics) DecQueueDepth(laneName string)                                {}
 func (n *nopMetrics) RecordWaitDuration(laneName string, duration time.Duration)   {}
 func (n *nopMetrics) RecordThroughput(laneName string)                             {}
+
+func (e *Engine) emitWorkflowStateChanged(workflowID, name, oldState, newState string) {
+	if e.events == nil {
+		return
+	}
+	e.events.BroadcastWorkflowStateChanged(workflowID, name, oldState, newState, time.Now().UTC())
+}
+
+func (e *Engine) emitTaskStateChanged(
+	workflowID, taskID, taskName, oldState, newState, errorMessage string,
+	result any,
+) {
+	if e.events == nil {
+		return
+	}
+	e.events.BroadcastTaskStateChanged(
+		workflowID,
+		taskID,
+		taskName,
+		oldState,
+		newState,
+		errorMessage,
+		result,
+		time.Now().UTC(),
+	)
+}

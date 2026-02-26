@@ -1,60 +1,60 @@
 ## 1. 项目结构和构建基础
 
-- [ ] 1.1 创建 `web/` 前端项目目录，初始化 Vite + React 18 + TypeScript 项目
-- [ ] 1.2 安装核心依赖：react-router-dom、zustand、tailwindcss、@headlessui/react
-- [ ] 1.3 安装可视化依赖：@xyflow/react（React Flow）、dagre、recharts
-- [ ] 1.4 配置 Tailwind CSS 4 和亮/暗主题 CSS 变量
-- [ ] 1.5 配置 Vite 构建输出到 `web/dist/`，配置 API 代理到 localhost:8080
-- [ ] 1.6 在 Makefile 添加 `build-ui` 目标（npm install + npm run build）
-- [ ] 1.7 在 Makefile 修改 `build` 目标，条件触发 `build-ui`
-- [ ] 1.8 在 Makefile 添加 `clean` 目标清理 web/dist/ 和 web/node_modules/
-- [ ] 1.9 添加 `.gitignore` 规则忽略 web/node_modules/ 和 web/dist/
+- [x] 1.1 创建 `web/` 前端项目目录，初始化 Vite + React 18 + TypeScript 项目
+- [x] 1.2 安装核心依赖：react-router-dom、zustand、tailwindcss、@headlessui/react
+- [x] 1.3 安装可视化依赖：@xyflow/react（React Flow）、dagre、recharts
+- [x] 1.4 配置 Tailwind CSS 4 和亮/暗主题 CSS 变量
+- [x] 1.5 配置 Vite 构建输出到 `web/dist/`，配置 API 代理到 localhost:8080
+- [x] 1.6 在 Makefile 添加 `build-ui` 目标（npm install + npm run build）
+- [x] 1.7 在 Makefile 修改 `build` 目标，条件触发 `build-ui`
+- [x] 1.8 在 Makefile 添加 `clean` 目标清理 web/dist/ 和 web/node_modules/
+- [x] 1.9 添加 `.gitignore` 规则忽略 web/node_modules/ 和 web/dist/
 
 ## 2. Go embed 和静态资源服务
 
-- [ ] 2.1 创建 `pkg/api/ui_embed.go`（build tag: embed_ui），使用 go:embed 嵌入 web/dist/
-- [ ] 2.2 创建 `pkg/api/ui_noembed.go`（build tag: !embed_ui），返回 "UI not included" 提示
-- [ ] 2.3 实现 SPA 回退路由（非静态文件路径返回 index.html）
-- [ ] 2.4 实现 Gzip 压缩中间件（对 HTML/CSS/JS/JSON/SVG 压缩，< 1KB 跳过）
-- [ ] 2.5 实现缓存控制（带 hash 文件名: max-age=31536000; index.html: no-cache）
-- [ ] 2.6 编写静态资源服务单元测试
-- [ ] 2.7 编写 SPA 回退路由测试
+- [x] 2.1 创建 `pkg/api/ui_embed.go`（build tag: embed_ui），使用 go:embed 嵌入 web/dist/
+- [x] 2.2 创建 `pkg/api/ui_noembed.go`（build tag: !embed_ui），返回 "UI not included" 提示
+- [x] 2.3 实现 SPA 回退路由（非静态文件路径返回 index.html）
+- [x] 2.4 实现 Gzip 压缩中间件（对 HTML/CSS/JS/JSON/SVG 压缩，< 1KB 跳过）
+- [x] 2.5 实现缓存控制（带 hash 文件名: max-age=31536000; index.html: no-cache）
+- [x] 2.6 编写静态资源服务单元测试
+- [x] 2.7 编写 SPA 回退路由测试
 
 ## 3. UI 配置
 
-- [ ] 3.1 在 `config/config.go` 添加 `UIConfig` 结构（Enabled, BasePath, DevProxy）
-- [ ] 3.2 更新 `config.example.yaml` 添加 `ui` 配置段
-- [ ] 3.3 添加配置验证规则（BasePath 必须以 / 开头）
-- [ ] 3.4 编写配置加载测试
+- [x] 3.1 在 `config/config.go` 添加 `UIConfig` 结构（Enabled, BasePath, DevProxy）
+- [x] 3.2 更新 `config.example.yaml` 添加 `ui` 配置段
+- [x] 3.3 添加配置验证规则（BasePath 必须以 / 开头）
+- [x] 3.4 编写配置加载测试
 
 ## 4. 路由注册
 
-- [ ] 4.1 在 `pkg/api/router.go` 注册 /ui/* 静态资源路由（根据 UIConfig.Enabled 条件注册）
-- [ ] 4.2 实现开发模式代理（UIConfig.DevProxy 非空时代理到 Vite dev server）
-- [ ] 4.3 编写路由注册测试（启用/禁用 UI）
+- [x] 4.1 在 `pkg/api/router.go` 注册 /ui/* 静态资源路由（根据 UIConfig.Enabled 条件注册）
+- [x] 4.2 实现开发模式代理（UIConfig.DevProxy 非空时代理到 Vite dev server）
+- [x] 4.3 编写路由注册测试（启用/禁用 UI）
 
 ## 5. WebSocket 服务端
 
-- [ ] 5.1 添加 gorilla/websocket 依赖
-- [ ] 5.2 创建 `pkg/api/handlers/websocket.go` 定义 WebSocket handler
-- [ ] 5.3 实现 WebSocket 升级（/ws/events 端点）
-- [ ] 5.4 实现连接管理器（注册、注销、广播）
-- [ ] 5.5 实现连接数限制（默认 100，可配置）
-- [ ] 5.6 实现心跳检测（ping/pong，30s 间隔，10s 超时）
-- [ ] 5.7 实现工作流订阅（客户端发送 subscribe 消息指定 workflow ID）
-- [ ] 5.8 定义事件消息格式（type, timestamp, payload）
-- [ ] 5.9 实现 CORS 检查（WebSocket origin 验证）
-- [ ] 5.10 在 `pkg/api/router.go` 注册 /ws/events 路由
-- [ ] 5.11 编写 WebSocket handler 单元测试
-- [ ] 5.12 编写连接管理器测试（注册、注销、广播、连接限制）
+- [x] 5.1 添加 gorilla/websocket 依赖
+- [x] 5.2 创建 `pkg/api/handlers/websocket.go` 定义 WebSocket handler
+- [x] 5.3 实现 WebSocket 升级（/ws/events 端点）
+- [x] 5.4 实现连接管理器（注册、注销、广播）
+- [x] 5.5 实现连接数限制（默认 100，可配置）
+- [x] 5.6 实现心跳检测（ping/pong，30s 间隔，10s 超时）
+- [x] 5.7 实现工作流订阅（客户端发送 subscribe 消息指定 workflow ID）
+- [x] 5.8 定义事件消息格式（type, timestamp, payload）
+- [x] 5.9 实现 CORS 检查（WebSocket origin 验证）
+- [x] 5.10 在 `pkg/api/router.go` 注册 /ws/events 路由
+- [x] 5.11 编写 WebSocket handler 单元测试
+- [x] 5.12 编写连接管理器测试（注册、注销、广播、连接限制）
 
 ## 6. 事件广播集成
 
-- [ ] 6.1 创建 `pkg/api/events/broadcaster.go` 定义事件广播器
-- [ ] 6.2 实现工作流状态变更事件（workflow.state_changed）
-- [ ] 6.3 实现任务状态变更事件（task.state_changed）
-- [ ] 6.4 在 Engine 中注入事件广播器，状态变更时触发事件
-- [ ] 6.5 编写事件广播器单元测试
+- [x] 6.1 创建 `pkg/api/events/broadcaster.go` 定义事件广播器
+- [x] 6.2 实现工作流状态变更事件（workflow.state_changed）
+- [x] 6.3 实现任务状态变更事件（task.state_changed）
+- [x] 6.4 在 Engine 中注入事件广播器，状态变更时触发事件
+- [x] 6.5 编写事件广播器单元测试
 
 ## 7. 前端应用框架（Dashboard Layout）
 
@@ -156,18 +156,18 @@
 
 ## 14. Engine 集成
 
-- [ ] 14.1 在 `pkg/engine/engine.go` 添加事件广播器字段
-- [ ] 14.2 在工作流状态变更时触发 workflow.state_changed 事件
-- [ ] 14.3 在任务状态变更时触发 task.state_changed 事件
-- [ ] 14.4 编写事件触发集成测试
+- [x] 14.1 在 `pkg/engine/engine.go` 添加事件广播器字段
+- [x] 14.2 在工作流状态变更时触发 workflow.state_changed 事件
+- [x] 14.3 在任务状态变更时触发 task.state_changed 事件
+- [x] 14.4 编写事件触发集成测试
 
 ## 15. 主程序集成
 
-- [ ] 15.1 在 `cmd/goclaw/main.go` 初始化 WebSocket handler 和事件广播器
-- [ ] 15.2 传递事件广播器到 Engine
-- [ ] 15.3 传递 WebSocket handler 到 API Server
-- [ ] 15.4 在 shutdown 时关闭所有 WebSocket 连接
-- [ ] 15.5 添加 UI 启动日志（"Web UI available at http://localhost:8080/ui"）
+- [x] 15.1 在 `cmd/goclaw/main.go` 初始化 WebSocket handler 和事件广播器
+- [x] 15.2 传递事件广播器到 Engine
+- [x] 15.3 传递 WebSocket handler 到 API Server
+- [x] 15.4 在 shutdown 时关闭所有 WebSocket 连接
+- [x] 15.5 添加 UI 启动日志（"Web UI available at http://localhost:8080/ui"）
 - [ ] 15.6 测试完整启动和关闭流程
 
 ## 16. 测试

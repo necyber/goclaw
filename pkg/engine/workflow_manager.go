@@ -42,6 +42,7 @@ func (e *Engine) SubmitWorkflowRequest(ctx context.Context, req *models.Workflow
 	if err := e.storage.SaveWorkflow(ctx, wfState); err != nil {
 		return "", fmt.Errorf("failed to save workflow: %w", err)
 	}
+	e.emitWorkflowStateChanged(wfState.ID, wfState.Name, "", wfState.Status)
 
 	e.logger.Info("workflow submitted", "id", wfState.ID, "name", wfState.Name, "tasks", len(wfState.Tasks))
 
@@ -127,6 +128,7 @@ func (e *Engine) CancelWorkflowRequest(ctx context.Context, id string) error {
 	}
 
 	// Update status to cancelled
+	oldStatus := wfState.Status
 	wfState.Status = "cancelled"
 	now := time.Now()
 	if wfState.CompletedAt == nil {
@@ -136,6 +138,7 @@ func (e *Engine) CancelWorkflowRequest(ctx context.Context, id string) error {
 	if err := e.storage.SaveWorkflow(ctx, wfState); err != nil {
 		return err
 	}
+	e.emitWorkflowStateChanged(wfState.ID, wfState.Name, oldStatus, wfState.Status)
 
 	e.logger.Info("workflow cancelled", "id", id)
 	return nil

@@ -5,6 +5,7 @@ import (
 	"github.com/goclaw/goclaw/pkg/storage/memory"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 
@@ -177,5 +178,149 @@ func TestRegisterRoutes_WorkflowEndpoints(t *testing.T) {
 	// Should return 200 OK with empty workflow list
 	if w.Code != http.StatusOK {
 		t.Errorf("workflow endpoint status = %v, want %v", w.Code, http.StatusOK)
+	}
+}
+
+func TestRegisterRoutes_UIEnabled(t *testing.T) {
+	cfg := &config.Config{
+		Server: config.ServerConfig{
+			HTTP: config.HTTPConfig{
+				ReadTimeout: 30 * time.Second,
+			},
+			CORS: config.CORSConfig{
+				Enabled: false,
+			},
+		},
+		UI: config.UIConfig{
+			Enabled:  true,
+			BasePath: "/ui",
+		},
+	}
+
+	log := logger.New(&logger.Config{
+		Level:  logger.InfoLevel,
+		Format: "json",
+		Output: "stdout",
+	})
+
+	router := NewRouter(cfg, log, &Handlers{})
+
+	req := httptest.NewRequest(http.MethodGet, "/ui", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotImplemented {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusNotImplemented)
+	}
+	if !strings.Contains(w.Body.String(), "UI not included") {
+		t.Fatalf("unexpected response body: %q", w.Body.String())
+	}
+}
+
+func TestRegisterRoutes_UIDisabled(t *testing.T) {
+	cfg := &config.Config{
+		Server: config.ServerConfig{
+			HTTP: config.HTTPConfig{
+				ReadTimeout: 30 * time.Second,
+			},
+			CORS: config.CORSConfig{
+				Enabled: false,
+			},
+		},
+		UI: config.UIConfig{
+			Enabled: false,
+		},
+	}
+
+	log := logger.New(&logger.Config{
+		Level:  logger.InfoLevel,
+		Format: "json",
+		Output: "stdout",
+	})
+
+	router := NewRouter(cfg, log, &Handlers{})
+
+	req := httptest.NewRequest(http.MethodGet, "/ui", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusNotFound)
+	}
+}
+
+func TestRegisterRoutes_UIDevProxy(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("proxied:" + r.URL.Path))
+	}))
+	defer upstream.Close()
+
+	cfg := &config.Config{
+		Server: config.ServerConfig{
+			HTTP: config.HTTPConfig{
+				ReadTimeout: 30 * time.Second,
+			},
+			CORS: config.CORSConfig{
+				Enabled: false,
+			},
+		},
+		UI: config.UIConfig{
+			Enabled:  true,
+			BasePath: "/ui",
+			DevProxy: upstream.URL,
+		},
+	}
+
+	log := logger.New(&logger.Config{
+		Level:  logger.InfoLevel,
+		Format: "json",
+		Output: "stdout",
+	})
+
+	router := NewRouter(cfg, log, &Handlers{})
+
+	req := httptest.NewRequest(http.MethodGet, "/ui/workflows/abc", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
+	}
+	if !strings.Contains(w.Body.String(), "proxied:/ui/workflows/abc") {
+		t.Fatalf("unexpected proxy body: %q", w.Body.String())
+	}
+}
+
+func TestRegisterRoutes_WebSocket(t *testing.T) {
+	cfg := &config.Config{
+		Server: config.ServerConfig{
+			HTTP: config.HTTPConfig{
+				ReadTimeout: 30 * time.Second,
+			},
+			CORS: config.CORSConfig{
+				Enabled: false,
+			},
+		},
+	}
+
+	log := logger.New(&logger.Config{
+		Level:  logger.InfoLevel,
+		Format: "json",
+		Output: "stdout",
+	})
+
+	router := NewRouter(cfg, log, &Handlers{
+		WebSocket: http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+			w.WriteHeader(http.StatusSwitchingProtocols)
+		}),
+	})
+
+	req := httptest.NewRequest(http.MethodGet, "/ws/events", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusSwitchingProtocols {
+		t.Fatalf("status = %d, want %d", w.Code, http.StatusSwitchingProtocols)
 	}
 }

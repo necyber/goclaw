@@ -22,11 +22,13 @@ import (
 	"fmt"
 	"os"
 	ossignal "os/signal"
+	"strings"
 	"syscall"
 	"time"
 
 	"github.com/goclaw/goclaw/config"
 	"github.com/goclaw/goclaw/pkg/api"
+	"github.com/goclaw/goclaw/pkg/api/events"
 	"github.com/goclaw/goclaw/pkg/api/handlers"
 	"github.com/goclaw/goclaw/pkg/engine"
 	grpcpkg "github.com/goclaw/goclaw/pkg/grpc"
@@ -163,7 +165,29 @@ func main() {
 	}
 
 	// Initialize and start the orchestration engine.
-	engineOpts := []engine.Option{engine.WithMetrics(metricsManager)}
+	eventBroadcaster := events.NewBroadcaster()
+	wsHandler := handlers.NewWebSocketHandler(log, handlers.WebSocketConfig{
+		AllowedOrigins: cfg.Server.CORS.AllowedOrigins,
+		MaxConnections: cfg.UI.MaxWebSocketConnections,
+		PingInterval:   30 * time.Second,
+		PongTimeout:    10 * time.Second,
+	})
+	eventSubscription := eventBroadcaster.Subscribe(256)
+	defer eventBroadcaster.Unsubscribe(eventSubscription)
+	go func() {
+		for event := range eventSubscription {
+			_ = wsHandler.Broadcast(handlers.EventMessage{
+				Type:      event.Type,
+				Timestamp: event.Timestamp,
+				Payload:   event.Payload,
+			})
+		}
+	}()
+
+	engineOpts := []engine.Option{
+		engine.WithMetrics(metricsManager),
+		engine.WithEventBroadcaster(eventBroadcaster),
+	}
 
 	needsRedis := cfg.Redis.Enabled || cfg.Orchestration.Queue.Type == "redis" || cfg.Signal.Mode == "redis"
 	var redisClient *redis.Client
@@ -239,10 +263,11 @@ func main() {
 	healthHandler := handlers.NewHealthHandler(eng)
 
 	apiHandlers := &api.Handlers{
-		Workflow: workflowHandler,
-		Health:   healthHandler,
-		Memory:   memoryHandler,
-		Metrics:  metricsManager,
+		Workflow:  workflowHandler,
+		Health:    healthHandler,
+		Memory:    memoryHandler,
+		Metrics:   metricsManager,
+		WebSocket: wsHandler,
 	}
 
 	httpServer := api.NewHTTPServer(cfg, log, apiHandlers)
@@ -283,6 +308,13 @@ func main() {
 		"grpc_enabled", cfg.Server.GRPC.Enabled,
 		"metrics_port", cfg.Metrics.Port,
 	)
+	if cfg.UI.Enabled {
+		basePath := strings.TrimSpace(cfg.UI.BasePath)
+		if basePath == "" {
+			basePath = "/ui"
+		}
+		log.Info(fmt.Sprintf("Web UI available at http://localhost:%d%s", cfg.Server.Port, strings.TrimRight(basePath, "/")))
+	}
 	log.Info("Press Ctrl+C to stop")
 
 	// Wait for shutdown signal or server error
@@ -301,6 +333,9 @@ func main() {
 
 	// Shutdown HTTP server first
 	log.Info("Shutting down HTTP server")
+	log.Info("Closing websocket connections")
+	wsHandler.Close()
+	eventBroadcaster.Close()
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		log.Error("Error shutting down HTTP server", "error", err)
 	}

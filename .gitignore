@@ -108,6 +108,9 @@ desktop.ini
 /build/
 /out/
 /release/
+/web/dist/
+/web/node_modules/
+/pkg/api/web/dist/
 
 # ================================================
 # Log files

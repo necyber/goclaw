@@ -1,0 +1,30 @@
+@import "tailwindcss";
+
+:root {
+  color-scheme: light;
+  --ui-bg: #f7f5ef;
+  --ui-fg: #1f2f2b;
+  --ui-panel: #ffffff;
+  --ui-muted: #5d6f6a;
+  --ui-border: #d4ddd8;
+}
+
+[data-theme="dark"] {
+  color-scheme: dark;
+  --ui-bg: #111a1c;
+  --ui-fg: #e8f1ee;
+  --ui-panel: #1d292c;
+  --ui-muted: #9ab0aa;
+  --ui-border: #2e3d40;
+}
+
+html,
+body,
+#root {
+  min-height: 100%;
+}
+
+body {
+  margin: 0;
+  font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
+}

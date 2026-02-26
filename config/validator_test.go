@@ -150,3 +150,13 @@ func TestIsValidHostChar(t *testing.T) {
 		})
 	}
 }
+
+func TestValidateWithDetails_UIBasePath(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.UI.BasePath = "invalid"
+
+	err := ValidateWithDetails(cfg)
+	if err == nil {
+		t.Fatal("expected validation error for ui.base_path")
+	}
+}

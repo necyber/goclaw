@@ -46,8 +46,9 @@ type TaskResult struct {
 
 // StateTracker tracks the state of all tasks in a workflow execution.
 type StateTracker struct {
-	mu      sync.RWMutex
-	results map[string]*TaskResult
+	mu            sync.RWMutex
+	results       map[string]*TaskResult
+	onStateChange func(taskID string, oldState, newState TaskState, result TaskResult)
 }
 
 // newStateTracker creates a new StateTracker.
@@ -71,13 +72,19 @@ func (t *StateTracker) InitTasks(taskIDs []string) {
 
 // SetState updates the state of a task.
 func (t *StateTracker) SetState(taskID string, state TaskState) {
+	var (
+		oldState TaskState
+		snapshot TaskResult
+		hook     func(taskID string, oldState, newState TaskState, result TaskResult)
+	)
+
 	t.mu.Lock()
-	defer t.mu.Unlock()
 	r, ok := t.results[taskID]
 	if !ok {
 		r = &TaskResult{TaskID: taskID}
 		t.results[taskID] = r
 	}
+	oldState = r.State
 	r.State = state
 	switch state {
 	case TaskStateRunning:
@@ -85,21 +92,48 @@ func (t *StateTracker) SetState(taskID string, state TaskState) {
 	case TaskStateCompleted, TaskStateFailed:
 		r.EndedAt = time.Now()
 	}
+	snapshot = *r
+	hook = t.onStateChange
+	t.mu.Unlock()
+
+	if hook != nil && oldState != state {
+		hook(taskID, oldState, state, snapshot)
+	}
 }
 
 // SetFailed marks a task as failed with the given error and retry count.
 func (t *StateTracker) SetFailed(taskID string, err error, retries int) {
+	var (
+		oldState TaskState
+		snapshot TaskResult
+		hook     func(taskID string, oldState, newState TaskState, result TaskResult)
+	)
+
 	t.mu.Lock()
-	defer t.mu.Unlock()
 	r, ok := t.results[taskID]
 	if !ok {
 		r = &TaskResult{TaskID: taskID}
 		t.results[taskID] = r
 	}
+	oldState = r.State
 	r.State = TaskStateFailed
 	r.Error = err
 	r.Retries = retries
 	r.EndedAt = time.Now()
+	snapshot = *r
+	hook = t.onStateChange
+	t.mu.Unlock()
+
+	if hook != nil && oldState != TaskStateFailed {
+		hook(taskID, oldState, TaskStateFailed, snapshot)
+	}
+}
+
+// SetOnStateChange sets a callback invoked on task state transitions.
+func (t *StateTracker) SetOnStateChange(fn func(taskID string, oldState, newState TaskState, result TaskResult)) {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	t.onStateChange = fn
 }
 
 // GetResult returns a copy of the TaskResult for the given task ID.

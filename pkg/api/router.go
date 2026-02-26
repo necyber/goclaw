@@ -2,6 +2,11 @@
 package api
 
 import (
+	"net/http"
+	"net/http/httputil"
+	"net/url"
+	"strings"
+
 	"github.com/go-chi/chi/v5"
 	"github.com/goclaw/goclaw/config"
 	"github.com/goclaw/goclaw/pkg/api/handlers"
@@ -25,6 +30,9 @@ type Handlers struct {
 
 	// Metrics is the optional metrics recorder
 	Metrics middleware.MetricsRecorder
+
+	// WebSocket handles websocket events endpoint
+	WebSocket http.Handler
 }
 
 // NewRouter creates a new chi router with middleware and routes.
@@ -45,13 +53,13 @@ func NewRouter(cfg *config.Config, log logger.Logger, handlers *Handlers) chi.Ro
 	r.Use(middleware.Timeout(cfg.Server.HTTP.ReadTimeout))
 
 	// Register routes
-	RegisterRoutes(r, handlers)
+	RegisterRoutes(r, cfg, log, handlers)
 
 	return r
 }
 
 // RegisterRoutes registers all API routes.
-func RegisterRoutes(r chi.Router, handlers *Handlers) {
+func RegisterRoutes(r chi.Router, cfg *config.Config, log logger.Logger, handlers *Handlers) {
 	// API v1 routes
 	r.Route("/api/v1", func(r chi.Router) {
 		// Workflow routes
@@ -86,6 +94,71 @@ func RegisterRoutes(r chi.Router, handlers *Handlers) {
 		r.Get("/status", handlers.Health.Status)
 	}
 
+	// WebSocket events
+	if handlers.WebSocket != nil {
+		r.Handle("/ws/events", handlers.WebSocket)
+	}
+
 	// Swagger documentation
 	r.Get("/swagger/*", httpSwagger.WrapHandler)
+
+	registerUIRoutes(r, cfg, log)
+}
+
+func registerUIRoutes(r chi.Router, cfg *config.Config, log logger.Logger) {
+	if cfg == nil || !cfg.UI.Enabled {
+		return
+	}
+
+	basePath := normalizeUIBasePath(cfg.UI.BasePath)
+	handler := newUIHandler(log)
+
+	if cfg.UI.DevProxy != "" {
+		proxy, err := newUIDevProxy(cfg.UI.DevProxy, log)
+		if err != nil {
+			log.Error("invalid ui.dev_proxy, falling back to embedded UI", "value", cfg.UI.DevProxy, "error", err)
+			handler = http.StripPrefix(basePath, handler)
+		} else {
+			handler = proxy
+		}
+	} else {
+		handler = http.StripPrefix(basePath, handler)
+	}
+
+	r.Handle(basePath, handler)
+	r.Handle(basePath+"/", handler)
+	r.Handle(basePath+"/*", handler)
+}
+
+func normalizeUIBasePath(basePath string) string {
+	normalized := strings.TrimSpace(basePath)
+	if normalized == "" {
+		return "/ui"
+	}
+	if !strings.HasPrefix(normalized, "/") {
+		normalized = "/" + normalized
+	}
+	return strings.TrimRight(normalized, "/")
+}
+
+func newUIDevProxy(rawURL string, log logger.Logger) (http.Handler, error) {
+	target, err := url.Parse(rawURL)
+	if err != nil {
+		return nil, err
+	}
+
+	proxy := httputil.NewSingleHostReverseProxy(target)
+	originalDirector := proxy.Director
+	proxy.Director = func(req *http.Request) {
+		originalDirector(req)
+		req.Host = target.Host
+	}
+	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, proxyErr error) {
+		if log != nil {
+			log.Error("ui dev proxy request failed", "target", rawURL, "path", req.URL.Path, "error", proxyErr)
+		}
+		http.Error(w, "UI dev proxy unavailable", http.StatusBadGateway)
+	}
+
+	return proxy, nil
 }

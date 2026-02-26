@@ -3,6 +3,7 @@ package config
 
 import (
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -13,6 +14,9 @@ type Config struct {
 
 	// Server is the server configuration.
 	Server ServerConfig `mapstructure:"server" validate:"required"`
+
+	// UI is the Web UI configuration.
+	UI UIConfig `mapstructure:"ui"`
 
 	// Log is the logging configuration.
 	Log LogConfig `mapstructure:"log" validate:"required"`
@@ -190,6 +194,21 @@ type CORSConfig struct {
 
 	// MaxAge is the maximum age of CORS preflight cache in seconds.
 	MaxAge int `mapstructure:"max_age"`
+}
+
+// UIConfig holds Web UI settings.
+type UIConfig struct {
+	// Enabled controls whether Web UI routes are registered.
+	Enabled bool `mapstructure:"enabled"`
+
+	// BasePath is the path prefix used to serve the UI.
+	BasePath string `mapstructure:"base_path"`
+
+	// DevProxy points to a Vite dev server in development mode.
+	DevProxy string `mapstructure:"dev_proxy"`
+
+	// MaxWebSocketConnections limits concurrent websocket clients.
+	MaxWebSocketConnections int `mapstructure:"max_ws_connections" validate:"min=0"`
 }
 
 // LogConfig holds logging settings.
@@ -454,6 +473,9 @@ type SignalConfig struct {
 func (c *Config) Validate() error {
 	if err := validate.Struct(c); err != nil {
 		return fmt.Errorf("config validation failed: %w", err)
+	}
+	if c.UI.BasePath != "" && !strings.HasPrefix(c.UI.BasePath, "/") {
+		return fmt.Errorf("config validation failed: ui.base_path must start with '/'")
 	}
 	return nil
 }

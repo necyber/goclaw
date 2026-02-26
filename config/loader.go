@@ -96,6 +96,7 @@ func (l *Loader) loadDefaults() error {
 	return l.k.Load(confmap.Provider(map[string]interface{}{
 		"app":           defaults.App,
 		"server":        defaults.Server,
+		"ui":            defaults.UI,
 		"log":           defaults.Log,
 		"orchestration": defaults.Orchestration,
 		"cluster":       defaults.Cluster,
