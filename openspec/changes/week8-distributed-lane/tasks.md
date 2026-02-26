@@ -126,13 +126,13 @@
 
 ## 14. Engine 和 API 集成
 
-- [ ] 14.1 在 `pkg/engine/engine.go` 添加 `signalBus` 字段
-- [ ] 14.2 在 `New()` 中初始化 Signal Bus
-- [ ] 14.3 在 `Start()` 中启动 Signal Bus
-- [ ] 14.4 在 `Stop()` 中关闭 Signal Bus
-- [ ] 14.5 在任务执行时注入信号 context
-- [ ] 14.6 实现 gRPC `SignalTask` RPC 与 Signal Bus 对接
-- [ ] 14.7 编写集成测试
+- [x] 14.1 在 `pkg/engine/engine.go` 添加 `signalBus` 字段
+- [x] 14.2 在 `New()` 中初始化 Signal Bus
+- [x] 14.3 在 `Start()` 中启动 Signal Bus
+- [x] 14.4 在 `Stop()` 中关闭 Signal Bus
+- [x] 14.5 在任务执行时注入信号 context
+- [x] 14.6 实现 gRPC `SignalTask` RPC 与 Signal Bus 对接
+- [x] 14.7 编写集成测试
 
 ## 15. 主程序集成
 

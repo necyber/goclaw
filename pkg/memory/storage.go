@@ -307,10 +307,11 @@ func NewTieredStorage(l1 *L1Cache, l2 *L2Badger) *TieredStorage {
 
 // Store writes to both L2 (persistent) and L1 (cache).
 func (t *TieredStorage) Store(ctx context.Context, entry *MemoryEntry) error {
-	if err := t.l2.Store(ctx, entry); err != nil {
+	clone := cloneEntry(entry)
+	if err := t.l2.Store(ctx, clone); err != nil {
 		return err
 	}
-	t.l1.Put(entry.ID, entry)
+	t.l1.Put(clone.ID, clone)
 	return nil
 }
 
@@ -318,7 +319,7 @@ func (t *TieredStorage) Store(ctx context.Context, entry *MemoryEntry) error {
 func (t *TieredStorage) Get(ctx context.Context, id string) (*MemoryEntry, error) {
 	// L1 check
 	if entry, ok := t.l1.Get(id); ok {
-		return entry, nil
+		return cloneEntry(entry), nil
 	}
 	// L2 check with promotion
 	entry, err := t.l2.Get(ctx, id)
@@ -326,7 +327,7 @@ func (t *TieredStorage) Get(ctx context.Context, id string) (*MemoryEntry, error
 		return nil, err
 	}
 	t.l1.Put(entry.ID, entry)
-	return entry, nil
+	return cloneEntry(entry), nil
 }
 
 // Delete removes from both L1 and L2.

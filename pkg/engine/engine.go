@@ -10,6 +10,7 @@ import (
 	"github.com/goclaw/goclaw/config"
 	"github.com/goclaw/goclaw/pkg/dag"
 	"github.com/goclaw/goclaw/pkg/lane"
+	"github.com/goclaw/goclaw/pkg/signal"
 	"github.com/goclaw/goclaw/pkg/storage"
 )
 
@@ -89,6 +90,7 @@ type Engine struct {
 	scheduler   *Scheduler
 	metrics     MetricsRecorder
 	memoryHub   MemoryHub
+	signalBus   signal.Bus
 	state       atomic.Int32
 }
 
@@ -116,6 +118,10 @@ func New(cfg *config.Config, logger appLogger, store storage.Storage, opts ...Op
 		opt(e)
 	}
 
+	if e.signalBus == nil {
+		e.signalBus = signal.NewLocalBus(cfg.Signal.BufferSize)
+	}
+
 	return e, nil
 }
 
@@ -126,6 +132,15 @@ func (e *Engine) Start(ctx context.Context) error {
 	}
 
 	e.logger.Info("starting engine", "app", e.cfg.App.Name)
+
+	if e.signalBus == nil {
+		e.signalBus = signal.NewLocalBus(e.cfg.Signal.BufferSize)
+	}
+	if !e.signalBus.Healthy() {
+		e.logger.Warn("signal bus reported unhealthy state")
+	} else {
+		e.logger.Info("signal bus started")
+	}
 
 	// Create lane manager and register the default lane.
 	e.laneManager = lane.NewManager()
@@ -157,7 +172,7 @@ func (e *Engine) Start(ctx context.Context) error {
 	}
 
 	// Create scheduler (tracker is per-workflow, created in Submit).
-	e.scheduler = newScheduler(newStateTracker(), e.logger)
+	e.scheduler = newScheduler(newStateTracker(), e.logger, e.signalBus)
 
 	// Start memory hub if configured
 	if e.memoryHub != nil {
@@ -198,6 +213,12 @@ func (e *Engine) Stop(ctx context.Context) error {
 		if err := e.laneManager.Close(ctx); err != nil {
 			e.state.Store(int32(stateError))
 			return fmt.Errorf("error closing lane manager: %w", err)
+		}
+	}
+
+	if e.signalBus != nil {
+		if err := e.signalBus.Close(); err != nil {
+			e.logger.Warn("error stopping signal bus", "error", err)
 		}
 	}
 
@@ -255,7 +276,7 @@ func (e *Engine) Submit(ctx context.Context, wf *Workflow) (*WorkflowResult, err
 	tracker.InitTasks(taskIDs)
 
 	// Create a scheduler with this workflow's tracker.
-	sched := newScheduler(tracker, e.logger)
+	sched := newScheduler(tracker, e.logger, e.signalBus)
 
 	taskFns := wf.TaskFns
 	if taskFns == nil {

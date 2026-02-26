@@ -24,6 +24,7 @@ type Client struct {
 	streamingClient pb.StreamingServiceClient
 	batchClient     pb.BatchServiceClient
 	adminClient     pb.AdminServiceClient
+	signalClient    pb.SignalServiceClient
 	healthClient    grpc_health_v1.HealthClient
 	opts            *Options
 	retryPolicy     *RetryPolicy
@@ -158,6 +159,7 @@ func NewClient(opts *Options) (*Client, error) {
 		streamingClient: pb.NewStreamingServiceClient(conn),
 		batchClient:     pb.NewBatchServiceClient(conn),
 		adminClient:     pb.NewAdminServiceClient(conn),
+		signalClient:    pb.NewSignalServiceClient(conn),
 		healthClient:    grpc_health_v1.NewHealthClient(conn),
 		opts:            opts,
 		retryPolicy:     opts.RetryPolicy,
@@ -264,4 +266,9 @@ func (c *Client) BatchClient() pb.BatchServiceClient {
 // AdminClient returns the admin service client
 func (c *Client) AdminClient() pb.AdminServiceClient {
 	return c.adminClient
+}
+
+// SignalClient returns the signal service client.
+func (c *Client) SignalClient() pb.SignalServiceClient {
+	return c.signalClient
 }

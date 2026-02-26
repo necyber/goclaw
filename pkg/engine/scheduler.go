@@ -6,17 +6,37 @@ import (
 	"sync"
 
 	"github.com/goclaw/goclaw/pkg/dag"
+	"github.com/goclaw/goclaw/pkg/signal"
 )
 
 // Scheduler executes an ExecutionPlan layer by layer.
 type Scheduler struct {
-	tracker *StateTracker
-	logger  appLogger
+	tracker   *StateTracker
+	logger    appLogger
+	signalBus signal.Bus
 }
 
 // newScheduler creates a new Scheduler.
-func newScheduler(tracker *StateTracker, logger appLogger) *Scheduler {
-	return &Scheduler{tracker: tracker, logger: logger}
+func newScheduler(tracker *StateTracker, logger appLogger, bus signal.Bus) *Scheduler {
+	return &Scheduler{tracker: tracker, logger: logger, signalBus: bus}
+}
+
+func (s *Scheduler) attachSignalChannel(ctx context.Context, taskID string) (context.Context, func()) {
+	if s.signalBus == nil {
+		return ctx, nil
+	}
+
+	ch, err := s.signalBus.Subscribe(ctx, taskID)
+	if err != nil {
+		s.logger.Warn("failed to subscribe signal channel", "task_id", taskID, "error", err)
+		return ctx, nil
+	}
+
+	return signal.WithSignalChannel(ctx, ch), func() {
+		if err := s.signalBus.Unsubscribe(taskID); err != nil {
+			s.logger.Warn("failed to unsubscribe signal channel", "task_id", taskID, "error", err)
+		}
+	}
 }
 
 // Schedule executes the plan layer by layer.
@@ -51,10 +71,14 @@ func (s *Scheduler) Schedule(ctx context.Context, plan *dag.ExecutionPlan, taskF
 			wg.Add(1)
 			go func() {
 				defer wg.Done()
+				taskCtx, cleanup := s.attachSignalChannel(ctx, taskID)
+				if cleanup != nil {
+					defer cleanup()
+				}
 				// Execute directly in this goroutine so we can wait for completion.
 				// The lane.Manager is used for resource-constrained workloads in
 				// future phases; for now direct execution gives us synchronous results.
-				if err := runner.Execute(ctx); err != nil {
+				if err := runner.Execute(taskCtx); err != nil {
 					mu.Lock()
 					if firstErr == nil {
 						firstErr = err

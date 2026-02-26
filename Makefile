@@ -34,7 +34,10 @@ PKG_DIR := ./pkg
 INTERNAL_DIR := ./internal
 
 # Source files
+SRC_FILES := $(shell git ls-files '*.go' 2>/dev/null)
+ifeq ($(SRC_FILES),)
 SRC_FILES := $(shell find . -type f -name '*.go' -not -path './vendor/*' -not -path './.git/*')
+endif
 
 # ================================================
 # Default target
