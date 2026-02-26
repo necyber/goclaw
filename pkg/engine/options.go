@@ -1,6 +1,9 @@
 package engine
 
-import "github.com/goclaw/goclaw/pkg/signal"
+import (
+	"github.com/goclaw/goclaw/pkg/signal"
+	"github.com/redis/go-redis/v9"
+)
 
 // Option is a functional option for configuring the Engine.
 type Option func(*Engine)
@@ -28,6 +31,15 @@ func WithSignalBus(bus signal.Bus) Option {
 	return func(e *Engine) {
 		if bus != nil {
 			e.signalBus = bus
+		}
+	}
+}
+
+// WithRedisClient sets the shared Redis client used by Redis-backed lanes.
+func WithRedisClient(client redis.Cmdable) Option {
+	return func(e *Engine) {
+		if client != nil {
+			e.redisClient = client
 		}
 	}
 }

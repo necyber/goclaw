@@ -12,6 +12,7 @@ import (
 	"github.com/goclaw/goclaw/pkg/lane"
 	"github.com/goclaw/goclaw/pkg/signal"
 	"github.com/goclaw/goclaw/pkg/storage"
+	"github.com/redis/go-redis/v9"
 )
 
 // appLogger is the subset of the logger.Logger interface used by the engine.
@@ -91,6 +92,7 @@ type Engine struct {
 	metrics     MetricsRecorder
 	memoryHub   MemoryHub
 	signalBus   signal.Bus
+	redisClient redis.Cmdable
 	state       atomic.Int32
 }
 
@@ -144,6 +146,9 @@ func (e *Engine) Start(ctx context.Context) error {
 
 	// Create lane manager and register the default lane.
 	e.laneManager = lane.NewManager()
+	if e.redisClient != nil {
+		e.laneManager.SetRedisClient(e.redisClient)
+	}
 
 	queueSize := e.cfg.Orchestration.Queue.Size
 	if queueSize <= 0 {
@@ -160,15 +165,36 @@ func (e *Engine) Start(ctx context.Context) error {
 		MaxConcurrency: concurrency,
 		Backpressure:   lane.Block,
 	}
-	defaultLane, err := e.laneManager.Register(defaultCfg)
+	var (
+		defaultLane lane.Lane
+		err         error
+	)
+
+	if e.cfg.Orchestration.Queue.Type == "redis" {
+		if e.redisClient == nil {
+			e.logger.Warn("redis queue configured but redis client unavailable; falling back to memory lane")
+			defaultLane, err = e.laneManager.Register(defaultCfg)
+		} else {
+			redisCfg := lane.DefaultRedisConfig(defaultLaneName)
+			redisCfg.Capacity = queueSize
+			redisCfg.MaxConcurrency = concurrency
+			redisCfg.Backpressure = lane.Block
+			defaultLane, err = e.laneManager.RegisterSpec(&lane.LaneSpec{
+				Type:  lane.LaneTypeRedis,
+				Redis: redisCfg,
+			})
+		}
+	} else {
+		defaultLane, err = e.laneManager.Register(defaultCfg)
+	}
 	if err != nil {
 		e.state.Store(int32(stateError))
 		return fmt.Errorf("failed to register default lane: %w", err)
 	}
 
 	// Set metrics on the default lane
-	if channelLane, ok := defaultLane.(*lane.ChannelLane); ok {
-		channelLane.SetMetrics(e.metrics)
+	if metricsLane, ok := defaultLane.(interface{ SetMetrics(lane.MetricsRecorder) }); ok {
+		metricsLane.SetMetrics(e.metrics)
 	}
 
 	// Create scheduler (tracker is per-workflow, created in Submit).

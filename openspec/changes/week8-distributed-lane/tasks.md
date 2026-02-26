@@ -136,13 +136,13 @@
 
 ## 15. 主程序集成
 
-- [ ] 15.1 在 `cmd/goclaw/main.go` 初始化 Redis 客户端（如果配置）
-- [ ] 15.2 初始化 Signal Bus（根据配置选择 local/redis）
-- [ ] 15.3 传递 Redis 客户端到 Lane Manager
-- [ ] 15.4 传递 Signal Bus 到 Engine
-- [ ] 15.5 在 shutdown 时关闭 Redis 连接和 Signal Bus
-- [ ] 15.6 添加启动日志
-- [ ] 15.7 测试完整启动和关闭流程
+- [x] 15.1 在 `cmd/goclaw/main.go` 初始化 Redis 客户端（如果配置）
+- [x] 15.2 初始化 Signal Bus（根据配置选择 local/redis）
+- [x] 15.3 传递 Redis 客户端到 Lane Manager
+- [x] 15.4 传递 Signal Bus 到 Engine
+- [x] 15.5 在 shutdown 时关闭 Redis 连接和 Signal Bus
+- [x] 15.6 添加启动日志
+- [x] 15.7 测试完整启动和关闭流程
 
 ## 16. 指标集成
 

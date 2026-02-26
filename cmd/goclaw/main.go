@@ -21,7 +21,7 @@ import (
 	"flag"
 	"fmt"
 	"os"
-	"os/signal"
+	ossignal "os/signal"
 	"syscall"
 	"time"
 
@@ -30,15 +30,18 @@ import (
 	"github.com/goclaw/goclaw/pkg/api/handlers"
 	"github.com/goclaw/goclaw/pkg/engine"
 	grpcpkg "github.com/goclaw/goclaw/pkg/grpc"
+	"github.com/goclaw/goclaw/pkg/lane"
 	"github.com/goclaw/goclaw/pkg/logger"
 	memorypkg "github.com/goclaw/goclaw/pkg/memory"
 	"github.com/goclaw/goclaw/pkg/metrics"
+	signalpkg "github.com/goclaw/goclaw/pkg/signal"
 	"github.com/goclaw/goclaw/pkg/storage"
 	badgerstorage "github.com/goclaw/goclaw/pkg/storage/badger"
 	memstorage "github.com/goclaw/goclaw/pkg/storage/memory"
 	"github.com/goclaw/goclaw/pkg/version"
 
 	dgbadger "github.com/dgraph-io/badger/v4"
+	"github.com/redis/go-redis/v9"
 )
 
 var (
@@ -106,7 +109,7 @@ func main() {
 
 	// Setup graceful shutdown
 	sigChan := make(chan os.Signal, 1)
-	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	ossignal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
 
 	// Initialize storage backend
 	var store storage.Storage
@@ -161,6 +164,21 @@ func main() {
 	// Initialize and start the orchestration engine.
 	engineOpts := []engine.Option{engine.WithMetrics(metricsManager)}
 
+	needsRedis := cfg.Redis.Enabled || cfg.Orchestration.Queue.Type == "redis" || cfg.Signal.Mode == "redis"
+	var redisClient *redis.Client
+	if needsRedis {
+		redisClient, err = initializeRedisClient(ctx, cfg)
+		if err != nil {
+			log.Warn("Redis initialization failed; distributed Redis features will fall back to local mode", "error", err)
+		} else {
+			engineOpts = append(engineOpts, engine.WithRedisClient(redisClient))
+			log.Info("Redis client initialized", "address", cfg.Redis.Address, "db", cfg.Redis.DB, "sentinel", cfg.Redis.Sentinel.Enabled)
+		}
+	}
+
+	signalBus, effectiveSignalMode := initializeSignalBus(cfg, redisClient, log)
+	engineOpts = append(engineOpts, engine.WithSignalBus(signalBus))
+
 	// Initialize memory hub if enabled
 	var memoryHub *memorypkg.MemoryHub
 	var memoryHandler *handlers.MemoryHandler
@@ -194,6 +212,16 @@ func main() {
 	} else {
 		log.Info("Memory hub disabled")
 	}
+
+	effectiveQueueType := cfg.Orchestration.Queue.Type
+	if effectiveQueueType == "redis" && redisClient == nil {
+		effectiveQueueType = "memory(fallback)"
+	}
+	log.Info("Distributed runtime configured",
+		"queue_type", effectiveQueueType,
+		"signal_mode", effectiveSignalMode,
+		"redis_connected", redisClient != nil,
+	)
 
 	eng, err := engine.New(cfg, log, store, engineOpts...)
 	if err != nil {
@@ -290,7 +318,94 @@ func main() {
 		log.Error("Error during engine shutdown", "error", err)
 	}
 
+	if signalBus != nil {
+		log.Info("Closing signal bus")
+		if err := signalBus.Close(); err != nil {
+			log.Error("Error closing signal bus", "error", err)
+		}
+	}
+	if redisClient != nil {
+		log.Info("Closing Redis client")
+		if err := redisClient.Close(); err != nil {
+			log.Error("Error closing Redis client", "error", err)
+		}
+	}
+
 	log.Info("Goclaw stopped gracefully")
+}
+
+func initializeRedisClient(ctx context.Context, cfg *config.Config) (*redis.Client, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("config cannot be nil")
+	}
+
+	if cfg.Redis.Sentinel.Enabled {
+		client := lane.NewRedisSentinelClient(&redis.FailoverOptions{
+			MasterName:    cfg.Redis.Sentinel.MasterName,
+			SentinelAddrs: cfg.Redis.Sentinel.Addresses,
+			Password:      cfg.Redis.Password,
+			DB:            cfg.Redis.DB,
+			MaxRetries:    cfg.Redis.MaxRetries,
+			PoolSize:      cfg.Redis.PoolSize,
+			MinIdleConns:  cfg.Redis.MinIdleConns,
+			DialTimeout:   cfg.Redis.DialTimeout,
+			ReadTimeout:   cfg.Redis.ReadTimeout,
+			WriteTimeout:  cfg.Redis.WriteTimeout,
+		})
+		pingCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+		defer cancel()
+		if err := lane.PingRedis(pingCtx, client); err != nil {
+			_ = client.Close()
+			return nil, err
+		}
+		return client, nil
+	}
+
+	client := lane.NewRedisClient(&redis.Options{
+		Addr:         cfg.Redis.Address,
+		Password:     cfg.Redis.Password,
+		DB:           cfg.Redis.DB,
+		MaxRetries:   cfg.Redis.MaxRetries,
+		PoolSize:     cfg.Redis.PoolSize,
+		MinIdleConns: cfg.Redis.MinIdleConns,
+		DialTimeout:  cfg.Redis.DialTimeout,
+		ReadTimeout:  cfg.Redis.ReadTimeout,
+		WriteTimeout: cfg.Redis.WriteTimeout,
+	})
+	pingCtx, cancel := context.WithTimeout(ctx, 2*time.Second)
+	defer cancel()
+	if err := lane.PingRedis(pingCtx, client); err != nil {
+		_ = client.Close()
+		return nil, err
+	}
+	return client, nil
+}
+
+func initializeSignalBus(cfg *config.Config, redisClient redis.UniversalClient, log logger.Logger) (signalpkg.Bus, string) {
+	if cfg != nil && cfg.Signal.Mode == "redis" {
+		if redisClient == nil {
+			if log != nil {
+				log.Warn("Signal bus redis mode requested but Redis client unavailable; falling back to local bus")
+			}
+			return signalpkg.NewLocalBus(cfg.Signal.BufferSize), "local(fallback)"
+		}
+
+		bus := signalpkg.NewRedisBus(redisClient, cfg.Signal.ChannelPrefix, cfg.Signal.BufferSize)
+		if !bus.Healthy() {
+			if log != nil {
+				log.Warn("Redis signal bus health check failed; falling back to local bus")
+			}
+			_ = bus.Close()
+			return signalpkg.NewLocalBus(cfg.Signal.BufferSize), "local(fallback)"
+		}
+		return bus, "redis"
+	}
+
+	bufferSize := 16
+	if cfg != nil {
+		bufferSize = cfg.Signal.BufferSize
+	}
+	return signalpkg.NewLocalBus(bufferSize), "local"
 }
 
 func buildOverrides() map[string]interface{} {

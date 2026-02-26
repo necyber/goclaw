@@ -13,6 +13,7 @@ import (
 	"github.com/goclaw/goclaw/pkg/api/handlers"
 	"github.com/goclaw/goclaw/pkg/engine"
 	"github.com/goclaw/goclaw/pkg/logger"
+	signalpkg "github.com/goclaw/goclaw/pkg/signal"
 	"github.com/goclaw/goclaw/pkg/storage"
 )
 
@@ -289,4 +290,104 @@ func containsHelper(s, substr string) bool {
 		}
 	}
 	return false
+}
+
+func TestInitializeSignalBus_LocalMode(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Signal.Mode = "local"
+
+	bus, mode := initializeSignalBus(cfg, nil, nil)
+	if mode != "local" {
+		t.Fatalf("expected mode local, got %s", mode)
+	}
+	if !bus.Healthy() {
+		t.Fatal("expected local bus to be healthy")
+	}
+	if err := bus.Close(); err != nil {
+		t.Fatalf("failed to close local bus: %v", err)
+	}
+}
+
+func TestInitializeSignalBus_RedisFallback(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Signal.Mode = "redis"
+
+	bus, mode := initializeSignalBus(cfg, nil, nil)
+	if mode != "local(fallback)" {
+		t.Fatalf("expected fallback mode, got %s", mode)
+	}
+	if _, ok := bus.(*signalpkg.LocalBus); !ok {
+		t.Fatalf("expected LocalBus fallback, got %T", bus)
+	}
+	if err := bus.Close(); err != nil {
+		t.Fatalf("failed to close fallback bus: %v", err)
+	}
+}
+
+func TestInitializeRedisClient_NilConfig(t *testing.T) {
+	_, err := initializeRedisClient(context.Background(), nil)
+	if err == nil {
+		t.Fatal("expected error for nil config")
+	}
+}
+
+func TestInitializeRedisClient_InvalidAddress(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Redis.Address = "127.0.0.1:0"
+	cfg.Redis.DialTimeout = 10 * time.Millisecond
+	cfg.Redis.ReadTimeout = 10 * time.Millisecond
+	cfg.Redis.WriteTimeout = 10 * time.Millisecond
+
+	client, err := initializeRedisClient(context.Background(), cfg)
+	if err == nil {
+		if client != nil {
+			_ = client.Close()
+		}
+		t.Fatal("expected redis initialization error")
+	}
+}
+
+func TestEngineStartupShutdown_WithDistributedFallback(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Orchestration.Queue.Type = "redis"
+	cfg.Signal.Mode = "redis"
+	cfg.Redis.Enabled = true
+	cfg.Redis.Address = "127.0.0.1:0"
+	cfg.Redis.DialTimeout = 10 * time.Millisecond
+	cfg.Redis.ReadTimeout = 10 * time.Millisecond
+	cfg.Redis.WriteTimeout = 10 * time.Millisecond
+
+	log := logger.New(&logger.Config{
+		Level:  logger.InfoLevel,
+		Format: "json",
+		Output: "stdout",
+	})
+
+	redisClient, err := initializeRedisClient(context.Background(), cfg)
+	if err == nil {
+		if redisClient != nil {
+			_ = redisClient.Close()
+		}
+		t.Fatal("expected redis initialization to fail for invalid address")
+	}
+
+	bus, mode := initializeSignalBus(cfg, nil, log)
+	if mode != "local(fallback)" {
+		t.Fatalf("expected local fallback mode, got %s", mode)
+	}
+	defer bus.Close()
+
+	eng, err := engine.New(cfg, log, &mockStorage{}, engine.WithSignalBus(bus))
+	if err != nil {
+		t.Fatalf("failed to create engine: %v", err)
+	}
+
+	ctx := context.Background()
+	if err := eng.Start(ctx); err != nil {
+		t.Fatalf("failed to start engine with fallback: %v", err)
+	}
+
+	if err := eng.Stop(ctx); err != nil {
+		t.Fatalf("failed to stop engine with fallback: %v", err)
+	}
 }
