@@ -34,6 +34,12 @@ type Config struct {
 
 	// Memory is the hybrid memory system configuration.
 	Memory MemoryConfig `mapstructure:"memory"`
+
+	// Redis is the shared Redis connection configuration.
+	Redis RedisLaneConfig `mapstructure:"redis"`
+
+	// Signal is the Signal Bus configuration.
+	Signal SignalConfig `mapstructure:"signal"`
 }
 
 // AppConfig holds application metadata and settings.
@@ -382,6 +388,66 @@ type HNSWConfig struct {
 
 	// EfSearch is the size of the dynamic candidate list during search.
 	EfSearch int `mapstructure:"ef_search" validate:"min=1"`
+}
+
+// RedisLaneConfig holds Redis connection settings for Lane and Signal Bus.
+type RedisLaneConfig struct {
+	// Enabled enables Redis-backed lanes and signal bus.
+	Enabled bool `mapstructure:"enabled"`
+
+	// Address is the Redis server address (host:port).
+	Address string `mapstructure:"address"`
+
+	// Password is the Redis password.
+	Password string `mapstructure:"password"`
+
+	// DB is the Redis database number.
+	DB int `mapstructure:"db" validate:"min=0,max=15"`
+
+	// MaxRetries is the maximum number of retries before giving up.
+	MaxRetries int `mapstructure:"max_retries" validate:"min=0"`
+
+	// PoolSize is the maximum number of socket connections.
+	PoolSize int `mapstructure:"pool_size" validate:"min=0"`
+
+	// MinIdleConns is the minimum number of idle connections.
+	MinIdleConns int `mapstructure:"min_idle_conns" validate:"min=0"`
+
+	// DialTimeout is the timeout for establishing new connections.
+	DialTimeout time.Duration `mapstructure:"dial_timeout"`
+
+	// ReadTimeout is the timeout for socket reads.
+	ReadTimeout time.Duration `mapstructure:"read_timeout"`
+
+	// WriteTimeout is the timeout for socket writes.
+	WriteTimeout time.Duration `mapstructure:"write_timeout"`
+
+	// Sentinel holds Redis Sentinel configuration.
+	Sentinel RedisSentinelConfig `mapstructure:"sentinel"`
+}
+
+// RedisSentinelConfig holds Redis Sentinel settings.
+type RedisSentinelConfig struct {
+	// Enabled enables Sentinel mode.
+	Enabled bool `mapstructure:"enabled"`
+
+	// MasterName is the name of the Sentinel master.
+	MasterName string `mapstructure:"master_name"`
+
+	// Addresses is the list of Sentinel addresses.
+	Addresses []string `mapstructure:"addresses"`
+}
+
+// SignalConfig holds Signal Bus configuration.
+type SignalConfig struct {
+	// Mode is the signal bus backend (local or redis).
+	Mode string `mapstructure:"mode" validate:"oneof=local redis"`
+
+	// BufferSize is the per-subscriber signal buffer size.
+	BufferSize int `mapstructure:"buffer_size" validate:"min=1"`
+
+	// ChannelPrefix is the Redis channel prefix for signals.
+	ChannelPrefix string `mapstructure:"channel_prefix"`
 }
 
 // Validate performs validation on the configuration.

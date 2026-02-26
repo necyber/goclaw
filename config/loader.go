@@ -103,6 +103,8 @@ func (l *Loader) loadDefaults() error {
 		"metrics":       defaults.Metrics,
 		"tracing":       defaults.Tracing,
 		"memory":        defaults.Memory,
+		"redis":         defaults.Redis,
+		"signal":        defaults.Signal,
 	}, Delimiter), nil)
 }
 
@@ -248,6 +250,20 @@ func (l *Loader) fillDefaults() error {
 	setIfZero("memory.hnsw.m", defaults.Memory.HNSW.M)
 	setIfZero("memory.hnsw.ef_construction", defaults.Memory.HNSW.EfConstruction)
 	setIfZero("memory.hnsw.ef_search", defaults.Memory.HNSW.EfSearch)
+
+	// Redis defaults
+	setIfZero("redis.address", defaults.Redis.Address)
+	setIfZero("redis.pool_size", defaults.Redis.PoolSize)
+	setIfZero("redis.min_idle_conns", defaults.Redis.MinIdleConns)
+	setIfZero("redis.max_retries", defaults.Redis.MaxRetries)
+	setIfZero("redis.dial_timeout", defaults.Redis.DialTimeout)
+	setIfZero("redis.read_timeout", defaults.Redis.ReadTimeout)
+	setIfZero("redis.write_timeout", defaults.Redis.WriteTimeout)
+
+	// Signal defaults
+	setIfZero("signal.mode", defaults.Signal.Mode)
+	setIfZero("signal.buffer_size", defaults.Signal.BufferSize)
+	setIfZero("signal.channel_prefix", defaults.Signal.ChannelPrefix)
 
 	return nil
 }

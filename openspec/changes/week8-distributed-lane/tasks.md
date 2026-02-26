@@ -1,59 +1,59 @@
 ## 1. 项目结构和依赖
 
-- [ ] 1.1 添加 `github.com/redis/go-redis/v9` 依赖到 `go.mod`
-- [ ] 1.2 创建 `pkg/signal/` 包目录结构
-- [ ] 1.3 在 `config/config.go` 添加 `RedisConfig` 结构
-- [ ] 1.4 在 `config/config.go` 添加 `SignalConfig` 结构
-- [ ] 1.5 更新 `config.example.yaml` 添加 `redis` 和 `signal` 配置段
-- [ ] 1.6 添加配置验证规则
-- [ ] 1.7 编写配置加载测试
+- [x] 1.1 添加 `github.com/redis/go-redis/v9` 依赖到 `go.mod`
+- [x] 1.2 创建 `pkg/signal/` 包目录结构
+- [x] 1.3 在 `config/config.go` 添加 `RedisConfig` 结构
+- [x] 1.4 在 `config/config.go` 添加 `SignalConfig` 结构
+- [x] 1.5 更新 `config.example.yaml` 添加 `redis` 和 `signal` 配置段
+- [x] 1.6 添加配置验证规则
+- [x] 1.7 编写配置加载测试
 
 ## 2. Redis 连接管理
 
-- [ ] 2.1 创建 `pkg/lane/redis_config.go` Redis 连接配置
-- [ ] 2.2 实现 Redis 客户端初始化（支持单实例和 Sentinel）
-- [ ] 2.3 实现连接健康检查 `Ping()`
-- [ ] 2.4 实现自动重连逻辑（指数退避）
-- [ ] 2.5 实现连接池配置（MaxConns, MinIdleConns）
-- [ ] 2.6 编写 Redis 连接管理测试
+- [x] 2.1 创建 `pkg/lane/redis_config.go` Redis 连接配置
+- [x] 2.2 实现 Redis 客户端初始化（支持单实例和 Sentinel）
+- [x] 2.3 实现连接健康检查 `Ping()`
+- [x] 2.4 实现自动重连逻辑（指数退避）
+- [x] 2.5 实现连接池配置（MaxConns, MinIdleConns）
+- [x] 2.6 编写 Redis 连接管理测试
 
 ## 3. Redis Lane 核心实现
 
-- [ ] 3.1 创建 `pkg/lane/redis_lane.go`
-- [ ] 3.2 实现 `RedisLane` 结构体，实现 `Lane` 接口
-- [ ] 3.3 实现 `Submit()` 方法（JSON 序列化 + 入队）
-- [ ] 3.4 实现 `TrySubmit()` 方法（非阻塞入队）
-- [ ] 3.5 实现 `Stats()` 方法（从 Redis 获取队列状态）
-- [ ] 3.6 实现 `Close()` 方法（优雅关闭）
-- [ ] 3.7 实现 `IsClosed()` 方法
-- [ ] 3.8 定义 `RedisTaskPayload` JSON 序列化结构
+- [x] 3.1 创建 `pkg/lane/redis_lane.go`
+- [x] 3.2 实现 `RedisLane` 结构体，实现 `Lane` 接口
+- [x] 3.3 实现 `Submit()` 方法（JSON 序列化 + 入队）
+- [x] 3.4 实现 `TrySubmit()` 方法（非阻塞入队）
+- [x] 3.5 实现 `Stats()` 方法（从 Redis 获取队列状态）
+- [x] 3.6 实现 `Close()` 方法（优雅关闭）
+- [x] 3.7 实现 `IsClosed()` 方法
+- [x] 3.8 定义 `RedisTaskPayload` JSON 序列化结构
 
 ## 4. Redis 队列和优先级
 
-- [ ] 4.1 实现 FIFO 队列（Redis List: LPUSH/BRPOP）
-- [ ] 4.2 实现优先级队列（Redis Sorted Set: ZADD/ZPOPMIN）
-- [ ] 4.3 实现任务去重（Redis Set: SADD/SISMEMBER）
-- [ ] 4.4 实现去重 key 过期清理
-- [ ] 4.5 实现 Lua 脚本保证原子操作
-- [ ] 4.6 编写队列操作单元测试
+- [x] 4.1 实现 FIFO 队列（Redis List: LPUSH/BRPOP）
+- [x] 4.2 实现优先级队列（Redis Sorted Set: ZADD/ZPOPMIN）
+- [x] 4.3 实现任务去重（Redis Set: SADD/SISMEMBER）
+- [x] 4.4 实现去重 key 过期清理
+- [x] 4.5 实现 Lua 脚本保证原子操作
+- [x] 4.6 编写队列操作单元测试
 
 ## 5. Redis Lane 背压策略
 
-- [ ] 5.1 实现 Block 策略（轮询等待空间）
-- [ ] 5.2 实现 Drop 策略（检查容量后丢弃）
-- [ ] 5.3 实现 Redirect 策略（推送到其他 Lane key）
-- [ ] 5.4 实现容量检查 Lua 脚本
-- [ ] 5.5 编写背压策略测试
+- [x] 5.1 实现 Block 策略（轮询等待空间）
+- [x] 5.2 实现 Drop 策略（检查容量后丢弃）
+- [x] 5.3 实现 Redirect 策略（推送到其他 Lane key）
+- [x] 5.4 实现容量检查 Lua 脚本
+- [x] 5.5 编写背压策略测试
 
 ## 6. Redis Lane Worker Pool
 
-- [ ] 6.1 实现 Redis Worker Pool（从 Redis 队列消费）
-- [ ] 6.2 实现 BRPOP 阻塞消费循环
-- [ ] 6.3 实现 ZPOPMIN 优先级消费循环
-- [ ] 6.4 实现任务反序列化和执行
-- [ ] 6.5 实现执行结果回写（成功/失败计数）
-- [ ] 6.6 实现 Worker 优雅关闭
-- [ ] 6.7 编写 Worker Pool 测试
+- [x] 6.1 实现 Redis Worker Pool（从 Redis 队列消费）
+- [x] 6.2 实现 BRPOP 阻塞消费循环
+- [x] 6.3 实现 ZPOPMIN 优先级消费循环
+- [x] 6.4 实现任务反序列化和执行
+- [x] 6.5 实现执行结果回写（成功/失败计数）
+- [x] 6.6 实现 Worker 优雅关闭
+- [x] 6.7 编写 Worker Pool 测试
 
 ## 7. Redis Lane 降级和容错
 
@@ -73,56 +73,56 @@
 
 ## 9. Signal Bus 核心
 
-- [ ] 9.1 创建 `pkg/signal/bus.go` 定义 `SignalBus` 接口
-- [ ] 9.2 创建 `pkg/signal/message.go` 定义 `Signal` 和 `SignalType`
-- [ ] 9.3 实现本地 Signal Bus（Go channel 实现）
-- [ ] 9.4 实现 `Publish()` 方法
-- [ ] 9.5 实现 `Subscribe()` 方法（返回 channel）
-- [ ] 9.6 实现 `Unsubscribe()` 方法
-- [ ] 9.7 实现 `Close()` 方法
-- [ ] 9.8 实现信号缓冲区管理（可配置大小）
-- [ ] 9.9 实现并发安全保护
-- [ ] 9.10 编写本地 Signal Bus 单元测试
+- [x] 9.1 创建 `pkg/signal/bus.go` 定义 `SignalBus` 接口
+- [x] 9.2 创建 `pkg/signal/message.go` 定义 `Signal` 和 `SignalType`
+- [x] 9.3 实现本地 Signal Bus（Go channel 实现）
+- [x] 9.4 实现 `Publish()` 方法
+- [x] 9.5 实现 `Subscribe()` 方法（返回 channel）
+- [x] 9.6 实现 `Unsubscribe()` 方法
+- [x] 9.7 实现 `Close()` 方法
+- [x] 9.8 实现信号缓冲区管理（可配置大小）
+- [x] 9.9 实现并发安全保护
+- [x] 9.10 编写本地 Signal Bus 单元测试
 
 ## 10. Redis Signal Bus
 
-- [ ] 10.1 创建 `pkg/signal/redis_bus.go`
-- [ ] 10.2 实现 Redis Pub/Sub 发布
-- [ ] 10.3 实现 Redis Pub/Sub 订阅
-- [ ] 10.4 实现信号 JSON 序列化/反序列化
-- [ ] 10.5 实现 Redis 频道命名（"goclaw:signal:{taskID}"）
-- [ ] 10.6 实现断线重连和自动重订阅
-- [ ] 10.7 实现健康检查
-- [ ] 10.8 编写 Redis Signal Bus 测试
+- [x] 10.1 创建 `pkg/signal/redis_bus.go`
+- [x] 10.2 实现 Redis Pub/Sub 发布
+- [x] 10.3 实现 Redis Pub/Sub 订阅
+- [x] 10.4 实现信号 JSON 序列化/反序列化
+- [x] 10.5 实现 Redis 频道命名（"goclaw:signal:{taskID}"）
+- [x] 10.6 实现断线重连和自动重订阅
+- [x] 10.7 实现健康检查
+- [x] 10.8 编写 Redis Signal Bus 测试
 
 ## 11. Steer 消息模式
 
-- [ ] 11.1 创建 `pkg/signal/steer.go`
-- [ ] 11.2 实现 `SendSteer()` 方法（发送参数修改信号）
-- [ ] 11.3 实现 steer 信号验证（payload 格式检查）
-- [ ] 11.4 实现 `signal.FromContext(ctx)` 获取信号 channel
-- [ ] 11.5 实现 context 注入（在任务执行前注入信号 channel）
-- [ ] 11.6 编写 steer 消息模式测试
+- [x] 11.1 创建 `pkg/signal/steer.go`
+- [x] 11.2 实现 `SendSteer()` 方法（发送参数修改信号）
+- [x] 11.3 实现 steer 信号验证（payload 格式检查）
+- [x] 11.4 实现 `signal.FromContext(ctx)` 获取信号 channel
+- [x] 11.5 实现 context 注入（在任务执行前注入信号 channel）
+- [x] 11.6 编写 steer 消息模式测试
 
 ## 12. Interrupt 消息模式
 
-- [ ] 12.1 创建 `pkg/signal/interrupt.go`
-- [ ] 12.2 实现 `SendInterrupt()` 方法
-- [ ] 12.3 实现优雅中断（cancel context + 等待超时）
-- [ ] 12.4 实现强制中断（立即 cancel context）
-- [ ] 12.5 实现中断原因记录
-- [ ] 12.6 实现对 pending 任务的中断（从队列移除）
-- [ ] 12.7 编写 interrupt 消息模式测试
+- [x] 12.1 创建 `pkg/signal/interrupt.go`
+- [x] 12.2 实现 `SendInterrupt()` 方法
+- [x] 12.3 实现优雅中断（cancel context + 等待超时）
+- [x] 12.4 实现强制中断（立即 cancel context）
+- [x] 12.5 实现中断原因记录
+- [x] 12.6 实现对 pending 任务的中断（从队列移除）
+- [x] 12.7 编写 interrupt 消息模式测试
 
 ## 13. Collect 消息模式
 
-- [ ] 13.1 创建 `pkg/signal/collect.go`
-- [ ] 13.2 实现 `Collector` 结构体
-- [ ] 13.3 实现 `Collect()` 方法（等待所有任务完成）
-- [ ] 13.4 实现超时处理（返回部分结果）
-- [ ] 13.5 实现流式收集模式（fan-in）
-- [ ] 13.6 实现部分失败处理
-- [ ] 13.7 编写 collect 消息模式测试
+- [x] 13.1 创建 `pkg/signal/collect.go`
+- [x] 13.2 实现 `Collector` 结构体
+- [x] 13.3 实现 `Collect()` 方法（等待所有任务完成）
+- [x] 13.4 实现超时处理（返回部分结果）
+- [x] 13.5 实现流式收集模式（fan-in）
+- [x] 13.6 实现部分失败处理
+- [x] 13.7 编写 collect 消息模式测试
 
 ## 14. Engine 和 API 集成
 
@@ -156,11 +156,11 @@
 
 - [ ] 17.1 编写 Redis Lane 单元测试（mock Redis）
 - [ ] 17.2 编写 Redis Lane 集成测试（需要 Redis 实例）
-- [ ] 17.3 编写 Signal Bus 单元测试
-- [ ] 17.4 编写消息模式端到端测试
+- [x] 17.3 编写 Signal Bus 单元测试
+- [x] 17.4 编写消息模式端到端测试
 - [ ] 17.5 编写混合 Lane 模式集成测试
 - [ ] 17.6 编写降级和容错场景测试
-- [ ] 17.7 编写并发安全测试
+- [x] 17.7 编写并发安全测试
 - [ ] 17.8 编写性能基准测试（Redis Lane 吞吐量）
 - [ ] 17.9 编写性能基准测试（Signal Bus 延迟）
 - [ ] 17.10 运行完整测试套件确认无回归
