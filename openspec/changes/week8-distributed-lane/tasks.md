@@ -184,33 +184,33 @@
 - [x] 19.4 修复所有 lint 警告
 - [x] 19.5 更新 go.mod 和 go.sum
 - [x] 19.6 运行完整测试套件
-- [ ] 19.7 验证测试覆盖率 > 80%
+- [x] 19.7 验证测试覆盖率 > 80%
 
 ## 验收标准
 
 ### 功能性
-- [ ] Redis Lane 正确实现 Lane 接口
-- [ ] 优先级队列和 FIFO 队列正常工作
-- [ ] 三种背压策略正常工作
-- [ ] 任务去重正常工作
-- [ ] Steer 消息模式正常工作
-- [ ] Interrupt 消息模式正常工作
-- [ ] Collect 消息模式正常工作
-- [ ] Signal Bus 本地和 Redis 模式正常工作
-- [ ] 混合 Lane 模式正常工作
-- [ ] Redis 不可用时降级正常
+- [x] Redis Lane 正确实现 Lane 接口
+- [x] 优先级队列和 FIFO 队列正常工作
+- [x] 三种背压策略正常工作
+- [x] 任务去重正常工作
+- [x] Steer 消息模式正常工作
+- [x] Interrupt 消息模式正常工作
+- [x] Collect 消息模式正常工作
+- [x] Signal Bus 本地和 Redis 模式正常工作
+- [x] 混合 Lane 模式正常工作
+- [x] Redis 不可用时降级正常
 
 ### 质量
-- [ ] 单元测试覆盖率 > 80%
-- [ ] 所有集成测试通过
-- [ ] 无已知严重 bug
-- [ ] 代码通过 lint 检查
+- [x] 单元测试覆盖率 > 80%
+- [x] 所有集成测试通过
+- [x] 无已知严重 bug
+- [x] 代码通过 lint 检查
 
 ### 性能
-- [ ] Redis Lane Submit 延迟 < 5ms
-- [ ] Redis Lane 吞吐量 > 10K tasks/s
-- [ ] Signal Bus 信号延迟 < 2ms（本地）/ < 5ms（Redis）
-- [ ] 降级切换时间 < 1s
+- [x] Redis Lane Submit 延迟 < 5ms
+- [x] Redis Lane 吞吐量 > 10K tasks/s
+- [x] Signal Bus 信号延迟 < 2ms（本地）/ < 5ms（Redis）
+- [x] 降级切换时间 < 1s
 
 ## 估算
 

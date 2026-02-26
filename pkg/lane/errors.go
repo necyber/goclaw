@@ -33,6 +33,16 @@ func (e *TaskDroppedError) Error() string {
 	return fmt.Sprintf("task %s dropped in lane %s due to backpressure", e.TaskID, e.LaneName)
 }
 
+// TaskDuplicateError is returned when a duplicate task is submitted.
+type TaskDuplicateError struct {
+	LaneName string
+	TaskID   string
+}
+
+func (e *TaskDuplicateError) Error() string {
+	return fmt.Sprintf("task %s is duplicate in lane %s", e.TaskID, e.LaneName)
+}
+
 // LaneNotFoundError is returned when a lane is not found.
 type LaneNotFoundError struct {
 	LaneName string
@@ -76,6 +86,12 @@ func IsLaneClosedError(err error) bool {
 // IsTaskDroppedError returns true if the error is a TaskDroppedError.
 func IsTaskDroppedError(err error) bool {
 	_, ok := err.(*TaskDroppedError)
+	return ok
+}
+
+// IsTaskDuplicateError returns true if the error is a TaskDuplicateError.
+func IsTaskDuplicateError(err error) bool {
+	_, ok := err.(*TaskDuplicateError)
 	return ok
 }
 

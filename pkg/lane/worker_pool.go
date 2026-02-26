@@ -149,6 +149,7 @@ type DynamicWorkerPool struct {
 // NewDynamicWorkerPool creates a new DynamicWorkerPool.
 func NewDynamicWorkerPool(minWorkers, maxWorkers int, workerFn func(Task)) *DynamicWorkerPool {
 	return &DynamicWorkerPool{
+		WorkerPool:  NewWorkerPool(maxWorkers, workerFn),
 		minWorkers:  minWorkers,
 		maxWorkers:  maxWorkers,
 		scaleUpCh:   make(chan struct{}, 1),

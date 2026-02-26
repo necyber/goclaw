@@ -89,30 +89,43 @@ func (l *RedisLane) Name() string {
 }
 
 // Submit submits a task to the Redis queue.
-func (l *RedisLane) Submit(ctx context.Context, task Task) error {
+func (l *RedisLane) Submit(ctx context.Context, task Task) (err error) {
 	start := time.Now()
 	if l.closed.Load() {
 		return &LaneClosedError{LaneName: l.config.Name}
 	}
 
+	dedupAdded := false
 	// Check dedup
 	if l.config.EnableDedup {
-		added, err := l.client.SAdd(ctx, l.dedupKey, task.ID()).Result()
-		if err != nil {
-			return fmt.Errorf("dedup check failed: %w", err)
+		added, sErr := l.client.SAdd(ctx, l.dedupKey, task.ID()).Result()
+		if sErr != nil {
+			return fmt.Errorf("dedup check failed: %w", sErr)
 		}
 		if added == 0 {
-			return nil // duplicate, silently skip
+			return &TaskDuplicateError{LaneName: l.config.Name, TaskID: task.ID()}
 		}
+		dedupAdded = true
 		if l.config.DedupTTL > 0 {
-			l.client.Expire(ctx, l.dedupKey, l.config.DedupTTL)
+			_ = l.client.Expire(ctx, l.dedupKey, l.config.DedupTTL).Err()
 		}
 	}
 
-	// Check capacity and apply backpressure
-	queueLen, err := l.queueLength(ctx)
-	if err != nil {
-		return fmt.Errorf("failed to check queue length: %w", err)
+	defer func() {
+		if err != nil && dedupAdded {
+			_ = l.removeDedup(context.Background(), task.ID())
+		}
+	}()
+
+	// Check capacity and apply backpressure.
+	// Fast path uses local counters to avoid a Redis round-trip on every submit.
+	queueLen := int64(l.pending.Load())
+	if queueLen >= int64(l.config.Capacity) {
+		var err error
+		queueLen, err = l.queueLength(ctx)
+		if err != nil {
+			return fmt.Errorf("failed to check queue length: %w", err)
+		}
 	}
 
 	if queueLen >= int64(l.config.Capacity) {
@@ -124,6 +137,8 @@ func (l *RedisLane) Submit(ctx context.Context, task Task) error {
 			if l.manager != nil {
 				redirectLane, rerr := l.manager.GetLane(l.config.RedirectLane)
 				if rerr == nil {
+					_ = l.removeDedup(context.Background(), task.ID())
+					dedupAdded = false
 					return redirectLane.Submit(ctx, task)
 				}
 			}
@@ -138,6 +153,7 @@ func (l *RedisLane) Submit(ctx context.Context, task Task) error {
 				case <-l.closeCh:
 					return &LaneClosedError{LaneName: l.config.Name}
 				case <-time.After(100 * time.Millisecond):
+					var err error
 					queueLen, err = l.queueLength(ctx)
 					if err != nil {
 						return err
@@ -304,6 +320,7 @@ func (l *RedisLane) worker() {
 		} else {
 			l.completed.Add(1)
 		}
+		_ = l.removeDedup(context.Background(), payload.ID)
 
 		l.running.Add(-1)
 		l.metrics.RecordWaitDuration(l.config.Name, time.Since(payload.EnqueuedAt))
@@ -319,8 +336,8 @@ func (l *RedisLane) dequeue(ctx context.Context) (*RedisTaskPayload, error) {
 	var data string
 
 	if l.config.EnablePriority {
-		// ZPOPMIN for highest priority (lowest score = highest priority)
-		results, err := l.client.ZPopMin(ctx, l.queueKey, 1).Result()
+		// ZPOPMAX dequeues the highest score first (higher priority first).
+		results, err := l.client.ZPopMax(ctx, l.queueKey, 1).Result()
 		if err != nil {
 			return nil, err
 		}
@@ -358,4 +375,11 @@ func (l *RedisLane) queueLength(ctx context.Context) (int64, error) {
 		return l.client.ZCard(ctx, l.queueKey).Result()
 	}
 	return l.client.LLen(ctx, l.queueKey).Result()
+}
+
+func (l *RedisLane) removeDedup(ctx context.Context, taskID string) error {
+	if !l.config.EnableDedup || taskID == "" {
+		return nil
+	}
+	return l.client.SRem(ctx, l.dedupKey, taskID).Err()
 }

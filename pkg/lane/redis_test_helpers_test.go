@@ -137,6 +137,31 @@ func (m *mockRedisClient) SAdd(_ context.Context, key string, members ...interfa
 	return redis.NewIntResult(added, nil)
 }
 
+func (m *mockRedisClient) SRem(_ context.Context, key string, members ...interface{}) *redis.IntCmd {
+	if m.down.Load() {
+		return redis.NewIntResult(0, errMockRedisUnavailable)
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	set, ok := m.sets[key]
+	if !ok {
+		return redis.NewIntResult(0, nil)
+	}
+
+	var removed int64
+	for _, member := range members {
+		s := normalizeRedisValue(member)
+		if _, exists := set[s]; !exists {
+			continue
+		}
+		delete(set, s)
+		removed++
+	}
+	return redis.NewIntResult(removed, nil)
+}
+
 func (m *mockRedisClient) Expire(_ context.Context, key string, expiration time.Duration) *redis.BoolCmd {
 	if m.down.Load() {
 		return redis.NewBoolResult(false, errMockRedisUnavailable)
@@ -209,6 +234,47 @@ func (m *mockRedisClient) ZPopMin(_ context.Context, key string, count ...int64)
 			return set[i].member < set[j].member
 		}
 		return set[i].score < set[j].score
+	})
+
+	if int64(len(set)) < popCount {
+		popCount = int64(len(set))
+	}
+
+	out := make([]redis.Z, 0, popCount)
+	for i := int64(0); i < popCount; i++ {
+		out = append(out, redis.Z{
+			Member: set[i].member,
+			Score:  set[i].score,
+		})
+	}
+
+	m.zsets[key] = set[popCount:]
+	return redis.NewZSliceCmdResult(out, nil)
+}
+
+func (m *mockRedisClient) ZPopMax(_ context.Context, key string, count ...int64) *redis.ZSliceCmd {
+	if m.down.Load() {
+		return redis.NewZSliceCmdResult(nil, errMockRedisUnavailable)
+	}
+
+	popCount := int64(1)
+	if len(count) > 0 && count[0] > 0 {
+		popCount = count[0]
+	}
+
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	set := m.zsets[key]
+	if len(set) == 0 {
+		return redis.NewZSliceCmdResult(nil, nil)
+	}
+
+	sort.Slice(set, func(i, j int) bool {
+		if set[i].score == set[j].score {
+			return set[i].member < set[j].member
+		}
+		return set[i].score > set[j].score
 	})
 
 	if int64(len(set)) < popCount {

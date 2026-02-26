@@ -42,6 +42,7 @@ func TestFallbackLane_Integration_DegradeOnRedisOutage(t *testing.T) {
 
 	// Simulate Redis outage.
 	client.SetDown(true)
+	outageAt := time.Now()
 
 	var executed atomic.Bool
 	task := NewTaskFunc(fmt.Sprintf("fallback-%d", time.Now().UnixNano()), "fallback-int", 1, func(ctx context.Context) error {
@@ -53,8 +54,12 @@ func TestFallbackLane_Integration_DegradeOnRedisOutage(t *testing.T) {
 	}
 
 	deadline := time.Now().Add(2 * time.Second)
+	var degradedAt time.Time
 	for time.Now().Before(deadline) {
-		if fl.IsDegraded() && executed.Load() {
+		if fl.IsDegraded() && degradedAt.IsZero() {
+			degradedAt = time.Now()
+		}
+		if !degradedAt.IsZero() && executed.Load() {
 			break
 		}
 		time.Sleep(20 * time.Millisecond)
@@ -65,5 +70,11 @@ func TestFallbackLane_Integration_DegradeOnRedisOutage(t *testing.T) {
 	}
 	if !executed.Load() {
 		t.Fatal("expected task to execute via local fallback after degradation")
+	}
+	if degradedAt.IsZero() {
+		t.Fatal("expected to observe degrade timestamp")
+	}
+	if degradedAt.Sub(outageAt) >= time.Second {
+		t.Fatalf("expected degrade switch time < 1s, got %s", degradedAt.Sub(outageAt))
 	}
 }

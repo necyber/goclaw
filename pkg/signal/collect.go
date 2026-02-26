@@ -99,6 +99,20 @@ func (c *Collector) Collect(ctx context.Context) (map[string]*CollectPayload, er
 		}
 	}
 
+	allFailed := len(c.results) == len(c.taskIDs)
+	if allFailed {
+		for _, payload := range c.results {
+			if payload == nil || payload.Error == "" {
+				allFailed = false
+				break
+			}
+		}
+	}
+	if allFailed && len(c.taskIDs) > 0 {
+		metricsRecorder().RecordSignalPattern("collect", "failed", time.Since(start))
+		return c.results, fmt.Errorf("all tasks failed")
+	}
+
 	metricsRecorder().RecordSignalPattern("collect", "success", time.Since(start))
 	return c.results, nil
 }
