@@ -110,6 +110,9 @@ desktop.ini
 /release/
 /web/dist/
 /web/node_modules/
+/web/*.tsbuildinfo
+/web/*.js
+/web/*.d.ts
 /pkg/api/web/dist/
 
 # ================================================

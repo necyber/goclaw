@@ -58,19 +58,19 @@
 
 ## 7. 前端应用框架（Dashboard Layout）
 
-- [ ] 7.1 创建 `web/src/App.tsx` 应用入口，配置 React Router
-- [ ] 7.2 创建 `web/src/layouts/AppShell.tsx` 主布局（顶部导航 + 侧边栏 + 内容区）
-- [ ] 7.3 实现侧边栏导航（Dashboard、Workflows、Metrics、Admin）
-- [ ] 7.4 实现侧边栏折叠/展开切换
-- [ ] 7.5 实现当前页面高亮
-- [ ] 7.6 实现 404 页面
-- [ ] 7.7 创建 `web/src/stores/theme.ts` Zustand 主题 store
-- [ ] 7.8 实现亮/暗主题切换按钮，持久化到 localStorage
-- [ ] 7.9 实现系统主题偏好检测（prefers-color-scheme）
-- [ ] 7.10 创建通用 Loading 组件（spinner + skeleton）
-- [ ] 7.11 创建通用 Error 组件（错误消息 + 重试按钮）
-- [ ] 7.12 创建通用 Empty 组件（空状态插图 + 提示文字）
-- [ ] 7.13 实现响应式布局（>= 1280px 展开侧边栏，1024-1279px 自动折叠）
+- [x] 7.1 创建 `web/src/App.tsx` 应用入口，配置 React Router
+- [x] 7.2 创建 `web/src/layouts/AppShell.tsx` 主布局（顶部导航 + 侧边栏 + 内容区）
+- [x] 7.3 实现侧边栏导航（Dashboard、Workflows、Metrics、Admin）
+- [x] 7.4 实现侧边栏折叠/展开切换
+- [x] 7.5 实现当前页面高亮
+- [x] 7.6 实现 404 页面
+- [x] 7.7 创建 `web/src/stores/theme.ts` Zustand 主题 store
+- [x] 7.8 实现亮/暗主题切换按钮，持久化到 localStorage
+- [x] 7.9 实现系统主题偏好检测（prefers-color-scheme）
+- [x] 7.10 创建通用 Loading 组件（spinner + skeleton）
+- [x] 7.11 创建通用 Error 组件（错误消息 + 重试按钮）
+- [x] 7.12 创建通用 Empty 组件（空状态插图 + 提示文字）
+- [x] 7.13 实现响应式布局（>= 1280px 展开侧边栏，1024-1279px 自动折叠）
 
 ## 8. API 客户端层
 

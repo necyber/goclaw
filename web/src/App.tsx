@@ -1,36 +1,50 @@
-import { useMemo, useState } from "react";
+import { useEffect } from "react";
+import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
-type Theme = "light" | "dark";
+import { AppShell } from "./layouts/AppShell";
+import { useThemeStore } from "./stores/theme";
+import { AdminPage } from "./pages/Admin";
+import { DashboardPage } from "./pages/Dashboard";
+import { MetricsPage } from "./pages/Metrics";
+import { NotFoundPage } from "./pages/NotFound";
+import { WorkflowDetailPage } from "./pages/WorkflowDetail";
+import { WorkflowsPage } from "./pages/Workflows";
+
+function ThemeSync() {
+  const initialized = useThemeStore((state) => state.initialized);
+  const theme = useThemeStore((state) => state.theme);
+  const initialize = useThemeStore((state) => state.initialize);
+
+  useEffect(() => {
+    if (!initialized) {
+      initialize();
+    }
+  }, [initialized, initialize]);
+
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+    document.documentElement.style.colorScheme = theme;
+  }, [theme]);
+
+  return null;
+}
 
 export default function App() {
-  const preferred = useMemo<Theme>(() => {
-    if (typeof window === "undefined") {
-      return "light";
-    }
-    return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
-  }, []);
-
-  const [theme, setTheme] = useState<Theme>(preferred);
-
   return (
-    <div data-theme={theme} className="min-h-screen bg-[var(--ui-bg)] text-[var(--ui-fg)]">
-      <main className="mx-auto max-w-4xl px-6 py-16">
-        <h1 className="text-4xl font-semibold tracking-tight">GoClaw Web UI</h1>
-        <p className="mt-4 text-base text-[var(--ui-muted)]">
-          Week 12 scaffold is ready. Routing, pages, and realtime features will be implemented in
-          subsequent tasks.
-        </p>
-        <div className="mt-8 flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => setTheme((prev) => (prev === "light" ? "dark" : "light"))}
-            className="rounded-md border border-[var(--ui-border)] bg-[var(--ui-panel)] px-4 py-2 text-sm font-medium hover:opacity-90"
-          >
-            Toggle Theme
-          </button>
-          <span className="text-sm text-[var(--ui-muted)]">Current: {theme}</span>
-        </div>
-      </main>
-    </div>
+    <BrowserRouter basename="/ui">
+      <ThemeSync />
+      <Routes>
+        <Route element={<AppShell />}>
+          <Route index element={<DashboardPage />} />
+          <Route path="workflows" element={<WorkflowsPage />} />
+          <Route path="workflows/:id" element={<WorkflowDetailPage />} />
+          <Route path="metrics" element={<MetricsPage />} />
+          <Route path="admin" element={<AdminPage />} />
+          <Route path="dashboard" element={<Navigate to="/" replace />} />
+          <Route path="*" element={<NotFoundPage />} />
+        </Route>
+      </Routes>
+    </BrowserRouter>
   );
 }
+
