@@ -59,7 +59,8 @@ func TestGraph_TopologicalSort_WithCycle(t *testing.T) {
 
 	g.AddTask(&Task{ID: "a", Name: "A", Agent: "test"})
 	g.AddTask(&Task{ID: "b", Name: "B", Agent: "test", Deps: []string{"a"}})
-	g.AddEdge("b", "a") // Create cycle
+	g.tasks["a"].Deps = append(g.tasks["a"].Deps, "b") // Create cycle
+	g.dirty = true
 
 	_, err := g.TopologicalSort()
 	if err == nil {
@@ -193,7 +194,8 @@ func TestGraph_Levels_WithCycle(t *testing.T) {
 
 	g.AddTask(&Task{ID: "a", Name: "A", Agent: "test"})
 	g.AddTask(&Task{ID: "b", Name: "B", Agent: "test", Deps: []string{"a"}})
-	g.AddEdge("b", "a")
+	g.tasks["a"].Deps = append(g.tasks["a"].Deps, "b")
+	g.dirty = true
 
 	_, err := g.Levels()
 	if err == nil {

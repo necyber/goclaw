@@ -83,11 +83,22 @@ func (g *Graph) AddEdge(from, to string) error {
 		return &TaskNotFoundError{ID: to}
 	}
 
+	// Ensure edges reflect current dependencies for duplicate/cycle checks.
+	g.rebuildEdges()
+
 	// Check if edge already exists
 	for _, edge := range g.edges[from] {
 		if edge == to {
 			return nil // Edge already exists, no-op
 		}
+	}
+
+	// Check if the new edge would create a cycle.
+	if path, ok := g.findPath(to, from); ok {
+		cycle := make([]string, 0, len(path)+1)
+		cycle = append(cycle, path...)
+		cycle = append(cycle, to)
+		return &CyclicDependencyError{Path: cycle}
 	}
 
 	// Add the edge
@@ -101,6 +112,35 @@ func (g *Graph) AddEdge(from, to string) error {
 	task.AddDependency(from)
 
 	return nil
+}
+
+// findPath returns a path from start to target using DFS over edges.
+// The returned path includes both start and target when found.
+func (g *Graph) findPath(start, target string) ([]string, bool) {
+	visited := make(map[string]bool, len(g.tasks))
+
+	var dfs func(node string, path []string) ([]string, bool)
+	dfs = func(node string, path []string) ([]string, bool) {
+		if visited[node] {
+			return nil, false
+		}
+		visited[node] = true
+
+		path = append(path, node)
+		if node == target {
+			return path, true
+		}
+
+		for _, next := range g.edges[node] {
+			if result, ok := dfs(next, path); ok {
+				return result, true
+			}
+		}
+
+		return nil, false
+	}
+
+	return dfs(start, nil)
 }
 
 // RemoveTask removes a task and all its associated edges from the graph.

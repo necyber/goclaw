@@ -47,7 +47,8 @@ func TestGraph_DetectCycle_TwoNodeCycle(t *testing.T) {
 
 	g.AddTask(&Task{ID: "a", Name: "A", Agent: "test"})
 	g.AddTask(&Task{ID: "b", Name: "B", Agent: "test", Deps: []string{"a"}})
-	g.AddEdge("b", "a") // Creates cycle: a -> b -> a
+	g.tasks["a"].Deps = append(g.tasks["a"].Deps, "b") // Creates cycle: a -> b -> a
+	g.dirty = true
 
 	cycle, hasCycle := g.DetectCycle()
 	if !hasCycle {
@@ -64,7 +65,8 @@ func TestGraph_DetectCycle_ThreeNodeCycle(t *testing.T) {
 	g.AddTask(&Task{ID: "a", Name: "A", Agent: "test"})
 	g.AddTask(&Task{ID: "b", Name: "B", Agent: "test", Deps: []string{"a"}})
 	g.AddTask(&Task{ID: "c", Name: "C", Agent: "test", Deps: []string{"b"}})
-	g.AddEdge("c", "a") // Creates cycle: a -> b -> c -> a
+	g.tasks["a"].Deps = append(g.tasks["a"].Deps, "c") // Creates cycle: a -> b -> c -> a
+	g.dirty = true
 
 	cycle, hasCycle := g.DetectCycle()
 	if !hasCycle {
@@ -86,7 +88,8 @@ func TestGraph_DetectCycle_Complex(t *testing.T) {
 	g.AddTask(&Task{ID: "b", Name: "B", Agent: "test", Deps: []string{"a"}})
 	g.AddTask(&Task{ID: "c", Name: "C", Agent: "test", Deps: []string{"b"}})
 	g.AddTask(&Task{ID: "d", Name: "D", Agent: "test", Deps: []string{"c"}})
-	g.AddEdge("d", "b") // Creates cycle: b -> c -> d -> b
+	g.tasks["b"].Deps = append(g.tasks["b"].Deps, "d") // Creates cycle: b -> c -> d -> b
+	g.dirty = true
 
 	cycle, hasCycle := g.DetectCycle()
 	if !hasCycle {
@@ -126,7 +129,8 @@ func TestGraph_HasCycle(t *testing.T) {
 		t.Error("expected no cycle in linear graph")
 	}
 
-	g.AddEdge("b", "a")
+	g.tasks["a"].Deps = append(g.tasks["a"].Deps, "b")
+	g.dirty = true
 
 	if !g.HasCycle() {
 		t.Error("expected cycle")
@@ -139,7 +143,8 @@ func TestGraph_FindAllCycles(t *testing.T) {
 	// a -> b -> a (one cycle)
 	g.AddTask(&Task{ID: "a", Name: "A", Agent: "test"})
 	g.AddTask(&Task{ID: "b", Name: "B", Agent: "test", Deps: []string{"a"}})
-	g.AddEdge("b", "a")
+	g.tasks["a"].Deps = append(g.tasks["a"].Deps, "b")
+	g.dirty = true
 
 	cycles := g.FindAllCycles()
 	if len(cycles) == 0 {
