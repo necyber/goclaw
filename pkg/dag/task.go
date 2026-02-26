@@ -99,7 +99,8 @@ func (t *Task) Validate() error {
 	return nil
 }
 
-// Clone creates a deep copy of the task.
+// Clone creates a copy of the task.
+// Slice and map fields are copied, but Input/Output are shared references.
 func (t *Task) Clone() *Task {
 	cloned := &Task{
 		ID:      t.ID,
