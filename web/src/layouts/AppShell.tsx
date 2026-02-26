@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { NavLink, Outlet } from "react-router-dom";
 
+import { ConnectionStatus } from "../components/ConnectionStatus";
 import { useThemeStore } from "../stores/theme";
 
 type NavItem = {
@@ -74,13 +75,16 @@ export function AppShell() {
             </div>
           </div>
 
-          <button
-            type="button"
-            onClick={toggleTheme}
-            className="rounded-md border border-[var(--ui-border)] px-3 py-1.5 text-xs font-semibold hover:bg-black/5 dark:hover:bg-white/5"
-          >
-            {theme === "dark" ? "Light" : "Dark"}
-          </button>
+          <div className="flex items-center gap-2">
+            <ConnectionStatus />
+            <button
+              type="button"
+              onClick={toggleTheme}
+              className="rounded-md border border-[var(--ui-border)] px-3 py-1.5 text-xs font-semibold hover:bg-black/5 dark:hover:bg-white/5"
+            >
+              {theme === "dark" ? "Light" : "Dark"}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -117,4 +121,3 @@ export function AppShell() {
     </div>
   );
 }
-

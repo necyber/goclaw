@@ -82,14 +82,14 @@
 
 ## 9. WebSocket 客户端
 
-- [ ] 9.1 创建 `web/src/lib/websocket.ts` WebSocket 客户端类
-- [ ] 9.2 实现自动重连（指数退避：1s → 2s → 4s → ... → 30s，最多 10 次）
-- [ ] 9.3 实现心跳保活（30s ping）
-- [ ] 9.4 实现连接状态管理（connected/disconnected/reconnecting）
-- [ ] 9.5 创建 `web/src/stores/websocket.ts` Zustand WebSocket store
-- [ ] 9.6 实现连接状态指示器组件（绿/红/黄点）
-- [ ] 9.7 实现工作流订阅/取消订阅
-- [ ] 9.8 实现事件分发到对应 store
+- [x] 9.1 创建 `web/src/lib/websocket.ts` WebSocket 客户端类
+- [x] 9.2 实现自动重连（指数退避：1s → 2s → 4s → ... → 30s，最多 10 次）
+- [x] 9.3 实现心跳保活（30s ping）
+- [x] 9.4 实现连接状态管理（connected/disconnected/reconnecting）
+- [x] 9.5 创建 `web/src/stores/websocket.ts` Zustand WebSocket store
+- [x] 9.6 实现连接状态指示器组件（绿/红/黄点）
+- [x] 9.7 实现工作流订阅/取消订阅
+- [x] 9.8 实现事件分发到对应 store
 
 ## 10. 工作流管理页面
 
