@@ -2,6 +2,7 @@ package config
 
 import (
 	"fmt"
+	"os"
 	"strings"
 
 	"github.com/go-playground/validator/v10"
@@ -15,6 +16,9 @@ func init() {
 
 	// Register custom validators
 	validate.RegisterValidation("env", validateEnvironment)
+	validate.RegisterValidation("file_exists", validateFileExists)
+	validate.RegisterValidation("dir_exists", validateDirExists)
+	validate.RegisterValidation("host", validateHost)
 }
 
 // ConfigError represents a validation error for a specific field.
@@ -93,4 +97,66 @@ func validateEnvironment(fl validator.FieldLevel) bool {
 		}
 	}
 	return false
+}
+
+// validateFileExists validates that a file path exists and is a regular file.
+// Empty string is considered valid (optional file path).
+func validateFileExists(fl validator.FieldLevel) bool {
+	path := fl.Field().String()
+	if path == "" {
+		return true // Empty path is valid (optional)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return !info.IsDir()
+}
+
+// validateDirExists validates that a directory path exists.
+// Empty string is considered valid (optional directory path).
+func validateDirExists(fl validator.FieldLevel) bool {
+	path := fl.Field().String()
+	if path == "" {
+		return true // Empty path is valid (optional)
+	}
+
+	info, err := os.Stat(path)
+	if err != nil {
+		return false
+	}
+	return info.IsDir()
+}
+
+// validateHost validates a host string (hostname or IP address).
+// Empty string is considered valid (optional host).
+func validateHost(fl validator.FieldLevel) bool {
+	host := fl.Field().String()
+	if host == "" {
+		return true // Empty host is valid (optional)
+	}
+
+	// Simple validation: hostname should not contain spaces or special chars
+	// This is a basic check; more sophisticated validation could be added
+	if strings.Contains(host, " ") || strings.Contains(host, "\t") {
+		return false
+	}
+
+	// Check for valid characters in hostname
+	for _, r := range host {
+		if !isValidHostChar(r) {
+			return false
+		}
+	}
+
+	return true
+}
+
+// isValidHostChar checks if a character is valid in a hostname.
+func isValidHostChar(r rune) bool {
+	return (r >= 'a' && r <= 'z') ||
+		(r >= 'A' && r <= 'Z') ||
+		(r >= '0' && r <= '9') ||
+		r == '-' || r == '.' || r == ':' || r == '_' // Allow colon for IPv6, underscore for some cases
 }
