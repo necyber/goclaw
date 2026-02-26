@@ -186,7 +186,7 @@
 - [x] 17.1 更新 `README.md` 添加 Web UI 说明和截图占位
 - [x] 17.2 更新 `CLAUDE.md` 添加前端构建命令和 Web UI 架构说明
 - [x] 17.3 更新 `config.example.yaml` 添加 UI 配置注释
-- [ ] 17.4 运行 `go fmt` 和 `go vet`
+- [x] 17.4 运行 `go fmt` 和 `go vet`
 - [ ] 17.5 运行前端 lint（eslint + prettier）
 - [ ] 17.6 运行 `golangci-lint`
 - [ ] 17.7 修复所有 lint 警告
