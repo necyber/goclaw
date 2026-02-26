@@ -95,6 +95,10 @@ Copy `config/config.example.yaml` as your config file. Key sections: `app`, `ser
 - **Memory system:** Hybrid retrieval (vector + BM25), FSRS-6 decay, tiered storage — implemented ✅
 - **Monitoring:** Prometheus metrics, Grafana dashboards, alert rules — implemented ✅
 
+### Monitoring
+
+Prometheus metrics on port 9091 (configurable). Workflow, task, lane, HTTP, and system metrics. Grafana dashboard in `config/grafana/`. Alert rules in `config/prometheus/alerts.yml`. See `docs/monitoring-guide.md` for full reference.
+
 ### HTTP API
 
 The HTTP API server runs on port 8080 (configurable) and provides:
