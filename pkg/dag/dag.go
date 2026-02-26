@@ -145,56 +145,23 @@ func (g *Graph) findPath(start, target string) ([]string, bool) {
 
 // RemoveTask removes a task and all its associated edges from the graph.
 func (g *Graph) RemoveTask(id string) error {
-	task, exists := g.tasks[id]
-	if !exists {
+	if _, exists := g.tasks[id]; !exists {
 		return &TaskNotFoundError{ID: id}
 	}
 
-	// Ensure edges are built
+	// Ensure edges are built to locate dependents.
 	g.rebuildEdges()
 
-	// Remove outgoing edges (this task depends on others)
-	for _, depID := range task.Deps {
-		// Update dependency's out-degree tracking
-		g.outDegree[depID]--
-		if g.outDegree[depID] < 0 {
-			g.outDegree[depID] = 0
-		}
-		g.inDegree[id]--
-		if g.inDegree[id] < 0 {
-			g.inDegree[id] = 0
-		}
-	}
-
-	// Remove incoming edges (other tasks depend on this)
+	// Remove dependency references from tasks that depend on this task.
 	for _, dependentID := range g.edges[id] {
-		g.outDegree[id]--
-		if g.outDegree[id] < 0 {
-			g.outDegree[id] = 0
-		}
-
-		// Update the dependent task's Deps
 		if dependent, ok := g.tasks[dependentID]; ok {
 			dependent.RemoveDependency(id)
 		}
 	}
 
-	// Remove from edges map
-	delete(g.edges, id)
-
-	// Remove references to this task from other edges
-	for taskID, dependents := range g.edges {
-		for i, depID := range dependents {
-			if depID == id {
-				g.edges[taskID] = append(dependents[:i], dependents[i+1:]...)
-				g.inDegree[taskID]--
-				break
-			}
-		}
-	}
-
-	// Remove task
+	// Remove task and invalidate cached edge metadata.
 	delete(g.tasks, id)
+	delete(g.edges, id)
 	delete(g.inDegree, id)
 	delete(g.outDegree, id)
 	g.dirty = true
