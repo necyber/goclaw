@@ -127,19 +127,19 @@
 
 ## 12. 指标仪表盘
 
-- [ ] 12.1 创建 `web/src/pages/Metrics.tsx` 指标页面
-- [ ] 12.2 实现概览卡片（活跃工作流数、24h 完成数、24h 失败数、平均执行时间）
-- [ ] 12.3 创建 `web/src/components/ThroughputChart.tsx` 吞吐量折线图（提交/完成，1 分钟粒度，最近 1 小时）
-- [ ] 12.4 创建 `web/src/components/DurationHistogram.tsx` 任务执行时间分布柱状图
-- [ ] 12.5 创建 `web/src/components/QueueDepthChart.tsx` Lane 队列深度堆叠面积图
-- [ ] 12.6 创建 `web/src/components/ResourceGauges.tsx` 系统资源仪表盘（内存、goroutine、CPU）
-- [ ] 12.7 创建 `web/src/components/ErrorRateChart.tsx` 错误率折线图（含 > 10% 红色高亮带）
-- [ ] 12.8 实现时间范围选择器（15m、1h、6h、24h）
-- [ ] 12.9 实现图表 hover tooltip
-- [ ] 12.10 实现图表图例点击切换数据系列可见性
-- [ ] 12.11 实现 Prometheus 文本格式解析工具函数
-- [ ] 12.12 实现 10s 自动刷新
-- [ ] 12.13 实现指标不可用时的降级显示
+- [x] 12.1 创建 `web/src/pages/Metrics.tsx` 指标页面
+- [x] 12.2 实现概览卡片（活跃工作流数、24h 完成数、24h 失败数、平均执行时间）
+- [x] 12.3 创建 `web/src/components/ThroughputChart.tsx` 吞吐量折线图（提交/完成，1 分钟粒度，最近 1 小时）
+- [x] 12.4 创建 `web/src/components/DurationHistogram.tsx` 任务执行时间分布柱状图
+- [x] 12.5 创建 `web/src/components/QueueDepthChart.tsx` Lane 队列深度堆叠面积图
+- [x] 12.6 创建 `web/src/components/ResourceGauges.tsx` 系统资源仪表盘（内存、goroutine、CPU）
+- [x] 12.7 创建 `web/src/components/ErrorRateChart.tsx` 错误率折线图（含 > 10% 红色高亮带）
+- [x] 12.8 实现时间范围选择器（15m、1h、6h、24h）
+- [x] 12.9 实现图表 hover tooltip
+- [x] 12.10 实现图表图例点击切换数据系列可见性
+- [x] 12.11 实现 Prometheus 文本格式解析工具函数
+- [x] 12.12 实现 10s 自动刷新
+- [x] 12.13 实现指标不可用时的降级显示
 
 ## 13. 管理控制台
 
