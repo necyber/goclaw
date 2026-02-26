@@ -142,9 +142,6 @@ type DynamicWorkerPool struct {
 	minWorkers int
 	maxWorkers int
 
-	// Metrics for auto-scaling
-	idleTime    atomic.Int64
-	busyCount   atomic.Int32
 	scaleUpCh   chan struct{}
 	scaleDownCh chan struct{}
 }
@@ -199,13 +196,5 @@ func (p *DynamicWorkerPool) autoScale() {
 				currentWorkers--
 			}
 		}
-	}
-}
-
-// signalScaleUp signals that we need to scale up workers.
-func (p *DynamicWorkerPool) signalScaleUp() {
-	select {
-	case p.scaleUpCh <- struct{}{}:
-	default:
 	}
 }

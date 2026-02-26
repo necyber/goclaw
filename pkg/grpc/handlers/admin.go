@@ -394,9 +394,8 @@ func getGoroutineProfile() ([]byte, error) {
 		return nil, fmt.Errorf("goroutine profile not available")
 	}
 
-	var buf []byte
 	// Get goroutine stack traces
-	buf = make([]byte, 1024*1024) // 1MB buffer
+	buf := make([]byte, 1024*1024) // 1MB buffer
 	n := runtime.Stack(buf, true)
 	return buf[:n], nil
 }
@@ -424,7 +423,6 @@ func getHeapProfile() ([]byte, error) {
 func getCPUProfile(ctx context.Context, duration time.Duration) ([]byte, error) {
 	// Note: CPU profiling requires writing to a buffer
 	// This is a simplified version that returns CPU stats
-	var buf []byte
 	data := map[string]interface{}{
 		"num_cpu":       runtime.NumCPU(),
 		"num_goroutine": runtime.NumGoroutine(),

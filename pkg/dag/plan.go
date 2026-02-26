@@ -229,16 +229,16 @@ func (p *ExecutionPlan) IsReady(taskID string, completed map[string]bool) bool {
 // String returns a string representation of the execution plan.
 func (p *ExecutionPlan) String() string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("ExecutionPlan{\n"))
+	sb.WriteString("ExecutionPlan{\n")
 	sb.WriteString(fmt.Sprintf("  Total Tasks: %d\n", p.TotalTasks))
 	sb.WriteString(fmt.Sprintf("  Total Layers: %d\n", p.TotalLayers))
 	sb.WriteString(fmt.Sprintf("  Max Parallel: %d\n", p.MaxParallel))
 	sb.WriteString(fmt.Sprintf("  Critical Path: %v\n", p.CriticalPath))
-	sb.WriteString(fmt.Sprintf("  Layers:\n"))
+	sb.WriteString("  Layers:\n")
 	for i, layer := range p.Layers {
 		sb.WriteString(fmt.Sprintf("    Layer %d: %v\n", i, layer))
 	}
-	sb.WriteString(fmt.Sprintf("}"))
+	sb.WriteString("}")
 	return sb.String()
 }
 

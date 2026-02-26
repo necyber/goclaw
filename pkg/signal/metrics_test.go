@@ -112,4 +112,3 @@ func TestMessagePattern_RecordsMetrics(t *testing.T) {
 		t.Fatal("expected steer failed metric")
 	}
 }
-

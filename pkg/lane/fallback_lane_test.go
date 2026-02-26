@@ -21,13 +21,6 @@ func TestFallbackLane_NewValidation(t *testing.T) {
 	}
 }
 
-// mockRedisCmd implements redis.Cmdable minimally for testing fallback behavior.
-// We use a flag to simulate Redis being up or down.
-type failingRedisLane struct {
-	RedisLane
-	failSubmit atomic.Bool
-}
-
 func newTestFallbackLane(t *testing.T) (*FallbackLane, *ChannelLane) {
 	t.Helper()
 

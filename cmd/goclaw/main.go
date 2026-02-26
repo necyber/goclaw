@@ -319,11 +319,9 @@ func main() {
 		log.Error("Error during engine shutdown", "error", err)
 	}
 
-	if signalBus != nil {
-		log.Info("Closing signal bus")
-		if err := signalBus.Close(); err != nil {
-			log.Error("Error closing signal bus", "error", err)
-		}
+	log.Info("Closing signal bus")
+	if err := signalBus.Close(); err != nil {
+		log.Error("Error closing signal bus", "error", err)
 	}
 	if redisClient != nil {
 		log.Info("Closing Redis client")

@@ -80,7 +80,7 @@ func TestRequestIDUnaryInterceptor_Generates(t *testing.T) {
 	interceptor := RequestIDUnaryInterceptor()
 	ctx := metadata.NewIncomingContext(context.Background(), metadata.MD{})
 	_, err := interceptor(ctx, nil, &grpc.UnaryServerInfo{FullMethod: "/svc/m"}, func(ctx context.Context, req interface{}) (interface{}, error) {
-		if ctx.Value(RequestIDKey) == nil {
+		if _, ok := requestIDFromContext(ctx); !ok {
 			t.Fatal("request id not set in context")
 		}
 		md, ok := metadata.FromOutgoingContext(ctx)
@@ -117,7 +117,7 @@ func TestAuthenticationUnaryInterceptor_HealthCheckBypass(t *testing.T) {
 
 func TestAuthorizationUnaryInterceptor_AdminDenied(t *testing.T) {
 	interceptor := AuthorizationUnaryInterceptor()
-	ctx := context.WithValue(context.Background(), "user_id", "user-123")
+	ctx := withUserID(context.Background(), "user-123")
 	_, err := interceptor(ctx, nil, &grpc.UnaryServerInfo{FullMethod: "/goclaw.v1.AdminService/GetEngineStatus"}, func(ctx context.Context, req interface{}) (interface{}, error) {
 		return nil, nil
 	})

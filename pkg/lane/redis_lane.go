@@ -33,9 +33,9 @@ type RedisLane struct {
 	client redis.Cmdable
 
 	// Redis keys
-	queueKey  string // List for FIFO or Sorted Set for priority
-	dedupKey  string // Set for deduplication
-	statsKey  string // Hash for stats
+	queueKey string // List for FIFO or Sorted Set for priority
+	dedupKey string // Set for deduplication
+	statsKey string // Hash for stats
 
 	// State
 	closed    atomic.Bool

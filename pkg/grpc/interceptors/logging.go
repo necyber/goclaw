@@ -16,8 +16,8 @@ func LoggingUnaryInterceptor() grpc.UnaryServerInterceptor {
 		start := time.Now()
 
 		// Extract request ID from context
-		requestID := ctx.Value(RequestIDKey)
-		if requestID == nil {
+		requestID, ok := requestIDFromContext(ctx)
+		if !ok {
 			requestID = "unknown"
 		}
 
@@ -47,8 +47,8 @@ func LoggingStreamInterceptor() grpc.StreamServerInterceptor {
 
 		// Extract request ID from context
 		ctx := ss.Context()
-		requestID := ctx.Value(RequestIDKey)
-		if requestID == nil {
+		requestID, ok := requestIDFromContext(ctx)
+		if !ok {
 			requestID = "unknown"
 		}
 

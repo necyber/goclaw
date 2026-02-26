@@ -26,14 +26,14 @@ func AuthorizationUnaryInterceptor() grpc.UnaryServerInterceptor {
 		}
 
 		// Get user ID from context (set by authentication interceptor)
-		userID := ctx.Value("user_id")
-		if userID == nil {
+		userID, ok := userIDFromContext(ctx)
+		if !ok {
 			return nil, status.Error(codes.PermissionDenied, "user not authenticated")
 		}
 
 		// Check if method requires admin role
 		if requiresAdminRole(info.FullMethod) {
-			role := getUserRole(userID.(string))
+			role := getUserRole(userID)
 			if role != RoleAdmin {
 				return nil, status.Error(codes.PermissionDenied, "admin role required")
 			}
@@ -55,14 +55,14 @@ func AuthorizationStreamInterceptor() grpc.StreamServerInterceptor {
 		ctx := ss.Context()
 
 		// Get user ID from context
-		userID := ctx.Value("user_id")
-		if userID == nil {
+		userID, ok := userIDFromContext(ctx)
+		if !ok {
 			return status.Error(codes.PermissionDenied, "user not authenticated")
 		}
 
 		// Check if method requires admin role
 		if requiresAdminRole(info.FullMethod) {
-			role := getUserRole(userID.(string))
+			role := getUserRole(userID)
 			if role != RoleAdmin {
 				return status.Error(codes.PermissionDenied, "admin role required")
 			}

@@ -15,10 +15,18 @@ func init() {
 	validate = validator.New()
 
 	// Register custom validators
-	validate.RegisterValidation("env", validateEnvironment)
-	validate.RegisterValidation("file_exists", validateFileExists)
-	validate.RegisterValidation("dir_exists", validateDirExists)
-	validate.RegisterValidation("host", validateHost)
+	if err := validate.RegisterValidation("env", validateEnvironment); err != nil {
+		panic(fmt.Sprintf("failed to register env validator: %v", err))
+	}
+	if err := validate.RegisterValidation("file_exists", validateFileExists); err != nil {
+		panic(fmt.Sprintf("failed to register file_exists validator: %v", err))
+	}
+	if err := validate.RegisterValidation("dir_exists", validateDirExists); err != nil {
+		panic(fmt.Sprintf("failed to register dir_exists validator: %v", err))
+	}
+	if err := validate.RegisterValidation("host", validateHost); err != nil {
+		panic(fmt.Sprintf("failed to register host validator: %v", err))
+	}
 }
 
 // ConfigError represents a validation error for a specific field.

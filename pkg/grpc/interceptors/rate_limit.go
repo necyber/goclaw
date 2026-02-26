@@ -66,7 +66,7 @@ func RateLimitUnaryInterceptor(rl *RateLimiter) grpc.UnaryServerInterceptor {
 
 			// Add retry-after to metadata
 			md := metadata.Pairs("retry-after", retryAfter.String())
-			grpc.SetHeader(ctx, md)
+			_ = grpc.SetHeader(ctx, md)
 
 			return nil, status.Error(codes.ResourceExhausted, "rate limit exceeded")
 		}
@@ -104,13 +104,13 @@ func RateLimitStreamInterceptor(rl *RateLimiter) grpc.StreamServerInterceptor {
 // getClientID extracts client identifier from context
 func getClientID(ctx context.Context) string {
 	// Try to get user ID from context (set by auth interceptor)
-	if userID := ctx.Value("user_id"); userID != nil {
-		return userID.(string)
+	if userID, ok := userIDFromContext(ctx); ok {
+		return userID
 	}
 
 	// Fall back to request ID
-	if requestID := ctx.Value(RequestIDKey); requestID != nil {
-		return requestID.(string)
+	if requestID, ok := requestIDFromContext(ctx); ok {
+		return requestID
 	}
 
 	// Default to "anonymous"

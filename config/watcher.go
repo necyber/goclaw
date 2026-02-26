@@ -187,11 +187,11 @@ func (w *Watcher) ConfigPath() string {
 
 // HotReloadableConfig contains configuration values that can be hot-reloaded.
 type HotReloadableConfig struct {
-	LogLevel        string
-	LogFormat       string
-	MetricsEnabled  bool
-	MetricsPath     string
-	MetricsPort     int
+	LogLevel       string
+	LogFormat      string
+	MetricsEnabled bool
+	MetricsPath    string
+	MetricsPort    int
 }
 
 // ExtractHotReloadable extracts hot-reloadable values from Config.

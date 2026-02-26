@@ -145,12 +145,23 @@ func NewClient(opts *Options) (*Client, error) {
 	dialOpts = append(dialOpts, opts.DialOptions...)
 
 	// Create connection
-	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
-	defer cancel()
-
-	conn, err := grpc.DialContext(ctx, opts.Address, dialOpts...)
+	conn, err := grpc.NewClient(opts.Address, dialOpts...)
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect to %s: %w", opts.Address, err)
+	}
+	conn.Connect()
+
+	ctx, cancel := context.WithTimeout(context.Background(), opts.Timeout)
+	defer cancel()
+	for {
+		state := conn.GetState()
+		if state == connectivity.Ready {
+			break
+		}
+		if !conn.WaitForStateChange(ctx, state) {
+			_ = conn.Close()
+			return nil, fmt.Errorf("failed to connect to %s: %w", opts.Address, ctx.Err())
+		}
 	}
 
 	client := &Client{

@@ -102,15 +102,17 @@ func (g *Graph) AddEdge(from, to string) error {
 		return &CyclicDependencyError{Path: cycle}
 	}
 
+	// Update task's Deps list
+	task := g.tasks[to]
+	if err := task.AddDependency(from); err != nil {
+		return err
+	}
+
 	// Add the edge
 	g.edges[from] = append(g.edges[from], to)
 	g.inDegree[to]++
 	g.outDegree[from]++
 	g.dirty = true
-
-	// Update task's Deps list
-	task := g.tasks[to]
-	task.AddDependency(from)
 
 	return nil
 }

@@ -17,7 +17,7 @@ const (
 func RequestIDUnaryInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		requestID := extractOrGenerateRequestID(ctx)
-		ctx = context.WithValue(ctx, RequestIDKey, requestID)
+		ctx = withRequestID(ctx, requestID)
 
 		// Add to outgoing metadata
 		ctx = metadata.AppendToOutgoingContext(ctx, RequestIDKey, requestID)
@@ -31,7 +31,7 @@ func RequestIDStreamInterceptor() grpc.StreamServerInterceptor {
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		ctx := ss.Context()
 		requestID := extractOrGenerateRequestID(ctx)
-		ctx = context.WithValue(ctx, RequestIDKey, requestID)
+		ctx = withRequestID(ctx, requestID)
 
 		// Wrap the stream with new context
 		wrapped := &wrappedStream{ServerStream: ss, ctx: ctx}

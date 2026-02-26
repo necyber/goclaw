@@ -43,7 +43,7 @@ func AuthenticationUnaryInterceptor() grpc.UnaryServerInterceptor {
 		}
 
 		// Add user ID to context
-		ctx = context.WithValue(ctx, "user_id", userID)
+		ctx = withUserID(ctx, userID)
 
 		return handler(ctx, req)
 	}
@@ -80,7 +80,7 @@ func AuthenticationStreamInterceptor() grpc.StreamServerInterceptor {
 		}
 
 		// Add user ID to context
-		ctx = context.WithValue(ctx, "user_id", userID)
+		ctx = withUserID(ctx, userID)
 
 		// Wrap stream with new context
 		wrapped := &wrappedStream{ServerStream: ss, ctx: ctx}

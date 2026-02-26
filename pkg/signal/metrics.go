@@ -1,4 +1,4 @@
-﻿package signal
+package signal
 
 import (
 	"sync"
@@ -15,9 +15,9 @@ type MetricsRecorder interface {
 
 type nopMetrics struct{}
 
-func (n *nopMetrics) RecordSignalSent(mode string, signalType string)                          {}
-func (n *nopMetrics) RecordSignalReceived(mode string, signalType string)                      {}
-func (n *nopMetrics) RecordSignalFailed(mode string, signalType string, reason string)         {}
+func (n *nopMetrics) RecordSignalSent(mode string, signalType string)                           {}
+func (n *nopMetrics) RecordSignalReceived(mode string, signalType string)                       {}
+func (n *nopMetrics) RecordSignalFailed(mode string, signalType string, reason string)          {}
 func (n *nopMetrics) RecordSignalPattern(pattern string, status string, duration time.Duration) {}
 
 var (

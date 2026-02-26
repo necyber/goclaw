@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"sync"
 	"time"
 
@@ -110,7 +111,7 @@ func (s *BatchServiceServer) submitWorkflowsAtomic(ctx context.Context, req *pb.
 		if err != nil {
 			// Rollback: cancel all previously submitted workflows
 			for _, id := range submittedIDs {
-				s.engine.CancelWorkflow(context.Background(), id, true)
+				_ = s.engine.CancelWorkflow(context.Background(), id, true)
 			}
 
 			return &pb.SubmitWorkflowsResponse{
@@ -284,9 +285,10 @@ func (s *BatchServiceServer) GetWorkflowStatuses(ctx context.Context, req *pb.Ge
 		}
 		// Simple offset-based pagination for batch operations
 		if req.Pagination.PageToken != "" {
-			// Parse page token as offset
-			var offset int
-			fmt.Sscanf(req.Pagination.PageToken, "%d", &offset)
+			offset, err := parsePageTokenOffset(req.Pagination.PageToken)
+			if err != nil {
+				return nil, status.Errorf(codes.InvalidArgument, "invalid page token: %v", err)
+			}
 			startIdx = offset
 		}
 		endIdx = startIdx + pageSize
@@ -514,8 +516,10 @@ func (s *BatchServiceServer) GetTaskResults(ctx context.Context, req *pb.GetTask
 			pageSize = MaxBatchSize
 		}
 		if req.Pagination.PageToken != "" {
-			var offset int
-			fmt.Sscanf(req.Pagination.PageToken, "%d", &offset)
+			offset, err := parsePageTokenOffset(req.Pagination.PageToken)
+			if err != nil {
+				return nil, status.Errorf(codes.InvalidArgument, "invalid page token: %v", err)
+			}
 			startIdx = offset
 		}
 		endIdx = startIdx + pageSize
@@ -611,6 +615,17 @@ func (s *BatchServiceServer) getSingleTaskResult(ctx context.Context, workflowID
 // isTerminalStatus checks if a workflow status is terminal
 func isTerminalStatus(status string) bool {
 	return status == "COMPLETED" || status == "FAILED" || status == "CANCELLED"
+}
+
+func parsePageTokenOffset(token string) (int, error) {
+	offset, err := strconv.Atoi(token)
+	if err != nil {
+		return 0, err
+	}
+	if offset < 0 {
+		return 0, fmt.Errorf("offset must be non-negative")
+	}
+	return offset, nil
 }
 
 // IdempotencyCache provides simple in-memory caching for idempotency

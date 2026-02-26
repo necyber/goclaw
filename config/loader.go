@@ -24,8 +24,7 @@ const (
 
 // Loader handles configuration loading from various sources.
 type Loader struct {
-	k      *koanf.Koanf
-	parser koanf.Parser
+	k *koanf.Koanf
 }
 
 // NewLoader creates a new configuration loader.
@@ -195,7 +194,9 @@ func (l *Loader) fillDefaults() error {
 
 	for key, value := range defaultsMap {
 		if l.k.Get(key) == nil {
-			l.k.Set(key, value)
+			if err := l.k.Set(key, value); err != nil {
+				return fmt.Errorf("failed to set default for %s: %w", key, err)
+			}
 		}
 	}
 

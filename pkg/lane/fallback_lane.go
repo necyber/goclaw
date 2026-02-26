@@ -13,9 +13,9 @@ import (
 // when Redis becomes unavailable. It monitors Redis health in the background and
 // switches back when Redis recovers.
 type FallbackLane struct {
-	primary   *RedisLane
-	fallback  *ChannelLane
-	logger    *slog.Logger
+	primary  *RedisLane
+	fallback *ChannelLane
+	logger   *slog.Logger
 
 	// State: 0 = using primary (Redis), 1 = using fallback (local)
 	degraded atomic.Bool
@@ -26,11 +26,11 @@ type FallbackLane struct {
 	closeOnce     sync.Once
 
 	// Metrics
-	metrics          MetricsRecorder
-	degradeCount     atomic.Int64
-	recoverCount     atomic.Int64
-	lastDegradeTime  atomic.Int64 // unix nano
-	lastRecoverTime  atomic.Int64 // unix nano
+	metrics         MetricsRecorder
+	degradeCount    atomic.Int64
+	recoverCount    atomic.Int64
+	lastDegradeTime atomic.Int64 // unix nano
+	lastRecoverTime atomic.Int64 // unix nano
 }
 
 // FallbackConfig holds configuration for a FallbackLane.

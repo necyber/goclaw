@@ -1,4 +1,4 @@
-﻿package signal
+package signal
 
 import (
 	"context"

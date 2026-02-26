@@ -82,8 +82,8 @@ func TestSlogLogger_Level(t *testing.T) {
 
 	// Test SetLevel
 	log.SetLevel(DebugLevel)
-	if log.GetLevel() != InfoLevel { // GetLevel is simplified in implementation
-		// This test documents current behavior
+	if got := log.GetLevel(); got != InfoLevel { // GetLevel is simplified in implementation
+		t.Logf("GetLevel returned %v; current implementation keeps configured level", got)
 	}
 }
 

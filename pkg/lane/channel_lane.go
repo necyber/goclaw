@@ -40,7 +40,6 @@ type ChannelLane struct {
 	manager *Manager
 
 	// Wait time tracking
-	totalWaitTime    atomic.Int64 // nanoseconds
 	totalProcessTime atomic.Int64 // nanoseconds
 	taskCount        atomic.Int64
 }

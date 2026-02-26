@@ -381,7 +381,8 @@ func (b *BadgerStorage) ListTasks(ctx context.Context, workflowID string) ([]*st
 func (b *BadgerStorage) Close() error {
 	// Run garbage collection before closing
 	if err := b.db.RunValueLogGC(0.5); err != nil && err != badger.ErrNoRewrite {
-		// Log error but don't fail close
+		// Ignore GC errors and continue closing the DB.
+		_ = err
 	}
 
 	return b.db.Close()
