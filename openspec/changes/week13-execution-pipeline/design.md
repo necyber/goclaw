@@ -48,8 +48,9 @@ Alternatives considered:
 
 Decision:
 - Support both sync and async submission modes with explicit response semantics.
-- Async mode returns as soon as persistence + enqueue/scheduling acceptance succeeds.
-- Sync mode blocks until terminal workflow state or request cancellation/timeout.
+- Async mode returns once workflow state is persisted as `pending` (without waiting for execution admission or terminal completion).
+- Sync mode blocks until terminal workflow state or request cancellation/timeout when executable `TaskFns` are provided.
+- Sync mode without executable `TaskFns` returns a non-terminal `pending` response after persistence (no blocking for terminal completion).
 
 Rationale:
 - Supports operational APIs while retaining deterministic behavior for callers.

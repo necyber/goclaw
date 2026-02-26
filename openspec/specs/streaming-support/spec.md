@@ -150,3 +150,46 @@ The system SHALL optimize streaming performance for high-throughput scenarios.
 #### Scenario: Stream concurrency
 - **WHEN** handling multiple concurrent streams
 - **THEN** server MUST use goroutines per stream without blocking others
+
+### Requirement: Streaming events follow persisted lifecycle transitions
+Workflow and task streaming updates MUST be emitted from persisted lifecycle transitions.
+
+#### Scenario: Persisted transition emits stream event
+- **WHEN** workflow or task state change is persisted
+- **THEN** streaming service MUST emit a corresponding update event that reflects the persisted state
+
+### Requirement: Transition-consistent stream ordering per workflow
+Streaming for a single workflow MUST preserve transition order consistency.
+
+#### Scenario: Ordered task transition stream
+- **WHEN** a task transitions from `scheduled` to `running` to terminal state
+- **THEN** subscribers for that workflow MUST receive updates in the same transition order
+
+### Requirement: Terminal transition stream guarantees
+Streaming MUST expose terminal state visibility for workflow and task streams.
+
+#### Scenario: Workflow reaches terminal state
+- **WHEN** workflow transitions to `completed`, `failed`, or `cancelled`
+- **THEN** streaming service MUST emit terminal update before stream closure or idle state
+
+### Requirement: Streaming bridge consumes canonical distributed events
+Streaming services in distributed mode MUST source workflow/task updates from canonical cluster event streams.
+
+#### Scenario: Cross-node workflow update
+- **WHEN** workflow transition occurs on node A
+- **THEN** subscribers connected to node B MUST receive the update through event-bus-backed streaming bridge
+
+#### Scenario: Task update fan-out
+- **WHEN** task transitions are published to canonical event bus
+- **THEN** streaming service MUST transform and deliver updates to matching workflow/task subscriptions
+
+### Requirement: Stream consistency across node boundaries
+Streaming bridge MUST preserve scoped ordering and deduplicate duplicate bus deliveries.
+
+#### Scenario: Ordered per-workflow delivery
+- **WHEN** multiple updates for one workflow are consumed from event bus
+- **THEN** streaming output MUST preserve per-workflow transition order
+
+#### Scenario: Duplicate event consumed
+- **WHEN** duplicate lifecycle events are consumed from event bus
+- **THEN** streaming service MUST suppress duplicates using event identity and ordering metadata

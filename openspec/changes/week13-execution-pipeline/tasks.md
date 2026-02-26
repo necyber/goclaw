@@ -14,8 +14,8 @@
 
 ## 3. Runtime API Semantics (HTTP)
 
-- [ ] 3.1 Implement async submit behavior that returns after persistence + admission
-- [ ] 3.2 Implement sync submit behavior that blocks until terminal state or request cancellation
+- [ ] 3.1 Implement async submit behavior that returns after workflow is persisted as `pending` (without waiting for execution admission)
+- [ ] 3.2 Implement sync submit behavior: block until terminal state only when executable `TaskFns` are provided; otherwise return non-terminal `pending` response
 - [ ] 3.3 Align workflow query responses with persisted runtime state and timestamps
 - [ ] 3.4 Align cancel and task-result endpoint behavior for pending/running/terminal states
 
@@ -40,4 +40,3 @@
 - [ ] 6.3 Add API tests for sync/async submit semantics and cancel/result contracts
 - [ ] 6.4 Add gRPC integration tests for runtime registration and adapter wiring correctness
 - [ ] 6.5 Add streaming/metrics consistency tests against persisted state transitions
-
