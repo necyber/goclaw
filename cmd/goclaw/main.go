@@ -150,6 +150,7 @@ func main() {
 		HTTPDurationBuckets:     metrics.DefaultConfig().HTTPDurationBuckets,
 	}
 	metricsManager := metrics.NewManager(metricsCfg)
+	signalpkg.SetMetricsRecorder(metricsManager)
 
 	// Start metrics server if enabled
 	if metricsManager.Enabled() {

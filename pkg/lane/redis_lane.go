@@ -11,6 +11,12 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+type redisMetricsRecorder interface {
+	SetRedisQueueDepth(laneName string, depth float64)
+	RecordRedisSubmitDuration(laneName string, duration time.Duration)
+	RecordRedisThroughput(laneName string)
+}
+
 // RedisTaskPayload is the JSON structure for tasks stored in Redis.
 type RedisTaskPayload struct {
 	ID         string            `json:"id"`
@@ -84,6 +90,7 @@ func (l *RedisLane) Name() string {
 
 // Submit submits a task to the Redis queue.
 func (l *RedisLane) Submit(ctx context.Context, task Task) error {
+	start := time.Now()
 	if l.closed.Load() {
 		return &LaneClosedError{LaneName: l.config.Name}
 	}
@@ -168,6 +175,10 @@ func (l *RedisLane) Submit(ctx context.Context, task Task) error {
 
 	l.pending.Add(1)
 	l.metrics.IncQueueDepth(l.config.Name)
+	if recorder, ok := l.metrics.(redisMetricsRecorder); ok {
+		recorder.SetRedisQueueDepth(l.config.Name, float64(l.pending.Load()))
+		recorder.RecordRedisSubmitDuration(l.config.Name, time.Since(start))
+	}
 	return nil
 }
 
@@ -279,6 +290,9 @@ func (l *RedisLane) worker() {
 		l.pending.Add(-1)
 		l.running.Add(1)
 		l.metrics.DecQueueDepth(l.config.Name)
+		if recorder, ok := l.metrics.(redisMetricsRecorder); ok {
+			recorder.SetRedisQueueDepth(l.config.Name, float64(l.pending.Load()))
+		}
 
 		start := time.Now()
 		if l.taskHandler != nil {
@@ -294,6 +308,9 @@ func (l *RedisLane) worker() {
 		l.running.Add(-1)
 		l.metrics.RecordWaitDuration(l.config.Name, time.Since(payload.EnqueuedAt))
 		l.metrics.RecordThroughput(l.config.Name)
+		if recorder, ok := l.metrics.(redisMetricsRecorder); ok {
+			recorder.RecordRedisThroughput(l.config.Name)
+		}
 		_ = start // suppress unused if metrics not recording process time
 	}
 }

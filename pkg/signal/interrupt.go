@@ -9,8 +9,11 @@ import (
 
 // SendInterrupt sends an Interrupt signal to cancel a task.
 func SendInterrupt(ctx context.Context, bus Bus, taskID string, graceful bool, reason string, timeout time.Duration) error {
+	start := time.Now()
 	if taskID == "" {
-		return fmt.Errorf("task_id cannot be empty")
+		err := fmt.Errorf("task_id cannot be empty")
+		metricsRecorder().RecordSignalPattern("interrupt", "failed", time.Since(start))
+		return err
 	}
 
 	payload, err := json.Marshal(InterruptPayload{
@@ -19,15 +22,21 @@ func SendInterrupt(ctx context.Context, bus Bus, taskID string, graceful bool, r
 		Timeout:  timeout,
 	})
 	if err != nil {
+		metricsRecorder().RecordSignalPattern("interrupt", "failed", time.Since(start))
 		return fmt.Errorf("failed to marshal interrupt payload: %w", err)
 	}
 
-	return bus.Publish(ctx, &Signal{
+	if err := bus.Publish(ctx, &Signal{
 		Type:    SignalInterrupt,
 		TaskID:  taskID,
 		Payload: payload,
 		SentAt:  time.Now(),
-	})
+	}); err != nil {
+		metricsRecorder().RecordSignalPattern("interrupt", "failed", time.Since(start))
+		return err
+	}
+	metricsRecorder().RecordSignalPattern("interrupt", "success", time.Since(start))
+	return nil
 }
 
 // ParseInterruptPayload extracts the InterruptPayload from a signal.

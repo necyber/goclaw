@@ -31,6 +31,16 @@ type Manager struct {
 	laneQueueDepth   *prometheus.GaugeVec
 	laneWaitDuration *prometheus.HistogramVec
 	laneThroughput   *prometheus.CounterVec
+	redisQueueDepth  *prometheus.GaugeVec
+	redisSubmitDur   *prometheus.HistogramVec
+	redisThroughput  *prometheus.CounterVec
+
+	// Signal/message metrics
+	signalSent       *prometheus.CounterVec
+	signalReceived   *prometheus.CounterVec
+	signalFailures   *prometheus.CounterVec
+	signalPatternOps *prometheus.CounterVec
+	signalPatternDur *prometheus.HistogramVec
 
 	// HTTP metrics
 	httpRequests    *prometheus.CounterVec
@@ -84,6 +94,7 @@ func NewManager(cfg Config) *Manager {
 	m.initWorkflowMetrics(cfg)
 	m.initTaskMetrics(cfg)
 	m.initLaneMetrics(cfg)
+	m.initSignalMetrics()
 	m.initHTTPMetrics(cfg)
 
 	return m

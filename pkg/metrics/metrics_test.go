@@ -246,3 +246,43 @@ func TestMetricsMemoryUsage(t *testing.T) {
 		t.Errorf("Metrics output too large: %d bytes", len(body))
 	}
 }
+
+func TestSignalAndRedisMetricsRegistered(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Enabled = true
+	m := NewManager(cfg)
+
+	m.SetRedisQueueDepth("io", 3)
+	m.RecordRedisSubmitDuration("io", 5*time.Millisecond)
+	m.RecordRedisThroughput("io")
+
+	m.RecordSignalSent("local", "steer")
+	m.RecordSignalReceived("local", "steer")
+	m.RecordSignalFailed("local", "steer", "no_subscriber")
+	m.RecordSignalPattern("steer", "success", 2*time.Millisecond)
+
+	req := httptest.NewRequest("GET", "/metrics", nil)
+	w := httptest.NewRecorder()
+	m.Handler().ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	expected := []string{
+		"redis_lane_queue_depth",
+		"redis_lane_submit_duration_seconds",
+		"redis_lane_throughput_total",
+		"signal_sent_total",
+		"signal_received_total",
+		"signal_failures_total",
+		"signal_pattern_total",
+		"signal_pattern_duration_seconds",
+	}
+	for _, metric := range expected {
+		if !contains(body, metric) {
+			t.Errorf("expected metric %s not found in output", metric)
+		}
+	}
+}

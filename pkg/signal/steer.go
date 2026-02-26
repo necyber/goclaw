@@ -9,24 +9,35 @@ import (
 
 // SendSteer sends a Steer signal to modify runtime parameters of a task.
 func SendSteer(ctx context.Context, bus Bus, taskID string, params map[string]interface{}) error {
+	start := time.Now()
 	if taskID == "" {
-		return fmt.Errorf("task_id cannot be empty")
+		err := fmt.Errorf("task_id cannot be empty")
+		metricsRecorder().RecordSignalPattern("steer", "failed", time.Since(start))
+		return err
 	}
 	if len(params) == 0 {
-		return fmt.Errorf("steer parameters cannot be empty")
+		err := fmt.Errorf("steer parameters cannot be empty")
+		metricsRecorder().RecordSignalPattern("steer", "failed", time.Since(start))
+		return err
 	}
 
 	payload, err := json.Marshal(SteerPayload{Parameters: params})
 	if err != nil {
+		metricsRecorder().RecordSignalPattern("steer", "failed", time.Since(start))
 		return fmt.Errorf("failed to marshal steer payload: %w", err)
 	}
 
-	return bus.Publish(ctx, &Signal{
+	if err := bus.Publish(ctx, &Signal{
 		Type:    SignalSteer,
 		TaskID:  taskID,
 		Payload: payload,
 		SentAt:  time.Now(),
-	})
+	}); err != nil {
+		metricsRecorder().RecordSignalPattern("steer", "failed", time.Since(start))
+		return err
+	}
+	metricsRecorder().RecordSignalPattern("steer", "success", time.Since(start))
+	return nil
 }
 
 // ParseSteerPayload extracts the SteerPayload from a signal.

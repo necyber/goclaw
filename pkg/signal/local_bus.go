@@ -1,4 +1,4 @@
-package signal
+﻿package signal
 
 import (
 	"context"
@@ -28,9 +28,11 @@ func NewLocalBus(bufferSize int) *LocalBus {
 // Publish sends a signal to the target task's subscriber channel.
 func (b *LocalBus) Publish(_ context.Context, sig *Signal) error {
 	if sig == nil {
+		metricsRecorder().RecordSignalFailed("local", "unknown", "nil_signal")
 		return fmt.Errorf("signal cannot be nil")
 	}
 	if sig.TaskID == "" {
+		metricsRecorder().RecordSignalFailed("local", string(sig.Type), "empty_task_id")
 		return fmt.Errorf("signal task_id cannot be empty")
 	}
 
@@ -38,26 +40,32 @@ func (b *LocalBus) Publish(_ context.Context, sig *Signal) error {
 	defer b.mu.RUnlock()
 
 	if b.closed {
+		metricsRecorder().RecordSignalFailed("local", string(sig.Type), "bus_closed")
 		return fmt.Errorf("signal bus is closed")
 	}
 
 	ch, ok := b.subscribers[sig.TaskID]
 	if !ok {
+		metricsRecorder().RecordSignalFailed("local", string(sig.Type), "no_subscriber")
 		return nil // no subscriber, silently drop
 	}
+	metricsRecorder().RecordSignalSent("local", string(sig.Type))
 
-	// Non-blocking send; drop oldest if buffer full
+	// Non-blocking send; drop oldest if buffer full.
 	select {
 	case ch <- sig:
+		metricsRecorder().RecordSignalReceived("local", string(sig.Type))
 	default:
-		// Buffer full — drop oldest and retry
+		metricsRecorder().RecordSignalFailed("local", string(sig.Type), "buffer_full_drop")
 		select {
 		case <-ch:
 		default:
 		}
 		select {
 		case ch <- sig:
+			metricsRecorder().RecordSignalReceived("local", string(sig.Type))
 		default:
+			metricsRecorder().RecordSignalFailed("local", string(sig.Type), "buffer_still_full")
 		}
 	}
 

@@ -33,9 +33,37 @@ func (m *Manager) initLaneMetrics(cfg Config) {
 		[]string{"lane_name"},
 	)
 
+	m.redisQueueDepth = prometheus.NewGaugeVec(
+		prometheus.GaugeOpts{
+			Name: "redis_lane_queue_depth",
+			Help: "Current depth of Redis-backed lane queue",
+		},
+		[]string{"lane_name"},
+	)
+
+	m.redisSubmitDur = prometheus.NewHistogramVec(
+		prometheus.HistogramOpts{
+			Name:    "redis_lane_submit_duration_seconds",
+			Help:    "Redis lane submit duration in seconds",
+			Buckets: cfg.LaneWaitBuckets,
+		},
+		[]string{"lane_name"},
+	)
+
+	m.redisThroughput = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "redis_lane_throughput_total",
+			Help: "Total number of tasks processed by Redis-backed lanes",
+		},
+		[]string{"lane_name"},
+	)
+
 	m.registry.MustRegister(m.laneQueueDepth)
 	m.registry.MustRegister(m.laneWaitDuration)
 	m.registry.MustRegister(m.laneThroughput)
+	m.registry.MustRegister(m.redisQueueDepth)
+	m.registry.MustRegister(m.redisSubmitDur)
+	m.registry.MustRegister(m.redisThroughput)
 }
 
 // SetQueueDepth sets the current queue depth for a lane.
@@ -76,4 +104,28 @@ func (m *Manager) RecordThroughput(laneName string) {
 		return
 	}
 	m.laneThroughput.WithLabelValues(laneName).Inc()
+}
+
+// SetRedisQueueDepth sets the current queue depth for a Redis-backed lane.
+func (m *Manager) SetRedisQueueDepth(laneName string, depth float64) {
+	if !m.enabled {
+		return
+	}
+	m.redisQueueDepth.WithLabelValues(laneName).Set(depth)
+}
+
+// RecordRedisSubmitDuration records Redis submit latency.
+func (m *Manager) RecordRedisSubmitDuration(laneName string, duration time.Duration) {
+	if !m.enabled {
+		return
+	}
+	m.redisSubmitDur.WithLabelValues(laneName).Observe(duration.Seconds())
+}
+
+// RecordRedisThroughput records a processed task for a Redis lane.
+func (m *Manager) RecordRedisThroughput(laneName string) {
+	if !m.enabled {
+		return
+	}
+	m.redisThroughput.WithLabelValues(laneName).Inc()
 }

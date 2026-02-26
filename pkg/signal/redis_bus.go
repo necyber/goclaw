@@ -1,4 +1,4 @@
-package signal
+﻿package signal
 
 import (
 	"context"
@@ -45,26 +45,35 @@ func NewRedisBus(client redis.UniversalClient, channelPrefix string, bufferSize 
 // Publish sends a signal via Redis Pub/Sub.
 func (b *RedisBus) Publish(ctx context.Context, sig *Signal) error {
 	if sig == nil {
+		metricsRecorder().RecordSignalFailed("redis", "unknown", "nil_signal")
 		return fmt.Errorf("signal cannot be nil")
 	}
 	if sig.TaskID == "" {
+		metricsRecorder().RecordSignalFailed("redis", string(sig.Type), "empty_task_id")
 		return fmt.Errorf("signal task_id cannot be empty")
 	}
 
 	b.mu.RLock()
 	if b.closed {
 		b.mu.RUnlock()
+		metricsRecorder().RecordSignalFailed("redis", string(sig.Type), "bus_closed")
 		return fmt.Errorf("signal bus is closed")
 	}
 	b.mu.RUnlock()
 
 	data, err := json.Marshal(sig)
 	if err != nil {
+		metricsRecorder().RecordSignalFailed("redis", string(sig.Type), "marshal_failed")
 		return fmt.Errorf("failed to marshal signal: %w", err)
 	}
 
 	channel := b.channelPrefix + sig.TaskID
-	return b.client.Publish(ctx, channel, data).Err()
+	if err := b.client.Publish(ctx, channel, data).Err(); err != nil {
+		metricsRecorder().RecordSignalFailed("redis", string(sig.Type), "publish_failed")
+		return err
+	}
+	metricsRecorder().RecordSignalSent("redis", string(sig.Type))
+	return nil
 }
 
 // Subscribe creates a channel that receives signals for the given task via Redis Pub/Sub.
@@ -97,7 +106,7 @@ func (b *RedisBus) Subscribe(ctx context.Context, taskID string) (<-chan *Signal
 	}
 	b.subscribers[taskID] = sub
 
-	// Background goroutine to forward Redis messages to the channel
+	// Background goroutine to forward Redis messages to the channel.
 	go b.forwardMessages(subCtx, pubsub, ch)
 
 	return ch, nil
@@ -119,19 +128,23 @@ func (b *RedisBus) forwardMessages(ctx context.Context, pubsub *redis.PubSub, ch
 			}
 			var sig Signal
 			if err := json.Unmarshal([]byte(msg.Payload), &sig); err != nil {
+				metricsRecorder().RecordSignalFailed("redis", "unknown", "decode_failed")
 				continue
 			}
 			select {
 			case ch <- &sig:
+				metricsRecorder().RecordSignalReceived("redis", string(sig.Type))
 			default:
-				// Buffer full — drop oldest
+				metricsRecorder().RecordSignalFailed("redis", string(sig.Type), "buffer_full_drop")
 				select {
 				case <-ch:
 				default:
 				}
 				select {
 				case ch <- &sig:
+					metricsRecorder().RecordSignalReceived("redis", string(sig.Type))
 				default:
+					metricsRecorder().RecordSignalFailed("redis", string(sig.Type), "buffer_still_full")
 				}
 			}
 		}

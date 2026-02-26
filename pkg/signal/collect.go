@@ -32,6 +32,7 @@ func NewCollector(bus Bus, taskIDs []string, timeout time.Duration) *Collector {
 // Collect waits for results from all tasks or until timeout.
 // Returns partial results if timeout is reached.
 func (c *Collector) Collect(ctx context.Context) (map[string]*CollectPayload, error) {
+	start := time.Now()
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
@@ -44,6 +45,7 @@ func (c *Collector) Collect(ctx context.Context) (map[string]*CollectPayload, er
 			for id := range channels {
 				_ = c.bus.Unsubscribe("collect:" + id)
 			}
+			metricsRecorder().RecordSignalPattern("collect", "failed", time.Since(start))
 			return nil, fmt.Errorf("failed to subscribe to task %s: %w", taskID, err)
 		}
 		channels[taskID] = ch
@@ -60,6 +62,11 @@ func (c *Collector) Collect(ctx context.Context) (map[string]*CollectPayload, er
 	for remaining > 0 {
 		select {
 		case <-ctx.Done():
+			status := "failed"
+			if ctx.Err() == context.DeadlineExceeded {
+				status = "timeout"
+			}
+			metricsRecorder().RecordSignalPattern("collect", status, time.Since(start))
 			return c.results, ctx.Err()
 		default:
 			for taskID, ch := range channels {
@@ -81,12 +88,18 @@ func (c *Collector) Collect(ctx context.Context) (map[string]*CollectPayload, er
 						}
 					}
 				case <-ctx.Done():
+					status := "failed"
+					if ctx.Err() == context.DeadlineExceeded {
+						status = "timeout"
+					}
+					metricsRecorder().RecordSignalPattern("collect", status, time.Since(start))
 					return c.results, ctx.Err()
 				}
 			}
 		}
 	}
 
+	metricsRecorder().RecordSignalPattern("collect", "success", time.Since(start))
 	return c.results, nil
 }
 
@@ -158,21 +171,28 @@ type CollectResult struct {
 
 // SendCollectResult sends a task's result back to the collector.
 func SendCollectResult(ctx context.Context, bus Bus, taskID string, result json.RawMessage, taskErr string) error {
+	start := time.Now()
 	payload, err := json.Marshal(CollectPayload{
 		RequestID: "",
 		Result:    result,
 		Error:     taskErr,
 	})
 	if err != nil {
+		metricsRecorder().RecordSignalPattern("collect", "failed", time.Since(start))
 		return fmt.Errorf("failed to marshal collect payload: %w", err)
 	}
 
-	return bus.Publish(ctx, &Signal{
+	if err := bus.Publish(ctx, &Signal{
 		Type:    SignalCollect,
 		TaskID:  "collect:" + taskID,
 		Payload: payload,
 		SentAt:  time.Now(),
-	})
+	}); err != nil {
+		metricsRecorder().RecordSignalPattern("collect", "failed", time.Since(start))
+		return err
+	}
+	metricsRecorder().RecordSignalPattern("collect", "success", time.Since(start))
+	return nil
 }
 
 // ParseCollectPayload extracts the CollectPayload from a signal.
