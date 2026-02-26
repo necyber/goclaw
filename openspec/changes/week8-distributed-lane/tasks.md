@@ -65,11 +65,11 @@
 
 ## 8. Lane Manager 混合模式
 
-- [ ] 8.1 扩展 `pkg/lane/manager.go` 支持 Lane 类型配置
-- [ ] 8.2 实现按名称创建不同类型 Lane（memory/redis）
-- [ ] 8.3 实现混合模式下的 Stats 聚合
-- [ ] 8.4 实现混合模式下的 Close 逻辑
-- [ ] 8.5 编写混合模式测试
+- [x] 8.1 扩展 `pkg/lane/manager.go` 支持 Lane 类型配置
+- [x] 8.2 实现按名称创建不同类型 Lane（memory/redis）
+- [x] 8.3 实现混合模式下的 Stats 聚合
+- [x] 8.4 实现混合模式下的 Close 逻辑
+- [x] 8.5 编写混合模式测试
 
 ## 9. Signal Bus 核心
 

@@ -4,21 +4,31 @@ import (
 	"context"
 	"fmt"
 	"sync"
+
+	"github.com/redis/go-redis/v9"
 )
 
 // Manager manages multiple lanes.
 type Manager struct {
-	lanes   map[string]Lane
-	configs map[string]*Config
-	mu      sync.RWMutex
+	lanes       map[string]Lane
+	configs     map[string]*LaneSpec
+	redisClient redis.Cmdable
+	mu          sync.RWMutex
 }
 
 // NewManager creates a new Lane Manager.
 func NewManager() *Manager {
 	return &Manager{
 		lanes:   make(map[string]Lane),
-		configs: make(map[string]*Config),
+		configs: make(map[string]*LaneSpec),
 	}
+}
+
+// SetRedisClient sets the shared Redis client for Redis-backed lanes.
+func (m *Manager) SetRedisClient(client redis.Cmdable) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.redisClient = client
 }
 
 // Register registers a new lane with the given configuration.
@@ -28,28 +38,73 @@ func (m *Manager) Register(config *Config) (Lane, error) {
 		return nil, err
 	}
 
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	return m.RegisterSpec(&LaneSpec{
+		Type:   LaneTypeMemory,
+		Memory: config,
+	})
+}
 
-	if _, exists := m.lanes[config.Name]; exists {
-		return nil, &DuplicateLaneError{LaneName: config.Name}
-	}
-
-	lane, err := New(config)
-	if err != nil {
+// RegisterSpec registers a new lane based on a LaneSpec.
+func (m *Manager) RegisterSpec(spec *LaneSpec) (Lane, error) {
+	if err := spec.Validate(); err != nil {
 		return nil, err
 	}
 
-	// Set manager for redirect strategy
-	if config.Backpressure == Redirect {
-		lane.SetManager(m)
+	name := spec.Name()
+	if name == "" {
+		return nil, fmt.Errorf("lane name cannot be empty")
 	}
 
-	m.lanes[config.Name] = lane
-	m.configs[config.Name] = config
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
-	// Start the lane's main loop
-	lane.Run()
+	if _, exists := m.lanes[name]; exists {
+		return nil, &DuplicateLaneError{LaneName: name}
+	}
+
+	var lane Lane
+	switch spec.Type {
+	case LaneTypeMemory:
+		memLane, err := New(spec.Memory)
+		if err != nil {
+			return nil, err
+		}
+		lane = memLane
+	case LaneTypeRedis:
+		if m.redisClient == nil {
+			return nil, fmt.Errorf("redis client is not configured")
+		}
+		redisLane, err := NewRedisLane(m.redisClient, spec.Redis)
+		if err != nil {
+			return nil, err
+		}
+		lane = redisLane
+
+		if fallbackCfg := spec.fallbackConfig(); fallbackCfg != nil {
+			fallbackLane, err := New(fallbackCfg)
+			if err != nil {
+				return nil, err
+			}
+			fallback, err := NewFallbackLane(redisLane, fallbackLane, spec.FallbackConfig)
+			if err != nil {
+				return nil, err
+			}
+			lane = fallback
+		}
+	default:
+		return nil, fmt.Errorf("unsupported lane type: %s", spec.Type)
+	}
+
+	if setter, ok := lane.(interface{ SetManager(*Manager) }); ok {
+		setter.SetManager(m)
+	}
+
+	m.lanes[name] = lane
+	m.configs[name] = spec
+
+	if runner, ok := lane.(interface{ Run() }); ok {
+		runner.Run()
+	}
 
 	return lane, nil
 }
@@ -159,6 +214,26 @@ func (m *Manager) GetStats() map[string]Stats {
 	return stats
 }
 
+// AggregateStats returns a single Stats value summed across all lanes.
+func (m *Manager) AggregateStats() Stats {
+	m.mu.RLock()
+	defer m.mu.RUnlock()
+
+	agg := Stats{Name: "all"}
+	for _, lane := range m.lanes {
+		stats := lane.Stats()
+		agg.Pending += stats.Pending
+		agg.Running += stats.Running
+		agg.Completed += stats.Completed
+		agg.Failed += stats.Failed
+		agg.Dropped += stats.Dropped
+		agg.Capacity += stats.Capacity
+		agg.MaxConcurrency += stats.MaxConcurrency
+	}
+
+	return agg
+}
+
 // Close gracefully closes all lanes.
 func (m *Manager) Close(ctx context.Context) error {
 	m.mu.Lock()
@@ -173,7 +248,7 @@ func (m *Manager) Close(ctx context.Context) error {
 
 	// Clear the maps
 	m.lanes = make(map[string]Lane)
-	m.configs = make(map[string]*Config)
+	m.configs = make(map[string]*LaneSpec)
 
 	if len(errs) > 0 {
 		return fmt.Errorf("errors closing lanes: %v", errs)
