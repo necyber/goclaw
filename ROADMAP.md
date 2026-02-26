@@ -105,22 +105,22 @@
   - [x] 增量快照
   - [x] 快照恢复
 
-### Week 6: 混合 Memory 系统 🔖 候选项
+### Week 6: 混合 Memory 系统 ✅ 已完成
 
-- [ ] 向量存储基础 🔖 候选项
-  - [ ] Embedding 接口
-  - [ ] 本地向量索引（hnswgo）
-  - [ ] 向量检索接口
+- [x] 向量存储基础
+  - [x] Embedding 接口
+  - [x] 本地向量索引（brute-force cosine similarity）
+  - [x] 向量检索接口
 
-- [ ] BM25 全文检索 🔖 候选项
-  - [ ] 倒排索引构建
-  - [ ] 相关性评分
-  - [ ] 混合检索策略
+- [x] BM25 全文检索
+  - [x] 倒排索引构建
+  - [x] 相关性评分
+  - [x] 混合检索策略（RRF 融合）
 
-- [ ] FSRS-6 记忆算法 🔖 候选项
-  - [ ] 记忆强度计算
-  - [ ] 复习调度
-  - [ ] 遗忘曲线建模
+- [x] FSRS-6 记忆算法
+  - [x] 记忆强度计算
+  - [x] 复习调度
+  - [x] 遗忘曲线建模
 
 ### Week 7: 分布式 Lane (Redis) 🔖 候选项
 
@@ -179,22 +179,22 @@
   - [ ] 实时日志流
   - [ ] 客户端订阅管理
 
-### Week 10: 监控与可观测性
+### Week 10: 监控与可观测性 ✅ 已完成
 
-- [ ] Prometheus 指标
-  - [ ] 任务计数器
-  - [ ] Lane 等待时长
-  - [ ] 执行延迟分布
+- [x] Prometheus 指标
+  - [x] 任务计数器
+  - [x] Lane 等待时长
+  - [x] 执行延迟分布
 
-- [ ] OpenTelemetry 链路追踪
+- [ ] OpenTelemetry 链路追踪 🔖 候选项
   - [ ] Trace ID 传播
   - [ ] Span 上下文
   - [ ] 分布式追踪
 
-- [ ] 健康检查
-  - [ ] Liveness Probe
-  - [ ] Readiness Probe
-  - [ ] 依赖健康检查
+- [x] 健康检查
+  - [x] Liveness Probe
+  - [x] Readiness Probe
+  - [x] 依赖健康检查
 
 ### Week 11: 分布式事务 (Saga)
 

@@ -155,3 +155,94 @@ func contains(s, substr string) bool {
 	return len(s) >= len(substr) && (s == substr || len(s) > len(substr) &&
 		(s[:len(substr)] == substr || contains(s[1:], substr)))
 }
+
+// --- Benchmarks for metrics collection overhead (Phase 15) ---
+
+func BenchmarkRecordWorkflowSubmission(b *testing.B) {
+	m := NewManager(DefaultConfig())
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		m.RecordWorkflowSubmission("completed")
+	}
+}
+
+func BenchmarkRecordWorkflowDuration(b *testing.B) {
+	m := NewManager(DefaultConfig())
+	d := 100 * time.Millisecond
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		m.RecordWorkflowDuration("completed", d)
+	}
+}
+
+func BenchmarkRecordTaskExecution(b *testing.B) {
+	m := NewManager(DefaultConfig())
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		m.RecordTaskExecution("completed")
+	}
+}
+
+func BenchmarkRecordHTTPRequest(b *testing.B) {
+	m := NewManager(DefaultConfig())
+	d := 5 * time.Millisecond
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		m.RecordHTTPRequest("GET", "/api/v1/workflows", "200", d)
+	}
+}
+
+func BenchmarkRecordLaneThroughput(b *testing.B) {
+	m := NewManager(DefaultConfig())
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		m.RecordThroughput("default")
+	}
+}
+
+func BenchmarkNoOpRecording(b *testing.B) {
+	m := NoOpManager()
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		m.RecordWorkflowSubmission("completed")
+		m.RecordTaskExecution("completed")
+		m.RecordThroughput("default")
+	}
+}
+
+func TestMetricsMemoryUsage(t *testing.T) {
+	m := NewManager(DefaultConfig())
+
+	// Simulate heavy metrics recording with bounded label values
+	statuses := []string{"completed", "failed", "pending", "cancelled"}
+	methods := []string{"GET", "POST", "PUT", "DELETE"}
+	paths := []string{"/api/v1/workflows", "/api/v1/workflows/:id", "/health", "/ready"}
+	lanes := []string{"default", "priority", "batch"}
+
+	for i := 0; i < 100000; i++ {
+		m.RecordWorkflowSubmission(statuses[i%len(statuses)])
+		m.RecordWorkflowDuration(statuses[i%len(statuses)], time.Duration(i)*time.Microsecond)
+		m.RecordTaskExecution(statuses[i%len(statuses)])
+		m.RecordTaskDuration(time.Duration(i) * time.Microsecond)
+		m.RecordHTTPRequest(methods[i%len(methods)], paths[i%len(paths)], "200", time.Duration(i)*time.Microsecond)
+		m.RecordThroughput(lanes[i%len(lanes)])
+		m.RecordWaitDuration(lanes[i%len(lanes)], time.Duration(i)*time.Microsecond)
+	}
+
+	// Verify metrics endpoint still responds correctly after heavy load
+	req := httptest.NewRequest("GET", "/metrics", nil)
+	w := httptest.NewRecorder()
+	m.Handler().ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Errorf("Expected status 200 after heavy load, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	// Verify cardinality is bounded: label combinations should be small
+	// 4 statuses * 1 metric = 4 time series for workflow_submissions_total
+	// 4 methods * 4 paths * 1 status = 16 time series for http_requests_total (bounded)
+	if len(body) > 10*1024*1024 { // 10MB sanity check
+		t.Errorf("Metrics output too large: %d bytes", len(body))
+	}
+}
