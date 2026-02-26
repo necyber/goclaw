@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
 
 	"github.com/knadh/koanf/parsers/json"
@@ -186,86 +187,106 @@ func (l *Loader) Set(key string, value interface{}) error {
 }
 
 // fillDefaults fills in default values for any zero-value critical fields.
+// It uses reflection to automatically traverse the default configuration
+// and set any missing values in the loaded configuration.
 func (l *Loader) fillDefaults() error {
 	defaults := DefaultConfig()
+	defaultsMap := structToMap(defaults, "")
 
-	// Helper to set default if key is not set or is zero
-	setIfZero := func(key string, defaultVal interface{}) {
+	for key, value := range defaultsMap {
 		if l.k.Get(key) == nil {
-			l.k.Set(key, defaultVal)
+			l.k.Set(key, value)
 		}
 	}
 
-	// App defaults
-	setIfZero("app.name", defaults.App.Name)
-	setIfZero("app.version", defaults.App.Version)
-	setIfZero("app.environment", defaults.App.Environment)
-
-	// Server defaults
-	setIfZero("server.host", defaults.Server.Host)
-	setIfZero("server.port", defaults.Server.Port)
-	setIfZero("server.grpc.enabled", defaults.Server.GRPC.Enabled)
-	setIfZero("server.grpc.port", defaults.Server.GRPC.Port)
-	setIfZero("server.grpc.max_connections", defaults.Server.GRPC.MaxConnections)
-	setIfZero("server.grpc.max_recv_msg_size", defaults.Server.GRPC.MaxRecvMsgSize)
-	setIfZero("server.grpc.max_send_msg_size", defaults.Server.GRPC.MaxSendMsgSize)
-	setIfZero("server.grpc.enable_reflection", defaults.Server.GRPC.EnableReflection)
-	setIfZero("server.grpc.enable_health_check", defaults.Server.GRPC.EnableHealthCheck)
-	setIfZero("server.http.read_timeout", defaults.Server.HTTP.ReadTimeout)
-	setIfZero("server.http.write_timeout", defaults.Server.HTTP.WriteTimeout)
-	setIfZero("server.http.idle_timeout", defaults.Server.HTTP.IdleTimeout)
-	setIfZero("server.http.max_header_bytes", defaults.Server.HTTP.MaxHeaderBytes)
-
-	// Log defaults
-	setIfZero("log.level", defaults.Log.Level)
-	setIfZero("log.format", defaults.Log.Format)
-	setIfZero("log.output", defaults.Log.Output)
-
-	// Orchestration defaults
-	setIfZero("orchestration.max_agents", defaults.Orchestration.MaxAgents)
-	setIfZero("orchestration.queue.type", defaults.Orchestration.Queue.Type)
-	setIfZero("orchestration.queue.size", defaults.Orchestration.Queue.Size)
-	setIfZero("orchestration.scheduler.type", defaults.Orchestration.Scheduler.Type)
-	setIfZero("orchestration.scheduler.check_interval", defaults.Orchestration.Scheduler.CheckInterval)
-
-	// Storage defaults
-	setIfZero("storage.type", defaults.Storage.Type)
-
-	// Metrics defaults
-	setIfZero("metrics.enabled", defaults.Metrics.Enabled)
-	setIfZero("metrics.path", defaults.Metrics.Path)
-	setIfZero("metrics.port", defaults.Metrics.Port)
-
-	// Memory defaults
-	setIfZero("memory.vector_dimension", defaults.Memory.VectorDimension)
-	setIfZero("memory.vector_weight", defaults.Memory.VectorWeight)
-	setIfZero("memory.bm25_weight", defaults.Memory.BM25Weight)
-	setIfZero("memory.l1_cache_size", defaults.Memory.L1CacheSize)
-	setIfZero("memory.forget_threshold", defaults.Memory.ForgetThreshold)
-	setIfZero("memory.decay_interval", defaults.Memory.DecayInterval)
-	setIfZero("memory.default_stability", defaults.Memory.DefaultStability)
-	setIfZero("memory.storage_path", defaults.Memory.StoragePath)
-	setIfZero("memory.bm25.k1", defaults.Memory.BM25.K1)
-	setIfZero("memory.bm25.b", defaults.Memory.BM25.B)
-	setIfZero("memory.hnsw.m", defaults.Memory.HNSW.M)
-	setIfZero("memory.hnsw.ef_construction", defaults.Memory.HNSW.EfConstruction)
-	setIfZero("memory.hnsw.ef_search", defaults.Memory.HNSW.EfSearch)
-
-	// Redis defaults
-	setIfZero("redis.address", defaults.Redis.Address)
-	setIfZero("redis.pool_size", defaults.Redis.PoolSize)
-	setIfZero("redis.min_idle_conns", defaults.Redis.MinIdleConns)
-	setIfZero("redis.max_retries", defaults.Redis.MaxRetries)
-	setIfZero("redis.dial_timeout", defaults.Redis.DialTimeout)
-	setIfZero("redis.read_timeout", defaults.Redis.ReadTimeout)
-	setIfZero("redis.write_timeout", defaults.Redis.WriteTimeout)
-
-	// Signal defaults
-	setIfZero("signal.mode", defaults.Signal.Mode)
-	setIfZero("signal.buffer_size", defaults.Signal.BufferSize)
-	setIfZero("signal.channel_prefix", defaults.Signal.ChannelPrefix)
-
 	return nil
+}
+
+// structToMap recursively converts a struct to a flat map with dot-separated keys.
+// This enables automatic default value extraction without manual field listing.
+func structToMap(v interface{}, prefix string) map[string]interface{} {
+	result := make(map[string]interface{})
+	val := reflect.ValueOf(v)
+
+	// Dereference pointer if needed
+	if val.Kind() == reflect.Ptr {
+		val = val.Elem()
+	}
+
+	// Only process structs
+	if val.Kind() != reflect.Struct {
+		return result
+	}
+
+	typ := val.Type()
+	for i := 0; i < val.NumField(); i++ {
+		field := typ.Field(i)
+		fieldVal := val.Field(i)
+
+		// Skip unexported fields
+		if !field.IsExported() {
+			continue
+		}
+
+		// Get the mapstructure tag or use the field name
+		key := field.Tag.Get("mapstructure")
+		if key == "" || key == "-" {
+			continue
+		}
+
+		fullKey := key
+		if prefix != "" {
+			fullKey = prefix + "." + key
+		}
+
+		// Handle different field types
+		switch fieldVal.Kind() {
+		case reflect.Ptr:
+			if !fieldVal.IsNil() {
+				// Dereference and process
+				nested := structToMap(fieldVal.Elem().Interface(), fullKey)
+				for k, v := range nested {
+					result[k] = v
+				}
+			}
+		case reflect.Struct:
+			// Check if it's a time.Duration (has Duration method)
+			if _, ok := fieldVal.Interface().(interface{ Duration() }); ok {
+				result[fullKey] = fieldVal.Interface()
+			} else {
+				// Recursively process nested struct
+				nested := structToMap(fieldVal.Interface(), fullKey)
+				for k, v := range nested {
+					result[k] = v
+				}
+			}
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			result[fullKey] = fieldVal.Int()
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64:
+			result[fullKey] = fieldVal.Uint()
+		case reflect.Float32, reflect.Float64:
+			result[fullKey] = fieldVal.Float()
+		case reflect.Bool:
+			result[fullKey] = fieldVal.Bool()
+		case reflect.String:
+			result[fullKey] = fieldVal.String()
+		case reflect.Slice:
+			// Handle slices (like []string)
+			if fieldVal.Kind() == reflect.Slice {
+				sliceLen := fieldVal.Len()
+				slice := make([]interface{}, sliceLen)
+				for j := 0; j < sliceLen; j++ {
+					slice[j] = fieldVal.Index(j).Interface()
+				}
+				result[fullKey] = slice
+			}
+		default:
+			// For other types, just use the interface value
+			result[fullKey] = fieldVal.Interface()
+		}
+	}
+
+	return result
 }
 
 // Print prints the loaded configuration for debugging.
