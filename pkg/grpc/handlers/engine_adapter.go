@@ -215,10 +215,8 @@ func (a *EngineAdapter) IsHealthy() bool {
 // UpdateConfig is not supported yet in local runtime mode.
 func (a *EngineAdapter) UpdateConfig(ctx context.Context, updates map[string]string, persist bool) (map[string]string, error) {
 	_ = ctx
+	_ = updates
 	_ = persist
-	if updates == nil {
-		updates = map[string]string{}
-	}
 	return nil, errors.New("runtime config updates are not supported yet")
 }
 

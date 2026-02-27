@@ -61,7 +61,6 @@ func (m *captureMetrics) taskCount(status string) int {
 	defer m.mu.Unlock()
 	return m.taskExecution[status]
 }
-func (m *captureMetrics) retryCount() int { m.mu.Lock(); defer m.mu.Unlock(); return m.taskRetryCount }
 
 type verifyingBroadcaster struct {
 	store          storage.Storage

@@ -3,7 +3,6 @@ package engine
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"sort"
 	"strings"
@@ -358,9 +357,6 @@ func (e *Engine) transitionTask(exec *workflowExecution, taskID string, oldState
 		} else {
 			taskState.Error = ""
 		}
-		if newStatus == taskStatusCompleted {
-			taskState.Result = taskState.Result
-		}
 		if taskState.StartedAt != nil {
 			e.metrics.RecordTaskDuration(completed.Sub(*taskState.StartedAt))
 		}
@@ -616,16 +612,4 @@ func (e *Engine) GetStatus() *EngineStatus {
 // SubmitWorkflow executes a runtime workflow request for adapter callers.
 func (e *Engine) SubmitWorkflow(ctx context.Context, req *models.WorkflowRequest, opts SubmitWorkflowOptions) (*models.WorkflowStatusResponse, error) {
 	return e.SubmitWorkflowRuntime(ctx, req, opts)
-}
-
-func (e *Engine) mustWorkflowStatus(id string) (string, error) {
-	wfState, err := e.storage.GetWorkflow(context.Background(), id)
-	if err != nil {
-		return "", err
-	}
-	return wfState.Status, nil
-}
-
-func isContextCancelled(err error) bool {
-	return errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded)
 }

@@ -10,7 +10,6 @@ import (
 
 	pb "github.com/goclaw/goclaw/pkg/grpc/pb/v1"
 	"github.com/goclaw/goclaw/pkg/saga"
-	"google.golang.org/protobuf/types/known/structpb"
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
@@ -233,13 +232,6 @@ func parseOffsetToken(token string) (int, error) {
 		return 0, fmt.Errorf("invalid page token")
 	}
 	return offset, nil
-}
-
-func structFromMap(data map[string]any) (*structpb.Struct, error) {
-	if len(data) == 0 {
-		return nil, nil
-	}
-	return structpb.NewStruct(data)
 }
 
 func timestampPtr(t *time.Time) *timestamppb.Timestamp {
