@@ -28,10 +28,10 @@ type telemetryProbe struct {
 }
 
 func (p *telemetryProbe) RecordPublish(status string) {}
-func (p *telemetryProbe) RecordRetry()             { p.retries.Add(1) }
+func (p *telemetryProbe) RecordRetry()                { p.retries.Add(1) }
 func (p *telemetryProbe) SetDegradedMode(active bool) {}
-func (p *telemetryProbe) RecordOutage()            { p.outages.Add(1) }
-func (p *telemetryProbe) RecordRecovery()          { p.recoveries.Add(1) }
+func (p *telemetryProbe) RecordOutage()               { p.outages.Add(1) }
+func (p *telemetryProbe) RecordRecovery()             { p.recoveries.Add(1) }
 
 func TestChaos_PublisherDegradedModeOutageRecovery(t *testing.T) {
 	transport := &flakyTransport{bus: NewMemoryBus()}

@@ -28,9 +28,9 @@ func TestServerStart_TracingEnabledCreatesSpan(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	conn, err := ggrpc.DialContext(ctx, srv.Address(), ggrpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := ggrpc.NewClient(srv.Address(), ggrpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		t.Fatalf("DialContext() error = %v", err)
+		t.Fatalf("NewClient() error = %v", err)
 	}
 	defer conn.Close()
 
@@ -70,9 +70,9 @@ func TestServerStart_TracingDisabledNoSpan(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	conn, err := ggrpc.DialContext(ctx, srv.Address(), ggrpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := ggrpc.NewClient(srv.Address(), ggrpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
-		t.Fatalf("DialContext() error = %v", err)
+		t.Fatalf("NewClient() error = %v", err)
 	}
 	defer conn.Close()
 

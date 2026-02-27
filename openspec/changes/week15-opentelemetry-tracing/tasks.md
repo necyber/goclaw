@@ -71,11 +71,11 @@
 
 ## 9. 质量门禁
 
-- [ ] 9.1 运行 `go fmt` 格式化受影响代码
-- [ ] 9.2 运行 `go vet ./...`
-- [ ] 9.3 运行 `golangci-lint run`（或等效命令）
-- [ ] 9.4 运行 `go test ./...` 全量回归
-- [ ] 9.5 运行 tracing 相关包的 targeted tests 与 benchmark（如有）
+- [x] 9.1 运行 `go fmt` 格式化受影响代码
+- [x] 9.2 运行 `go vet ./...`
+- [x] 9.3 运行 `golangci-lint run`（或等效命令）
+- [x] 9.4 运行 `go test ./...` 全量回归
+- [x] 9.5 运行 tracing 相关包的 targeted tests 与 benchmark（如有）
 
 ## 10. 验收清单
 
