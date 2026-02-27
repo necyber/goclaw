@@ -17,7 +17,7 @@ import (
 
 // SubmitWorkflowOptions configures workflow submit behavior.
 type SubmitWorkflowOptions struct {
-	Mode   SubmissionMode
+	Mode    SubmissionMode
 	TaskFns map[string]func(context.Context) error
 }
 
@@ -39,6 +39,11 @@ func (e *Engine) SubmitWorkflowRuntime(ctx context.Context, req *models.Workflow
 	wfState := newWorkflowState(req)
 	if err := e.storage.SaveWorkflow(ctx, wfState); err != nil {
 		return nil, fmt.Errorf("failed to save workflow: %w", err)
+	}
+	for _, taskState := range wfState.TaskStatus {
+		if err := e.storage.SaveTask(ctx, wfState.ID, taskState); err != nil {
+			return nil, fmt.Errorf("failed to save initial task %s: %w", taskState.ID, err)
+		}
 	}
 	e.metrics.RecordWorkflowSubmission(workflowStatusPending)
 	e.emitWorkflowStateChanged(wfState.ID, wfState.Name, "", wfState.Status)
@@ -232,8 +237,8 @@ func (e *Engine) workflowFromState(state *storage.WorkflowState, taskFns map[str
 	}
 
 	return &Workflow{
-		ID:     state.ID,
-		Tasks:  tasks,
+		ID:      state.ID,
+		Tasks:   tasks,
 		TaskFns: taskFns,
 	}
 }

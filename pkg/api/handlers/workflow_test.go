@@ -98,6 +98,57 @@ func TestWorkflowHandler_SubmitWorkflow_Success(t *testing.T) {
 	}
 }
 
+func TestWorkflowHandler_SubmitWorkflow_AsyncFlag(t *testing.T) {
+	eng, cleanup := createTestEngine(t)
+	defer cleanup()
+
+	log := logger.New(&logger.Config{
+		Level:  logger.InfoLevel,
+		Format: "json",
+		Output: "stdout",
+	})
+	handler := NewWorkflowHandler(eng, log)
+
+	reqBody := models.WorkflowRequest{
+		Name:  "async-workflow",
+		Async: true,
+		Tasks: []models.TaskDefinition{
+			{
+				ID:   "task-1",
+				Name: "First task",
+				Type: "function",
+			},
+		},
+	}
+
+	body, _ := json.Marshal(reqBody)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/workflows", bytes.NewReader(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	handler.SubmitWorkflow(w, req)
+
+	if w.Code != http.StatusCreated {
+		t.Fatalf("SubmitWorkflow() status = %v, want %v, body: %s", w.Code, http.StatusCreated, w.Body.String())
+	}
+
+	var resp models.WorkflowResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Status != "pending" {
+		t.Fatalf("response status = %s, want pending", resp.Status)
+	}
+
+	status, err := eng.GetWorkflowStatusResponse(context.Background(), resp.ID)
+	if err != nil {
+		t.Fatalf("GetWorkflowStatusResponse() error = %v", err)
+	}
+	if status.Status != "pending" {
+		t.Fatalf("persisted status = %s, want pending", status.Status)
+	}
+}
+
 func TestWorkflowHandler_SubmitWorkflow_InvalidJSON(t *testing.T) {
 	eng, cleanup := createTestEngine(t)
 	defer cleanup()
@@ -546,5 +597,57 @@ func TestWorkflowHandler_GetTaskResult_MissingIDs(t *testing.T) {
 
 	if w.Code != http.StatusBadRequest {
 		t.Errorf("GetTaskResult() with missing task ID status = %v, want %v", w.Code, http.StatusBadRequest)
+	}
+}
+
+func TestWorkflowHandler_GetTaskResult_NonTerminalPending(t *testing.T) {
+	eng, cleanup := createTestEngine(t)
+	defer cleanup()
+
+	log := logger.New(&logger.Config{
+		Level:  logger.InfoLevel,
+		Format: "json",
+		Output: "stdout",
+	})
+	handler := NewWorkflowHandler(eng, log)
+
+	reqBody := models.WorkflowRequest{
+		Name: "non-terminal-task-result",
+		Tasks: []models.TaskDefinition{
+			{
+				ID:   "task-1",
+				Name: "First task",
+				Type: "function",
+			},
+		},
+	}
+
+	workflowID, err := eng.SubmitWorkflowRequest(context.Background(), &reqBody)
+	if err != nil {
+		t.Fatalf("SubmitWorkflowRequest() error = %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/workflows/"+workflowID+"/tasks/task-1/result", nil)
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", workflowID)
+	rctx.URLParams.Add("tid", "task-1")
+	req = req.WithContext(context.WithValue(req.Context(), chi.RouteCtxKey, rctx))
+	w := httptest.NewRecorder()
+
+	handler.GetTaskResult(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("GetTaskResult() status = %v, want %v, body: %s", w.Code, http.StatusOK, w.Body.String())
+	}
+
+	var resp models.TaskResultResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Status != "pending" {
+		t.Fatalf("task status = %s, want pending", resp.Status)
+	}
+	if resp.Result != nil {
+		t.Fatalf("expected nil result for non-terminal task, got %#v", resp.Result)
 	}
 }
