@@ -561,11 +561,9 @@ func TestRegisterGRPCServices_Success(t *testing.T) {
 	}
 }
 
-func TestInitGRPCTracing_DisabledByConfig(t *testing.T) {
+func TestInitTracing_DisabledByConfig(t *testing.T) {
 	cfg := config.DefaultConfig()
-	cfg.Server.GRPC.Enabled = true
-	cfg.Server.GRPC.EnableTracing = false
-	cfg.Tracing.Enabled = true
+	cfg.Tracing.Enabled = false
 
 	log := logger.New(&logger.Config{
 		Level:  logger.InfoLevel,
@@ -573,9 +571,9 @@ func TestInitGRPCTracing_DisabledByConfig(t *testing.T) {
 		Output: "stdout",
 	})
 
-	shutdown, err := initGRPCTracing(context.Background(), cfg, log)
+	shutdown, err := initTracing(context.Background(), cfg, log)
 	if err != nil {
-		t.Fatalf("initGRPCTracing() error = %v", err)
+		t.Fatalf("initTracing() error = %v", err)
 	}
 	if shutdown == nil {
 		t.Fatal("expected non-nil shutdown function")
@@ -585,16 +583,14 @@ func TestInitGRPCTracing_DisabledByConfig(t *testing.T) {
 	}
 }
 
-func TestInitGRPCTracing_InvalidConfig(t *testing.T) {
+func TestInitTracing_InvalidConfig(t *testing.T) {
 	cfg := config.DefaultConfig()
-	cfg.Server.GRPC.Enabled = true
-	cfg.Server.GRPC.EnableTracing = true
 	cfg.Tracing.Enabled = true
 	cfg.Tracing.Endpoint = ""
 
-	_, err := initGRPCTracing(context.Background(), cfg, nil)
+	_, err := initTracing(context.Background(), cfg, nil)
 	if err == nil {
-		t.Fatal("expected initGRPCTracing to fail for invalid tracing config")
+		t.Fatal("expected initTracing to fail for invalid tracing config")
 	}
 }
 

@@ -113,7 +113,7 @@ func main() {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 
-	tracingShutdown, err := initGRPCTracing(ctx, cfg, log)
+	tracingShutdown, err := initTracing(ctx, cfg, log)
 	if err != nil {
 		log.Error("Failed to initialize gRPC tracing", "error", err)
 		os.Exit(1)
@@ -489,7 +489,7 @@ func initializeSignalBus(cfg *config.Config, redisClient redis.UniversalClient, 
 	return signalpkg.NewLocalBus(bufferSize), "local"
 }
 
-func initGRPCTracing(
+func initTracing(
 	ctx context.Context,
 	cfg *config.Config,
 	log logger.Logger,
@@ -497,12 +497,7 @@ func initGRPCTracing(
 	if cfg == nil {
 		return nil, fmt.Errorf("config cannot be nil")
 	}
-	if !cfg.Server.GRPC.Enabled {
-		return func(context.Context) error { return nil }, nil
-	}
-
 	tracingCfg := cfg.Tracing
-	tracingCfg.Enabled = cfg.Tracing.Enabled && cfg.Server.GRPC.EnableTracing
 
 	shutdown, err := tracingpkg.Init(ctx, tracingCfg, cfg.App.Name, cfg.App.Version)
 	if err != nil {
@@ -510,7 +505,7 @@ func initGRPCTracing(
 	}
 
 	if log != nil {
-		logGRPCTracingStartup(log, cfg, tracingCfg)
+		logTracingStartup(log, cfg, tracingCfg)
 	}
 
 	return shutdown, nil
@@ -542,29 +537,25 @@ func resolveTracingShutdownTimeout(timeout time.Duration) time.Duration {
 	return 5 * time.Second
 }
 
-func logGRPCTracingStartup(log logger.Logger, cfg *config.Config, tracingCfg config.TracingConfig) {
+func logTracingStartup(log logger.Logger, cfg *config.Config, tracingCfg config.TracingConfig) {
 	if log == nil || cfg == nil {
 		return
 	}
 
 	if !tracingCfg.Enabled {
-		reason := "tracing.disabled"
-		if cfg.Tracing.Enabled && !cfg.Server.GRPC.EnableTracing {
-			reason = "server.grpc.enable_tracing=false"
-		}
-		log.Info("gRPC tracing disabled",
+		log.Info("OpenTelemetry tracing disabled",
 			"enabled", false,
-			"reason", reason,
 		)
 		return
 	}
 
-	log.Info("gRPC tracing enabled",
+	log.Info("OpenTelemetry tracing enabled",
 		"enabled", true,
 		"exporter", tracingCfg.Exporter,
 		"endpoint", summarizeTracingEndpoint(tracingCfg.Endpoint),
 		"sampler", tracingCfg.Sampler,
 		"sample_rate", tracingCfg.SampleRate,
+		"grpc_interceptor_enabled", cfg.Server.GRPC.Enabled && cfg.Server.GRPC.EnableTracing,
 	)
 }
 

@@ -31,13 +31,13 @@
 
 ## 4. HTTP tracing 集成
 
-- [ ] 4.1 新增 `pkg/api/middleware/tracing.go` 实现 HTTP tracing 中间件
-- [ ] 4.2 实现入站 trace context 提取与新 root span 创建逻辑
-- [ ] 4.3 实现 HTTP span 属性与状态码映射（2xx/4xx/5xx）
-- [ ] 4.4 在 HTTP 路由/中间件链中接入 tracing 中间件（按配置启停）
-- [ ] 4.5 实现 health/readiness 低价值端点 tracing 策略（跳过或低采样）
-- [ ] 4.6 实现 request-scoped outbound HTTP context 注入辅助
-- [ ] 4.7 增加 HTTP tracing 单元/集成测试（traceparent 继承、无 header、新 root）
+- [x] 4.1 新增 `pkg/api/middleware/tracing.go` 实现 HTTP tracing 中间件
+- [x] 4.2 实现入站 trace context 提取与新 root span 创建逻辑
+- [x] 4.3 实现 HTTP span 属性与状态码映射（2xx/4xx/5xx）
+- [x] 4.4 在 HTTP 路由/中间件链中接入 tracing 中间件（按配置启停）
+- [x] 4.5 实现 health/readiness 低价值端点 tracing 策略（跳过或低采样）
+- [x] 4.6 实现 request-scoped outbound HTTP context 注入辅助
+- [x] 4.7 增加 HTTP tracing 单元/集成测试（traceparent 继承、无 header、新 root）
 
 ## 5. 运行时核心 span 覆盖
 

@@ -44,6 +44,9 @@ func NewRouter(cfg *config.Config, log logger.Logger, handlers *Handlers) chi.Ro
 
 	// Register global middleware
 	r.Use(middleware.RequestID())
+	if cfg != nil && cfg.Tracing.Enabled {
+		r.Use(middleware.Tracing(middleware.DefaultTracingOptions()))
+	}
 	r.Use(middleware.Logger(log))
 	r.Use(middleware.Recovery(log))
 

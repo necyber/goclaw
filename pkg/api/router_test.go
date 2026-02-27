@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"github.com/goclaw/goclaw/pkg/storage/memory"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -13,6 +12,11 @@ import (
 	"github.com/goclaw/goclaw/pkg/api/handlers"
 	"github.com/goclaw/goclaw/pkg/engine"
 	"github.com/goclaw/goclaw/pkg/logger"
+	"github.com/goclaw/goclaw/pkg/storage/memory"
+	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 )
 
 // createTestHandlers creates test handlers with a running engine
@@ -78,6 +82,55 @@ func TestNewRouter(t *testing.T) {
 
 	if router == nil {
 		t.Fatal("NewRouter returned nil")
+	}
+}
+
+func TestNewRouter_TracingToggle(t *testing.T) {
+	tests := []struct {
+		name        string
+		enabled     bool
+		expectSpans bool
+	}{
+		{name: "tracing enabled", enabled: true, expectSpans: true},
+		{name: "tracing disabled", enabled: false, expectSpans: false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder, shutdown := setRouterTracingProvider(t)
+			defer shutdown()
+
+			cfg := config.DefaultConfig()
+			cfg.Server.CORS.Enabled = false
+			cfg.Server.HTTP.ReadTimeout = 30 * time.Second
+			cfg.Tracing.Enabled = tt.enabled
+
+			log := logger.New(&logger.Config{
+				Level:  logger.InfoLevel,
+				Format: "json",
+				Output: "stdout",
+			})
+			testHandlers, cleanup := createTestHandlers(t)
+			defer cleanup()
+
+			router := NewRouter(cfg, log, testHandlers)
+
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/workflows", nil)
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			if w.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
+			}
+
+			spans := waitForRouterSpans(recorder, 1, 400*time.Millisecond)
+			if tt.expectSpans && len(spans) == 0 {
+				t.Fatal("expected HTTP tracing span when tracing is enabled")
+			}
+			if !tt.expectSpans && len(spans) != 0 {
+				t.Fatalf("expected no spans when tracing is disabled, got %d", len(spans))
+			}
+		})
 	}
 }
 
@@ -359,5 +412,36 @@ func TestRegisterRoutes_WebSocket(t *testing.T) {
 
 	if w.Code != http.StatusSwitchingProtocols {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusSwitchingProtocols)
+	}
+}
+
+func setRouterTracingProvider(t *testing.T) (*tracetest.SpanRecorder, func()) {
+	t.Helper()
+
+	prevProvider := otel.GetTracerProvider()
+	prevPropagator := otel.GetTextMapPropagator()
+	recorder := tracetest.NewSpanRecorder()
+	tp := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
+	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(propagation.TraceContext{})
+
+	return recorder, func() {
+		_ = tp.Shutdown(context.Background())
+		otel.SetTracerProvider(prevProvider)
+		otel.SetTextMapPropagator(prevPropagator)
+	}
+}
+
+func waitForRouterSpans(recorder *tracetest.SpanRecorder, minCount int, timeout time.Duration) []sdktrace.ReadOnlySpan {
+	deadline := time.Now().Add(timeout)
+	for {
+		spans := recorder.Ended()
+		if len(spans) >= minCount {
+			return spans
+		}
+		if time.Now().After(deadline) {
+			return spans
+		}
+		time.Sleep(10 * time.Millisecond)
 	}
 }
