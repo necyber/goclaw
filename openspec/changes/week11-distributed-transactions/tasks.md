@@ -19,24 +19,24 @@
 
 ## 3. WAL 实现
 
-- [ ] 3.1 创建 `pkg/saga/wal.go` 定义 WAL 接口
-- [ ] 3.2 定义 `WALEntry` 结构（SagaID, StepID, Type, Data, Timestamp）
-- [ ] 3.3 定义 `WALEntryType` 枚举（StepStarted, StepCompleted, StepFailed, CompensationStarted, CompensationCompleted, CompensationFailed）
-- [ ] 3.4 实现基于 Badger 的 WAL 写入（key: "wal:{sagaID}:{sequence}"）
-- [ ] 3.5 实现 WAL 读取（按 SagaID 前缀扫描）
-- [ ] 3.6 实现同步和异步写入模式
-- [ ] 3.7 实现 WAL 序列号生成（单调递增）
-- [ ] 3.8 编写 WAL 单元测试
-- [ ] 3.9 编写 WAL 写入性能基准测试（目标 < 2ms）
+- [x] 3.1 创建 `pkg/saga/wal.go` 定义 WAL 接口
+- [x] 3.2 定义 `WALEntry` 结构（SagaID, StepID, Type, Data, Timestamp）
+- [x] 3.3 定义 `WALEntryType` 枚举（StepStarted, StepCompleted, StepFailed, CompensationStarted, CompensationCompleted, CompensationFailed）
+- [x] 3.4 实现基于 Badger 的 WAL 写入（key: "wal:{sagaID}:{sequence}"）
+- [x] 3.5 实现 WAL 读取（按 SagaID 前缀扫描）
+- [x] 3.6 实现同步和异步写入模式
+- [x] 3.7 实现 WAL 序列号生成（单调递增）
+- [x] 3.8 编写 WAL 单元测试
+- [x] 3.9 编写 WAL 写入性能基准测试（目标 < 2ms）
 
 ## 4. Checkpoint 实现
 
-- [ ] 4.1 创建 `pkg/saga/checkpoint.go` 定义 Checkpoint 结构
-- [ ] 4.2 实现 Checkpoint 序列化/反序列化（JSON）
-- [ ] 4.3 实现 Checkpoint 写入 Badger（key: "checkpoint:{sagaID}"）
-- [ ] 4.4 实现 Checkpoint 读取
-- [ ] 4.5 实现每步完成后自动写 Checkpoint
-- [ ] 4.6 编写 Checkpoint 单元测试
+- [x] 4.1 创建 `pkg/saga/checkpoint.go` 定义 Checkpoint 结构
+- [x] 4.2 实现 Checkpoint 序列化/反序列化（JSON）
+- [x] 4.3 实现 Checkpoint 写入 Badger（key: "checkpoint:{sagaID}"）
+- [x] 4.4 实现 Checkpoint 读取
+- [x] 4.5 实现每步完成后自动写 Checkpoint
+- [x] 4.6 编写 Checkpoint 单元测试
 
 ## 5. Saga 编排器核心
 
