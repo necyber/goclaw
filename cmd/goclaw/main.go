@@ -568,12 +568,14 @@ func registerGRPCServices(
 	streamingSvc := grpchandlers.NewStreamingServiceServer(streamingRegistry)
 	adminSvc := grpchandlers.NewAdminServiceServer(engineAdapter)
 	signalSvc := grpchandlers.NewSignalServiceServer(signalBus)
+	sagaSvc := grpchandlers.NewSagaServiceServer(nil, nil)
 
 	grpcServer.RegisterService(&pb.WorkflowService_ServiceDesc, workflowSvc)
 	grpcServer.RegisterService(&pb.BatchService_ServiceDesc, batchSvc)
 	grpcServer.RegisterService(&pb.StreamingService_ServiceDesc, streamingSvc)
 	grpcServer.RegisterService(&pb.AdminService_ServiceDesc, adminSvc)
 	grpcServer.RegisterService(&pb.SignalService_ServiceDesc, signalSvc)
+	grpcServer.RegisterService(&pb.SagaService_ServiceDesc, sagaSvc)
 
 	return nil
 }

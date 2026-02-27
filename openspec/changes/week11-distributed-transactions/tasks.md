@@ -110,16 +110,16 @@
 
 ## 11. gRPC 服务
 
-- [ ] 11.1 定义 Saga proto 消息和服务（SubmitSaga, GetSagaStatus, ListSagas, CompensateSaga, WatchSaga）
-- [ ] 11.2 生成 Go 代码
-- [ ] 11.3 实现 `SubmitSaga` RPC
-- [ ] 11.4 实现 `GetSagaStatus` RPC
-- [ ] 11.5 实现 `ListSagas` RPC
-- [ ] 11.6 实现 `CompensateSaga` RPC
-- [ ] 11.7 实现 `WatchSaga` 流式 RPC
-- [ ] 11.8 注册 Saga 服务到 gRPC server
-- [ ] 11.9 实现 proto ↔ 内部模型转换
-- [ ] 11.10 编写 gRPC 服务测试
+- [x] 11.1 定义 Saga proto 消息和服务（SubmitSaga, GetSagaStatus, ListSagas, CompensateSaga, WatchSaga）
+- [x] 11.2 生成 Go 代码
+- [x] 11.3 实现 `SubmitSaga` RPC
+- [x] 11.4 实现 `GetSagaStatus` RPC
+- [x] 11.5 实现 `ListSagas` RPC
+- [x] 11.6 实现 `CompensateSaga` RPC
+- [x] 11.7 实现 `WatchSaga` 流式 RPC
+- [x] 11.8 注册 Saga 服务到 gRPC server
+- [x] 11.9 实现 proto ↔ 内部模型转换
+- [x] 11.10 编写 gRPC 服务测试
 
 ## 12. Engine 集成
 

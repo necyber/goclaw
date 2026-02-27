@@ -1,0 +1,133 @@
+syntax = "proto3";
+
+package goclaw.v1;
+
+option go_package = "github.com/goclaw/goclaw/pkg/grpc/pb/v1;pbv1";
+
+import "goclaw/v1/common.proto";
+import "google/protobuf/struct.proto";
+import "google/protobuf/timestamp.proto";
+
+// SagaService provides Saga lifecycle operations.
+service SagaService {
+  rpc SubmitSaga(SubmitSagaRequest) returns (SubmitSagaResponse);
+  rpc GetSagaStatus(GetSagaStatusRequest) returns (GetSagaStatusResponse);
+  rpc ListSagas(ListSagasRequest) returns (ListSagasResponse);
+  rpc CompensateSaga(CompensateSagaRequest) returns (CompensateSagaResponse);
+  rpc WatchSaga(WatchSagaRequest) returns (stream WatchSagaEvent);
+}
+
+// Saga runtime state.
+enum SagaState {
+  SAGA_STATE_UNSPECIFIED = 0;
+  SAGA_STATE_CREATED = 1;
+  SAGA_STATE_RUNNING = 2;
+  SAGA_STATE_COMPLETED = 3;
+  SAGA_STATE_COMPENSATING = 4;
+  SAGA_STATE_PENDING_COMPENSATION = 5;
+  SAGA_STATE_COMPENSATED = 6;
+  SAGA_STATE_COMPENSATION_FAILED = 7;
+  SAGA_STATE_RECOVERING = 8;
+}
+
+// Compensation policy for saga execution.
+enum SagaCompensationPolicy {
+  SAGA_COMPENSATION_POLICY_UNSPECIFIED = 0;
+  SAGA_COMPENSATION_POLICY_AUTO = 1;
+  SAGA_COMPENSATION_POLICY_MANUAL = 2;
+  SAGA_COMPENSATION_POLICY_SKIP = 3;
+}
+
+// One step in a saga definition.
+message SagaStepDefinition {
+  string id = 1;
+  repeated string depends_on = 2;
+  int32 delay_ms = 3;
+  bool should_fail = 4;
+  int32 timeout_ms = 5;
+  bool enable_compensation = 6;
+  bool skip_compensation = 7;
+}
+
+// Submit a saga for execution.
+message SubmitSagaRequest {
+  string name = 1;
+  SagaCompensationPolicy policy = 2;
+  int32 timeout_ms = 3;
+  int32 step_timeout_ms = 4;
+  map<string, string> metadata = 5;
+  google.protobuf.Struct input = 6;
+  repeated SagaStepDefinition steps = 7;
+}
+
+message SubmitSagaResponse {
+  string saga_id = 1;
+  string name = 2;
+  SagaState state = 3;
+  google.protobuf.Timestamp created_at = 4;
+}
+
+message GetSagaStatusRequest {
+  string saga_id = 1;
+}
+
+message SagaStepResult {
+  string step_id = 1;
+  bytes result_json = 2;
+}
+
+message GetSagaStatusResponse {
+  string saga_id = 1;
+  string name = 2;
+  SagaState state = 3;
+  repeated string completed_steps = 4;
+  repeated string compensated_steps = 5;
+  string failed_step = 6;
+  string failure_reason = 7;
+  repeated SagaStepResult step_results = 8;
+  google.protobuf.Timestamp created_at = 9;
+  google.protobuf.Timestamp updated_at = 10;
+  google.protobuf.Timestamp started_at = 11;
+  google.protobuf.Timestamp completed_at = 12;
+}
+
+message ListSagasRequest {
+  PaginationRequest pagination = 1;
+  SagaState state_filter = 2;
+}
+
+message SagaSummary {
+  string saga_id = 1;
+  string name = 2;
+  SagaState state = 3;
+  google.protobuf.Timestamp created_at = 4;
+  google.protobuf.Timestamp completed_at = 5;
+}
+
+message ListSagasResponse {
+  repeated SagaSummary sagas = 1;
+  PaginationResponse pagination = 2;
+}
+
+message CompensateSagaRequest {
+  string saga_id = 1;
+  string reason = 2;
+}
+
+message CompensateSagaResponse {
+  string saga_id = 1;
+  SagaState state = 2;
+}
+
+message WatchSagaRequest {
+  string saga_id = 1;
+  int32 poll_interval_ms = 2;
+}
+
+message WatchSagaEvent {
+  string saga_id = 1;
+  SagaState state = 2;
+  string failed_step = 3;
+  string failure_reason = 4;
+  google.protobuf.Timestamp updated_at = 5;
+}
