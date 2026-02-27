@@ -79,13 +79,13 @@
 
 ## 10. 验收清单
 
-- [ ] 10.1 tracing 启用时可完成 provider 初始化与全局 propagator 注册
-- [ ] 10.2 tracing 禁用时业务路径正常且无 exporter 初始化开销
-- [ ] 10.3 gRPC unary/stream tracing span 生成与状态映射正确
-- [ ] 10.4 HTTP tracing span 生成、状态映射、上下文提取正确
-- [ ] 10.5 gRPC/HTTP 出站调用可注入 trace context
-- [ ] 10.6 workflow/lane/saga 核心路径 span 覆盖满足规范
-- [ ] 10.7 exporter 不可用时业务请求不受影响
-- [ ] 10.8 shutdown 时 tracing flush 在超时窗口内完成
-- [ ] 10.9 tracing 配置校验严格且错误信息清晰
-- [ ] 10.10 文档、示例配置、测试与实现保持一致
+- [x] 10.1 tracing 启用时可完成 provider 初始化与全局 propagator 注册
+- [x] 10.2 tracing 禁用时业务路径正常且无 exporter 初始化开销
+- [x] 10.3 gRPC unary/stream tracing span 生成与状态映射正确
+- [x] 10.4 HTTP tracing span 生成、状态映射、上下文提取正确
+- [x] 10.5 gRPC/HTTP 出站调用可注入 trace context
+- [x] 10.6 workflow/lane/saga 核心路径 span 覆盖满足规范
+- [x] 10.7 exporter 不可用时业务请求不受影响
+- [x] 10.8 shutdown 时 tracing flush 在超时窗口内完成
+- [x] 10.9 tracing 配置校验严格且错误信息清晰
+- [x] 10.10 文档、示例配置、测试与实现保持一致
