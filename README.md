@@ -1,8 +1,8 @@
 # Goclaw 🦀
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Go-1.23+-00ADD8?logo=go&logoColor=white" alt="Go Version">
-  <img src="https://img.shields.io/badge/License-Apache%202.0-blue.svg" alt="License">
+  <img src="https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go&logoColor=white" alt="Go Version">
+  <img src="https://img.shields.io/badge/License-MIT-blue.svg" alt="License">
   <img src="https://img.shields.io/github/actions/workflow/status/goclaw/goclaw/ci.yml?branch=main" alt="CI">
   <img src="https://img.shields.io/codecov/c/github/goclaw/goclaw" alt="Coverage">
 </p>
@@ -136,6 +136,16 @@ metrics:
   port: 9091
   path: /metrics
 
+tracing:
+  enabled: false
+  exporter: otlpgrpc
+  endpoint: "localhost:4317"
+  sampler: parentbased_traceidratio
+  sample_rate: 0.1
+
+  # optional legacy compatibility alias:
+  # type: jaeger|zipkin (maps to exporter=otlpgrpc)
+
 orchestration:
   max_agents: 10
   queue:
@@ -151,6 +161,13 @@ orchestration:
 - `enabled` - Enable/disable Prometheus metrics collection
 - `port` - Metrics server port (default: 9091)
 - `path` - Metrics endpoint path (default: /metrics)
+
+**Tracing Configuration:**
+- `tracing.enabled` - Enable/disable OpenTelemetry tracing lifecycle and middleware/interceptors
+- `tracing.exporter` - Exporter backend (`otlpgrpc`)
+- `tracing.endpoint` - OTLP collector endpoint (for example `localhost:4317`)
+- `tracing.sampler` / `tracing.sample_rate` - Sampling policy
+- `server.grpc.enable_tracing` - Enables gRPC tracing interceptors (effective only when `tracing.enabled=true`)
 
 **Environment Variables:**
 All config values can be overridden with `GOCLAW_` prefix:
@@ -295,6 +312,11 @@ For more examples, see [docs/examples/curl-examples.md](docs/examples/curl-examp
 ### Monitoring and Observability
 
 Goclaw provides production-grade monitoring with Prometheus metrics:
+
+For tracing operations and configuration:
+- [OpenTelemetry Tracing Guide](docs/opentelemetry-tracing-guide.md)
+- [Tracing Architecture](docs/tracing-architecture.md)
+- [Tracing Runbook](docs/tracing-runbook.md)
 
 #### Metrics Endpoint
 
@@ -694,6 +716,9 @@ curl "http://localhost:8080/api/v1/memory/session-1?query=编译型语言&limit=
 ## 📚 Documentation
 
 - [English Specification](docs/SPEC_en_v0.2.md)
+- [OpenTelemetry Tracing Guide](docs/opentelemetry-tracing-guide.md)
+- [Tracing Architecture](docs/tracing-architecture.md)
+- [Tracing Runbook](docs/tracing-runbook.md)
 - [中文规格说明](docs/SPEC_zh_v0.2.md)
 
 ## 🤝 Contributing
@@ -702,4 +727,4 @@ Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md)
 
 ## 📄 License
 
-This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
