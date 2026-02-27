@@ -10,12 +10,12 @@
 
 ## 2. TracerProvider 生命周期模块
 
-- [ ] 2.1 新建 tracing 生命周期管理模块（如 `pkg/telemetry/tracing`）
-- [ ] 2.2 实现 `Init`：根据配置初始化 TracerProvider、Resource、Sampler、Exporter
-- [ ] 2.3 实现全局 propagator 注册（TraceContext + Baggage）
-- [ ] 2.4 实现 `Shutdown/Flush`：支持超时控制与错误返回
-- [ ] 2.5 tracing 禁用时实现 no-op 路径（不启动 exporter 后台开销）
-- [ ] 2.6 为生命周期模块补充单元测试（启用、禁用、无效配置、关闭）
+- [x] 2.1 新建 tracing 生命周期管理模块（如 `pkg/telemetry/tracing`）
+- [x] 2.2 实现 `Init`：根据配置初始化 TracerProvider、Resource、Sampler、Exporter
+- [x] 2.3 实现全局 propagator 注册（TraceContext + Baggage）
+- [x] 2.4 实现 `Shutdown/Flush`：支持超时控制与错误返回
+- [x] 2.5 tracing 禁用时实现 no-op 路径（不启动 exporter 后台开销）
+- [x] 2.6 为生命周期模块补充单元测试（启用、禁用、无效配置、关闭）
 
 ## 3. gRPC tracing 集成
 
