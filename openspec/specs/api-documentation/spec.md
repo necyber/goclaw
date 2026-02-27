@@ -1,23 +1,37 @@
-# 规范：API 文档
+﻿# api-documentation Specification
 
-## 概述
+## Purpose
+Migrated from legacy OpenSpec format. Legacy narrative is retained in Notes.
 
-为 HTTP API 提供完整的文档，包括 OpenAPI/Swagger 规范、交互式文档界面和使用示例。
+## Requirements
 
-## OpenAPI 规范
+### Requirement: Legacy specification baseline
+The system SHALL preserve and implement the legacy behavior documented for api-documentation.
 
-### 规范版本
-- 使用 OpenAPI 3.0.3 或更高版本
-- 遵循 OpenAPI 规范标准
+#### Scenario: Baseline conformance
+- **WHEN** implementations reference this capability
+- **THEN** they MUST conform to the legacy details captured in the notes section.
 
-### 规范内容
+## Notes
 
-**基本信息**:
+# 瑙勮寖锛欰PI 鏂囨。
+
+## 姒傝堪
+
+涓?HTTP API 鎻愪緵瀹屾暣鐨勬枃妗ｏ紝鍖呮嫭 OpenAPI/Swagger 瑙勮寖銆佷氦浜掑紡鏂囨。鐣岄潰鍜屼娇鐢ㄧず渚嬨€?
+## OpenAPI 瑙勮寖
+
+### 瑙勮寖鐗堟湰
+- 浣跨敤 OpenAPI 3.0.3 鎴栨洿楂樼増鏈?- 閬靛惊 OpenAPI 瑙勮寖鏍囧噯
+
+### 瑙勮寖鍐呭
+
+**鍩烘湰淇℃伅**:
 ```yaml
 openapi: 3.0.3
 info:
   title: Goclaw API
-  description: 分布式多代理编排引擎 HTTP API
+  description: 鍒嗗竷寮忓浠ｇ悊缂栨帓寮曟搸 HTTP API
   version: 0.1.0
   contact:
     name: Goclaw Team
@@ -25,25 +39,19 @@ info:
     name: MIT
 servers:
   - url: http://localhost:8080/api/v1
-    description: 本地开发服务器
+    description: 鏈湴寮€鍙戞湇鍔″櫒
 ```
 
-**标签分组**:
-- `workflows`: 工作流管理
-- `health`: 健康监控
+**鏍囩鍒嗙粍**:
+- `workflows`: 宸ヤ綔娴佺鐞?- `health`: 鍋ュ悍鐩戞帶
 
-### 端点文档要求
+### 绔偣鏂囨。瑕佹眰
 
-每个端点必须包含：
-- 完整的描述
-- 请求参数（路径、查询、请求体）
-- 响应示例（成功和错误）
-- HTTP 状态码说明
-- 数据模型定义
+姣忎釜绔偣蹇呴』鍖呭惈锛?- 瀹屾暣鐨勬弿杩?- 璇锋眰鍙傛暟锛堣矾寰勩€佹煡璇€佽姹備綋锛?- 鍝嶅簲绀轰緥锛堟垚鍔熷拰閿欒锛?- HTTP 鐘舵€佺爜璇存槑
+- 鏁版嵁妯″瀷瀹氫箟
 
-### 数据模型（Schemas）
-
-定义所有请求和响应的数据结构：
+### 鏁版嵁妯″瀷锛圫chemas锛?
+瀹氫箟鎵€鏈夎姹傚拰鍝嶅簲鐨勬暟鎹粨鏋勶細
 - `WorkflowRequest`
 - `WorkflowResponse`
 - `TaskDefinition`
@@ -52,118 +60,108 @@ servers:
 - `HealthResponse`
 - `ReadyResponse`
 
-## 交互式文档
-
+## 浜や簰寮忔枃妗?
 ### Swagger UI
 
-**端点**: `GET /docs`
+**绔偣**: `GET /docs`
 
-**功能**:
-- 提供交互式 API 文档界面
-- 支持在线测试 API 端点
-- 显示请求/响应示例
-- 自动从 OpenAPI 规范生成
+**鍔熻兘**:
+- 鎻愪緵浜や簰寮?API 鏂囨。鐣岄潰
+- 鏀寔鍦ㄧ嚎娴嬭瘯 API 绔偣
+- 鏄剧ず璇锋眰/鍝嶅簲绀轰緥
+- 鑷姩浠?OpenAPI 瑙勮寖鐢熸垚
 
-**实现方式**:
-- 使用 `swaggo/swag` 生成 OpenAPI 规范
-- 使用 `swaggo/http-swagger` 提供 Swagger UI
-- 或使用静态文件托管 Swagger UI
+**瀹炵幇鏂瑰紡**:
+- 浣跨敤 `swaggo/swag` 鐢熸垚 OpenAPI 瑙勮寖
+- 浣跨敤 `swaggo/http-swagger` 鎻愪緵 Swagger UI
+- 鎴栦娇鐢ㄩ潤鎬佹枃浠舵墭绠?Swagger UI
 
-### ReDoc（可选）
+### ReDoc锛堝彲閫夛級
 
-**端点**: `GET /redoc`
+**绔偣**: `GET /redoc`
 
-**功能**:
-- 提供另一种文档界面选择
-- 更适合阅读和打印
-- 响应式设计
+**鍔熻兘**:
+- 鎻愪緵鍙︿竴绉嶆枃妗ｇ晫闈㈤€夋嫨
+- 鏇撮€傚悎闃呰鍜屾墦鍗?- 鍝嶅簲寮忚璁?
+## 浠ｇ爜娉ㄨВ
 
-## 代码注解
+### Swag 娉ㄨВ绀轰緥
 
-### Swag 注解示例
-
-在处理器函数上添加注解：
+鍦ㄥ鐞嗗櫒鍑芥暟涓婃坊鍔犳敞瑙ｏ細
 
 ```go
 // SubmitWorkflow godoc
-// @Summary 提交工作流
-// @Description 提交新的工作流进行执行
-// @Tags workflows
+// @Summary 鎻愪氦宸ヤ綔娴?// @Description 鎻愪氦鏂扮殑宸ヤ綔娴佽繘琛屾墽琛?// @Tags workflows
 // @Accept json
 // @Produce json
-// @Param workflow body WorkflowRequest true "工作流定义"
+// @Param workflow body WorkflowRequest true "宸ヤ綔娴佸畾涔?
 // @Success 201 {object} WorkflowResponse
 // @Failure 400 {object} ErrorResponse
 // @Failure 503 {object} ErrorResponse
 // @Router /workflows [post]
 func (h *WorkflowHandler) SubmitWorkflow(w http.ResponseWriter, r *http.Request) {
-    // 实现
+    // 瀹炵幇
 }
 ```
 
-### 数据模型注解
+### 鏁版嵁妯″瀷娉ㄨВ
 
 ```go
-// WorkflowRequest 工作流提交请求
-type WorkflowRequest struct {
-    // 工作流名称
-    Name string `json:"name" example:"my-workflow"`
-    // 任务列表
+// WorkflowRequest 宸ヤ綔娴佹彁浜よ姹?type WorkflowRequest struct {
+    // 宸ヤ綔娴佸悕绉?    Name string `json:"name" example:"my-workflow"`
+    // 浠诲姟鍒楄〃
     Tasks []TaskDefinition `json:"tasks"`
-    // 元数据
-    Metadata map[string]interface{} `json:"metadata,omitempty"`
+    // 鍏冩暟鎹?    Metadata map[string]interface{} `json:"metadata,omitempty"`
 }
 ```
 
-## 文档生成
+## 鏂囨。鐢熸垚
 
-### 生成命令
+### 鐢熸垚鍛戒护
 
 ```bash
-# 安装 swag
+# 瀹夎 swag
 go install github.com/swaggo/swag/cmd/swag@latest
 
-# 生成文档
+# 鐢熸垚鏂囨。
 swag init -g cmd/goclaw/main.go -o docs/swagger
 
-# 输出文件
+# 杈撳嚭鏂囦欢
 # - docs/swagger/swagger.json
 # - docs/swagger/swagger.yaml
 # - docs/swagger/docs.go
 ```
 
-### 集成到服务器
+### 闆嗘垚鍒版湇鍔″櫒
 
 ```go
 import (
     httpSwagger "github.com/swaggo/http-swagger"
-    _ "goclaw/docs/swagger" // 导入生成的文档
-)
+    _ "goclaw/docs/swagger" // 瀵煎叆鐢熸垚鐨勬枃妗?)
 
-// 注册路由
+// 娉ㄥ唽璺敱
 router.Get("/docs/*", httpSwagger.WrapHandler)
 ```
 
-## 文件结构
+## 鏂囦欢缁撴瀯
 
 ```
 docs/
-├── swagger/
-│   ├── swagger.json    # OpenAPI JSON 规范
-│   ├── swagger.yaml    # OpenAPI YAML 规范
-│   └── docs.go         # 生成的 Go 代码
-└── examples/
-    ├── submit_workflow.json
-    └── workflow_response.json
+鈹溾攢鈹€ swagger/
+鈹?  鈹溾攢鈹€ swagger.json    # OpenAPI JSON 瑙勮寖
+鈹?  鈹溾攢鈹€ swagger.yaml    # OpenAPI YAML 瑙勮寖
+鈹?  鈹斺攢鈹€ docs.go         # 鐢熸垚鐨?Go 浠ｇ爜
+鈹斺攢鈹€ examples/
+    鈹溾攢鈹€ submit_workflow.json
+    鈹斺攢鈹€ workflow_response.json
 ```
 
-## 使用示例
+## 浣跨敤绀轰緥
 
-### cURL 示例
+### cURL 绀轰緥
 
 ```bash
-# 提交工作流
-curl -X POST http://localhost:8080/api/v1/workflows \
+# 鎻愪氦宸ヤ綔娴?curl -X POST http://localhost:8080/api/v1/workflows \
   -H "Content-Type: application/json" \
   -d '{
     "name": "example-workflow",
@@ -173,15 +171,12 @@ curl -X POST http://localhost:8080/api/v1/workflows \
     ]
   }'
 
-# 查询工作流状态
-curl http://localhost:8080/api/v1/workflows/{workflow_id}
+# 鏌ヨ宸ヤ綔娴佺姸鎬?curl http://localhost:8080/api/v1/workflows/{workflow_id}
 ```
 
-### Go 客户端示例
-
+### Go 瀹㈡埛绔ず渚?
 ```go
-// 提交工作流
-req := &WorkflowRequest{
+// 鎻愪氦宸ヤ綔娴?req := &WorkflowRequest{
     Name: "example-workflow",
     Tasks: []TaskDefinition{
         {ID: "task-1", Dependencies: []string{}},
@@ -196,31 +191,25 @@ resp, err := http.Post(
 )
 ```
 
-## 依赖
+## 渚濊禆
 
-- `github.com/swaggo/swag` - OpenAPI 规范生成
-- `github.com/swaggo/http-swagger` - Swagger UI 集成
+- `github.com/swaggo/swag` - OpenAPI 瑙勮寖鐢熸垚
+- `github.com/swaggo/http-swagger` - Swagger UI 闆嗘垚
 
-## 测试要求
+## 娴嬭瘯瑕佹眰
 
-### 文档验证
-- OpenAPI 规范有效性
-- 所有端点都有文档
-- 示例数据正确
-- 数据模型完整
+### 鏂囨。楠岃瘉
+- OpenAPI 瑙勮寖鏈夋晥鎬?- 鎵€鏈夌鐐归兘鏈夋枃妗?- 绀轰緥鏁版嵁姝ｇ‘
+- 鏁版嵁妯″瀷瀹屾暣
 
-### 可访问性测试
-- `/docs` 端点可访问
-- Swagger UI 正常加载
-- 可以执行测试请求
+### 鍙闂€ф祴璇?- `/docs` 绔偣鍙闂?- Swagger UI 姝ｅ父鍔犺浇
+- 鍙互鎵ц娴嬭瘯璇锋眰
 
-## 验收标准
+## 楠屾敹鏍囧噯
 
-- [ ] OpenAPI 规范完整且有效
-- [ ] 所有端点都有详细文档
-- [ ] Swagger UI 可访问并正常工作
-- [ ] 包含请求/响应示例
-- [ ] 数据模型定义完整
-- [ ] 提供使用示例（cURL、Go）
-- [ ] 文档自动生成流程正常
-- [ ] 文档与实际 API 一致
+- [ ] OpenAPI 瑙勮寖瀹屾暣涓旀湁鏁?- [ ] 鎵€鏈夌鐐归兘鏈夎缁嗘枃妗?- [ ] Swagger UI 鍙闂苟姝ｅ父宸ヤ綔
+- [ ] 鍖呭惈璇锋眰/鍝嶅簲绀轰緥
+- [ ] 鏁版嵁妯″瀷瀹氫箟瀹屾暣
+- [ ] 鎻愪緵浣跨敤绀轰緥锛坈URL銆丟o锛?- [ ] 鏂囨。鑷姩鐢熸垚娴佺▼姝ｅ父
+- [ ] 鏂囨。涓庡疄闄?API 涓€鑷?
+

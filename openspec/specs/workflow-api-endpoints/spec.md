@@ -1,4 +1,9 @@
-## ADDED Requirements
+﻿# workflow-api-endpoints Specification
+
+## Purpose
+Migrated from legacy OpenSpec format while preserving existing requirement and scenario content.
+
+## Requirements
 
 ### Requirement: Query memory entries
 
@@ -71,3 +76,4 @@ The system SHALL provide an API endpoint to delete all memories for a session.
 #### Scenario: Confirm deletion count
 - **WHEN** DELETE /api/v1/memory/{sessionID}/all is called
 - **THEN** the system returns the count of deleted entries
+

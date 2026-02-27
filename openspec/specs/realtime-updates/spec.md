@@ -1,4 +1,9 @@
-## ADDED Requirements
+﻿# realtime-updates Specification
+
+## Purpose
+Migrated from legacy OpenSpec format while preserving existing requirement and scenario content.
+
+## Requirements
 
 ### Requirement: WebSocket connection management
 
@@ -45,7 +50,7 @@ The system SHALL send periodic heartbeat messages to keep the WebSocket connecti
 The system SHALL push workflow state change events via WebSocket.
 
 #### Scenario: Receive workflow state change
-- **WHEN** a workflow transitions to a new state (e.g., running → completed)
+- **WHEN** a workflow transitions to a new state (e.g., running 鈫?completed)
 - **THEN** the WebSocket sends a message with type "workflow.state_changed", workflow ID, old state, and new state
 
 #### Scenario: Update UI on state change
@@ -99,3 +104,4 @@ The system SHALL use a consistent JSON message format for all WebSocket events.
 #### Scenario: Task event payload
 - **WHEN** a task state change event is sent
 - **THEN** the payload contains: workflow_id, task_id, task_name, old_state, new_state, error (optional), result (optional)
+

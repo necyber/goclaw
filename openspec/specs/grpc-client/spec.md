@@ -1,4 +1,9 @@
-## ADDED Requirements
+﻿# grpc-client Specification
+
+## Purpose
+Migrated from legacy OpenSpec format while preserving existing requirement and scenario content.
+
+## Requirements
 
 ### Requirement: Client initialization
 The system SHALL provide a Go client that connects to the gRPC server with configurable options.
@@ -161,3 +166,4 @@ The system SHALL provide example code demonstrating client usage.
 #### Scenario: Error handling example
 - **WHEN** developer reads examples
 - **THEN** examples MUST demonstrate proper error handling and retry logic
+

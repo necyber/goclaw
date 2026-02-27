@@ -1,4 +1,9 @@
-## ADDED Requirements
+﻿# task-metrics Specification
+
+## Purpose
+Migrated from legacy OpenSpec format while preserving existing requirement and scenario content.
+
+## Requirements
 
 ### Requirement: Task execution metrics
 The metrics system SHALL track task execution events with status and type labels.
@@ -84,3 +89,4 @@ Task terminal metric emission MUST be idempotent per task attempt.
 #### Scenario: Duplicate terminal callback prevented
 - **WHEN** terminal transition callback is triggered more than once for the same attempt
 - **THEN** metrics subsystem MUST count terminal outcome only once for that attempt
+

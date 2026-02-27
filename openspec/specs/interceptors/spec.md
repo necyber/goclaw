@@ -1,4 +1,9 @@
-## ADDED Requirements
+﻿# interceptors Specification
+
+## Purpose
+Migrated from legacy OpenSpec format while preserving existing requirement and scenario content.
+
+## Requirements
 
 ### Requirement: Authentication interceptor
 The system SHALL implement authentication interceptor to verify client identity.
@@ -164,8 +169,9 @@ The system SHALL apply interceptors in correct order for proper functionality.
 
 #### Scenario: Unary interceptor chain order
 - **WHEN** processing unary RPC
-- **THEN** interceptors MUST execute in order: recovery → request_id → auth → authorization → rate_limit → validation → logging → metrics → tracing → handler
+- **THEN** interceptors MUST execute in order: recovery 鈫?request_id 鈫?auth 鈫?authorization 鈫?rate_limit 鈫?validation 鈫?logging 鈫?metrics 鈫?tracing 鈫?handler
 
 #### Scenario: Stream interceptor chain order
 - **WHEN** processing streaming RPC
 - **THEN** stream interceptors MUST execute in same order as unary interceptors
+

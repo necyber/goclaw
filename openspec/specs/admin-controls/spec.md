@@ -1,4 +1,9 @@
-## ADDED Requirements
+﻿# admin-controls Specification
+
+## Purpose
+Migrated from legacy OpenSpec format while preserving existing requirement and scenario content.
+
+## Requirements
 
 ### Requirement: Engine status display
 
@@ -79,3 +84,4 @@ The system SHALL display cluster node information when running in distributed mo
 #### Scenario: Single node mode
 - **WHEN** the system is running in standalone mode
 - **THEN** the Admin page displays "Standalone mode" instead of cluster information
+

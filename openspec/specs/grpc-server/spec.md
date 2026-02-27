@@ -1,4 +1,9 @@
-## ADDED Requirements
+﻿# grpc-server Specification
+
+## Purpose
+Migrated from legacy OpenSpec format while preserving existing requirement and scenario content.
+
+## Requirements
 
 ### Requirement: gRPC server initialization
 The system SHALL initialize a gRPC server on the configured port with proper lifecycle management.
@@ -54,11 +59,11 @@ The system SHALL apply interceptors for cross-cutting concerns in the correct or
 
 #### Scenario: Unary interceptor chain
 - **WHEN** processing unary RPCs
-- **THEN** interceptors MUST execute in order: recovery → auth → logging → metrics → handler
+- **THEN** interceptors MUST execute in order: recovery 鈫?auth 鈫?logging 鈫?metrics 鈫?handler
 
 #### Scenario: Stream interceptor chain
 - **WHEN** processing streaming RPCs
-- **THEN** stream interceptors MUST execute in order: recovery → auth → logging → metrics → handler
+- **THEN** stream interceptors MUST execute in order: recovery 鈫?auth 鈫?logging 鈫?metrics 鈫?handler
 
 ### Requirement: Server reflection
 The system SHALL enable gRPC server reflection for debugging and tooling support.
@@ -141,3 +146,4 @@ Enabled gRPC services MUST be wired to concrete engine adapters before server en
 #### Scenario: Valid adapter enables runtime operations
 - **WHEN** service adapters are fully wired
 - **THEN** gRPC methods MUST execute against runtime engine operations instead of placeholder behavior
+

@@ -1,4 +1,9 @@
-## ADDED Requirements
+﻿# lane-metrics Specification
+
+## Purpose
+Migrated from legacy OpenSpec format while preserving existing requirement and scenario content.
+
+## Requirements
 
 ### Requirement: Lane queue depth metrics
 The metrics system SHALL track the current depth of each lane queue.
@@ -55,3 +60,4 @@ The metrics system SHALL integrate with lane queue operations.
 #### Scenario: Hook into task completion
 - **WHEN** lane completes task processing
 - **THEN** metrics manager increments throughput counter
+

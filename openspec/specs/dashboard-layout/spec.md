@@ -1,4 +1,9 @@
-## ADDED Requirements
+﻿# dashboard-layout Specification
+
+## Purpose
+Migrated from legacy OpenSpec format while preserving existing requirement and scenario content.
+
+## Requirements
 
 ### Requirement: Application shell layout
 
@@ -87,3 +92,4 @@ The system SHALL adapt the layout for different screen widths down to 1024px min
 #### Scenario: Medium screen layout
 - **WHEN** the viewport width is between 1024px and 1279px
 - **THEN** the sidebar auto-collapses to icon-only mode
+

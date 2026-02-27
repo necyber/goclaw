@@ -1,4 +1,9 @@
-## ADDED Requirements
+﻿# workflow-management Specification
+
+## Purpose
+Migrated from legacy OpenSpec format while preserving existing requirement and scenario content.
+
+## Requirements
 
 ### Requirement: Workflow list page
 
@@ -91,3 +96,4 @@ The system SHALL automatically refresh workflow data for non-terminal workflows.
 #### Scenario: Stop auto-refresh for terminal workflow
 - **WHEN** the workflow reaches a terminal state
 - **THEN** the system stops auto-refreshing the data
+

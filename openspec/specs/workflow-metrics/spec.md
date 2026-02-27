@@ -1,4 +1,9 @@
-## ADDED Requirements
+﻿# workflow-metrics Specification
+
+## Purpose
+Migrated from legacy OpenSpec format while preserving existing requirement and scenario content.
+
+## Requirements
 
 ### Requirement: Workflow submission metrics
 The metrics system SHALL track workflow submission events with status labels.
@@ -85,3 +90,4 @@ Workflow terminal metrics MUST distinguish cancellation-derived outcomes from ot
 #### Scenario: Timeout-derived terminal outcome
 - **WHEN** workflow reaches terminal status due to timeout policy
 - **THEN** metrics MUST label timeout-derived outcome consistently with runtime policy
+

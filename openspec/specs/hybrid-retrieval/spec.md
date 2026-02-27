@@ -1,4 +1,9 @@
-## ADDED Requirements
+﻿# hybrid-retrieval Specification
+
+## Purpose
+Migrated from legacy OpenSpec format while preserving existing requirement and scenario content.
+
+## Requirements
 
 ### Requirement: Dual retrieval execution
 
@@ -14,7 +19,7 @@ The system SHALL execute both vector retrieval and BM25 search in parallel for h
 
 ### Requirement: RRF score fusion
 
-The system SHALL fuse results using Reciprocal Rank Fusion (RRF) algorithm: RRF(d) = Σ 1/(k + rank(d))
+The system SHALL fuse results using Reciprocal Rank Fusion (RRF) algorithm: RRF(d) = 危 1/(k + rank(d))
 
 #### Scenario: Fuse results with RRF
 - **WHEN** vector retrieval returns [A, B, C] and BM25 returns [B, A, D]
@@ -115,3 +120,4 @@ The system SHALL perform hybrid retrieval with latency less than 20ms for corpor
 #### Scenario: Hybrid search in large corpus
 - **WHEN** performing hybrid search in a corpus with 100K entries
 - **THEN** the search completes in less than 20ms
+

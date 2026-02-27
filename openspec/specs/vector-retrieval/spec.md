@@ -1,4 +1,9 @@
-## ADDED Requirements
+﻿# vector-retrieval Specification
+
+## Purpose
+Migrated from legacy OpenSpec format while preserving existing requirement and scenario content.
+
+## Requirements
 
 ### Requirement: HNSW index initialization
 
@@ -103,3 +108,4 @@ The system SHALL perform vector search with sub-millisecond latency for indexes 
 #### Scenario: Search in large index
 - **WHEN** searching in an index with 100K vectors
 - **THEN** the search completes in less than 10ms
+

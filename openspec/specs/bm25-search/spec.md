@@ -1,4 +1,9 @@
-## ADDED Requirements
+﻿# bm25-search Specification
+
+## Purpose
+Migrated from legacy OpenSpec format while preserving existing requirement and scenario content.
+
+## Requirements
 
 ### Requirement: Document indexing
 
@@ -25,7 +30,7 @@ The system SHALL tokenize text content into terms for indexing and searching.
 - **THEN** the system produces tokens ["hello", "world"] without punctuation
 
 #### Scenario: Tokenize Chinese text
-- **WHEN** indexing Chinese text "你好世界"
+- **WHEN** indexing Chinese text "浣犲ソ涓栫晫"
 - **THEN** the system produces appropriate Chinese tokens
 
 ### Requirement: IDF calculation
@@ -42,7 +47,7 @@ The system SHALL calculate Inverse Document Frequency (IDF) for all terms in the
 
 ### Requirement: BM25 scoring
 
-The system SHALL calculate BM25 scores using the formula: BM25(q,d) = Σ IDF(qi) * (f(qi,d) * (k1+1)) / (f(qi,d) + k1 * (1-b+b*|d|/avgdl))
+The system SHALL calculate BM25 scores using the formula: BM25(q,d) = 危 IDF(qi) * (f(qi,d) * (k1+1)) / (f(qi,d) + k1 * (1-b+b*|d|/avgdl))
 
 #### Scenario: Score document with query match
 - **WHEN** a document contains all query terms
@@ -123,3 +128,4 @@ The system SHALL perform BM25 search with sub-10ms latency for corpora up to 100
 #### Scenario: Search in large corpus
 - **WHEN** searching in a corpus with 100K documents
 - **THEN** the search completes in less than 10ms
+

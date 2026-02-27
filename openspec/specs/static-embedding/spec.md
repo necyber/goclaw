@@ -1,4 +1,9 @@
-## ADDED Requirements
+﻿# static-embedding Specification
+
+## Purpose
+Migrated from legacy OpenSpec format while preserving existing requirement and scenario content.
+
+## Requirements
 
 ### Requirement: Static asset embedding
 
@@ -79,3 +84,4 @@ The system SHALL provide Makefile targets for building the frontend.
 #### Scenario: Clean frontend build
 - **WHEN** make clean is executed
 - **THEN** the system removes the web/dist/ and web/node_modules/ directories
+

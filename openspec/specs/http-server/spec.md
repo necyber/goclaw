@@ -1,4 +1,9 @@
-## ADDED Requirements
+﻿# http-server Specification
+
+## Purpose
+Migrated from legacy OpenSpec format while preserving existing requirement and scenario content.
+
+## Requirements
 
 ### Requirement: WebSocket upgrade endpoint
 
@@ -55,3 +60,4 @@ The system SHALL apply CORS policy to WebSocket connections.
 #### Scenario: Reject WebSocket from unknown origin
 - **WHEN** a WebSocket upgrade request comes from an unlisted origin and CORS is not set to allow all
 - **THEN** the server rejects the connection with 403 Forbidden
+

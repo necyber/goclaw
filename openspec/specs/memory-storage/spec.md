@@ -1,4 +1,9 @@
-## ADDED Requirements
+﻿# memory-storage Specification
+
+## Purpose
+Migrated from legacy OpenSpec format while preserving existing requirement and scenario content.
+
+## Requirements
 
 ### Requirement: Three-tier storage architecture
 
@@ -99,3 +104,4 @@ The system SHALL handle storage errors gracefully and return appropriate error c
 #### Scenario: Vector database unavailable
 - **WHEN** L3 vector database is unavailable
 - **THEN** the system falls back to L1 and L2 without failing the operation
+

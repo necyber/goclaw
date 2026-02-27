@@ -1,4 +1,9 @@
-## ADDED Requirements
+﻿# memory-hub-api Specification
+
+## Purpose
+Migrated from legacy OpenSpec format while preserving existing requirement and scenario content.
+
+## Requirements
 
 ### Requirement: Memorize operation
 
@@ -155,3 +160,4 @@ The system SHALL support concurrent operations from multiple goroutines.
 #### Scenario: Concurrent retrieve
 - **WHEN** multiple goroutines call Retrieve simultaneously
 - **THEN** all operations return correct results without blocking each other
+

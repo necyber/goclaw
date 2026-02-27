@@ -1,4 +1,9 @@
-## ADDED Requirements
+﻿# http-metrics Specification
+
+## Purpose
+Migrated from legacy OpenSpec format while preserving existing requirement and scenario content.
+
+## Requirements
 
 ### Requirement: HTTP request count metrics
 The metrics system SHALL track HTTP request counts by method, path, and status code.
@@ -63,3 +68,4 @@ The metrics system SHALL provide middleware for automatic HTTP metrics collectio
 #### Scenario: Middleware integration with chi router
 - **WHEN** metrics middleware is added to chi router
 - **THEN** middleware is positioned after recovery middleware but before business logic handlers
+

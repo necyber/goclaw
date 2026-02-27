@@ -1,8 +1,13 @@
-## ADDED Requirements
+﻿# memory-decay Specification
+
+## Purpose
+Migrated from legacy OpenSpec format while preserving existing requirement and scenario content.
+
+## Requirements
 
 ### Requirement: FSRS-6 strength calculation
 
-The system SHALL calculate memory strength using FSRS-6 algorithm: S' = S * e^(-t/τ)
+The system SHALL calculate memory strength using FSRS-6 algorithm: S' = S * e^(-t/蟿)
 
 #### Scenario: Calculate strength after time elapsed
 - **WHEN** a memory entry with strength 1.0 and stability 24h is reviewed after 24h
@@ -119,3 +124,4 @@ The system SHALL expose metrics for memory decay operations.
 #### Scenario: Track decay processing time
 - **WHEN** decay processing completes
 - **THEN** the system records decay_processing_duration_seconds metric
+

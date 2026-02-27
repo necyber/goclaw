@@ -1,4 +1,9 @@
-## ADDED Requirements
+﻿# dag-visualization Specification
+
+## Purpose
+Migrated from legacy OpenSpec format while preserving existing requirement and scenario content.
+
+## Requirements
 
 ### Requirement: DAG graph rendering
 
@@ -99,3 +104,4 @@ The system SHALL display a minimap for large DAG graphs.
 #### Scenario: Navigate via minimap
 - **WHEN** the user clicks a position on the minimap
 - **THEN** the main view pans to center on that position
+

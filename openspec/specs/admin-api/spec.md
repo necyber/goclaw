@@ -1,4 +1,9 @@
-## ADDED Requirements
+﻿# admin-api Specification
+
+## Purpose
+Migrated from legacy OpenSpec format while preserving existing requirement and scenario content.
+
+## Requirements
 
 ### Requirement: Engine status endpoint
 The system SHALL provide admin endpoint to retrieve comprehensive engine status.
@@ -181,3 +186,4 @@ The system SHALL implement safety checks for destructive admin operations.
 #### Scenario: Operation timeout
 - **WHEN** admin operation exceeds safety timeout
 - **THEN** server MUST abort operation and return partial results
+

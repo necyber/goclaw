@@ -1,4 +1,9 @@
-## ADDED Requirements
+﻿# metrics-dashboard Specification
+
+## Purpose
+Migrated from legacy OpenSpec format while preserving existing requirement and scenario content.
+
+## Requirements
 
 ### Requirement: Overview dashboard
 
@@ -87,3 +92,4 @@ The system SHALL fetch metrics data from the Prometheus endpoint and AdminServic
 #### Scenario: Metrics unavailable
 - **WHEN** the metrics endpoint is unreachable
 - **THEN** the system displays a "Metrics unavailable" message with the last known data timestamp
+

@@ -1,4 +1,9 @@
-## ADDED Requirements
+﻿# streaming-support Specification
+
+## Purpose
+Migrated from legacy OpenSpec format while preserving existing requirement and scenario content.
+
+## Requirements
 
 ### Requirement: Server-side streaming for workflow updates
 The system SHALL provide server-side streaming to push real-time workflow status updates to clients.
@@ -27,7 +32,7 @@ The system SHALL provide server-side streaming to push real-time task progress u
 - **THEN** server MUST stream TaskProgressUpdate messages for all tasks in workflow
 
 #### Scenario: Task state changes
-- **WHEN** task transitions between states (pending → running → completed)
+- **WHEN** task transitions between states (pending 鈫?running 鈫?completed)
 - **THEN** server MUST send update with new state, timestamps, and progress percentage
 
 #### Scenario: Task result streaming
@@ -193,3 +198,4 @@ Streaming bridge MUST preserve scoped ordering and deduplicate duplicate bus del
 #### Scenario: Duplicate event consumed
 - **WHEN** duplicate lifecycle events are consumed from event bus
 - **THEN** streaming service MUST suppress duplicates using event identity and ordering metadata
+

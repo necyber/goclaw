@@ -1,4 +1,9 @@
-## ADDED Requirements
+﻿# proto-definitions Specification
+
+## Purpose
+Migrated from legacy OpenSpec format while preserving existing requirement and scenario content.
+
+## Requirements
 
 ### Requirement: Protocol Buffer service definitions
 The system SHALL define Protocol Buffer service definitions for workflow management, task operations, and admin functions.
@@ -74,3 +79,4 @@ The system SHALL maintain backward compatibility by using field numbers and rese
 #### Scenario: Version management
 - **WHEN** making breaking changes
 - **THEN** changes MUST be introduced in a new package version (e.g., goclaw.v2)
+

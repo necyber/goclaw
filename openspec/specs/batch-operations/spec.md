@@ -1,4 +1,9 @@
-## ADDED Requirements
+﻿# batch-operations Specification
+
+## Purpose
+Migrated from legacy OpenSpec format while preserving existing requirement and scenario content.
+
+## Requirements
 
 ### Requirement: Batch workflow submission
 The system SHALL provide batch workflow submission to create multiple workflows in single RPC.
@@ -146,3 +151,4 @@ The system SHALL support pagination for large batch responses.
 #### Scenario: Page size configuration
 - **WHEN** client specifies page size
 - **THEN** server MUST respect page size up to maximum limit
+

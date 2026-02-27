@@ -1,4 +1,9 @@
-## ADDED Requirements
+﻿# prometheus-metrics Specification
+
+## Purpose
+Migrated from legacy OpenSpec format while preserving existing requirement and scenario content.
+
+## Requirements
 
 ### Requirement: Prometheus metrics registry initialization
 The metrics system SHALL initialize a Prometheus registry and register all metric collectors on startup.
@@ -70,3 +75,4 @@ The metrics system SHALL have minimal performance impact on application.
 #### Scenario: CPU overhead
 - **WHEN** metrics system is collecting and exposing metrics
 - **THEN** CPU overhead is less than 1% of total CPU usage
+
