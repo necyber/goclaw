@@ -94,8 +94,12 @@ func DefaultConfig() *Config {
 		},
 		Tracing: TracingConfig{
 			Enabled:    false,
-			Type:       "jaeger",
-			Endpoint:   "http://localhost:14268/api/traces",
+			Type:       "",
+			Exporter:   "otlpgrpc",
+			Endpoint:   "localhost:4317",
+			Headers:    map[string]string{},
+			Timeout:    5 * time.Second,
+			Sampler:    "parentbased_traceidratio",
 			SampleRate: 0.1,
 		},
 		Memory: MemoryConfig{

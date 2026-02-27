@@ -526,14 +526,39 @@ func TestValidation_InvalidDiscoveryType(t *testing.T) {
 	}
 }
 
-func TestValidation_InvalidTracingType(t *testing.T) {
+func TestValidation_InvalidTracingExporter(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Tracing.Enabled = true
-	cfg.Tracing.Type = "invalid"
+	cfg.Tracing.Exporter = "invalid"
 
 	err := cfg.Validate()
 	if err == nil {
-		t.Error("expected validation error for invalid tracing type")
+		t.Error("expected validation error for invalid tracing exporter")
+	}
+}
+
+func TestValidation_TracingLegacyTypeMapping(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Tracing.Enabled = true
+	cfg.Tracing.Exporter = ""
+	cfg.Tracing.Type = "jaeger"
+
+	if err := cfg.Validate(); err != nil {
+		t.Fatalf("expected legacy tracing type to map successfully, got error: %v", err)
+	}
+	if cfg.Tracing.Exporter != "otlpgrpc" {
+		t.Fatalf("expected exporter to normalize to otlpgrpc, got %q", cfg.Tracing.Exporter)
+	}
+}
+
+func TestValidation_TracingMissingEndpoint(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Tracing.Enabled = true
+	cfg.Tracing.Endpoint = ""
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Error("expected validation error for missing tracing endpoint")
 	}
 }
 

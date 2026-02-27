@@ -166,9 +166,13 @@ metrics:
 # Tracing configuration
 tracing:
   enabled: false
-  type: jaeger  # jaeger, zipkin
-  endpoint: "http://localhost:14268/api/traces"
+  exporter: otlpgrpc                    # otlpgrpc
+  endpoint: "localhost:4317"            # OTLP gRPC collector endpoint
+  headers: {}                           # e.g. {"authorization":"Bearer token"}
+  timeout: 5s
+  sampler: parentbased_traceidratio     # always_on, always_off, parentbased_traceidratio
   sample_rate: 0.1
+  type: ""                              # deprecated legacy alias: jaeger, zipkin
 
 # Hybrid memory system configuration
 memory:

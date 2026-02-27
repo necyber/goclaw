@@ -345,11 +345,25 @@ type TracingConfig struct {
 	// Enabled enables distributed tracing.
 	Enabled bool `mapstructure:"enabled"`
 
-	// Type is the tracing backend (jaeger, zipkin).
-	Type string `mapstructure:"type" validate:"oneof=jaeger zipkin"`
+	// Type is the legacy tracing backend alias (deprecated).
+	// Supported legacy values: jaeger, zipkin. Both map to exporter=otlpgrpc.
+	Type string `mapstructure:"type"`
+
+	// Exporter is the tracing exporter backend.
+	Exporter string `mapstructure:"exporter" validate:"omitempty,oneof=otlpgrpc"`
 
 	// Endpoint is the collector endpoint.
 	Endpoint string `mapstructure:"endpoint"`
+
+	// Headers are optional exporter request headers.
+	Headers map[string]string `mapstructure:"headers"`
+
+	// Timeout is the exporter timeout.
+	Timeout time.Duration `mapstructure:"timeout"`
+
+	// Sampler controls sampling strategy.
+	// Supported: always_on, always_off, parentbased_traceidratio.
+	Sampler string `mapstructure:"sampler" validate:"omitempty,oneof=always_on always_off parentbased_traceidratio"`
 
 	// SampleRate is the fraction of traces to sample (0.0-1.0).
 	SampleRate float64 `mapstructure:"sample_rate" validate:"min=0,max=1"`
@@ -513,27 +527,39 @@ type SagaConfig struct {
 
 // Validate performs validation on the configuration.
 func (c *Config) Validate() error {
-	if err := validate.Struct(c); err != nil {
+	if err := ValidateWithDetails(c); err != nil {
 		return fmt.Errorf("config validation failed: %w", err)
 	}
-	if c.UI.BasePath != "" && !strings.HasPrefix(c.UI.BasePath, "/") {
-		return fmt.Errorf("config validation failed: ui.base_path must start with '/'")
-	}
-	if c.Saga.Enabled {
-		if c.Saga.WALRetention <= 0 {
-			return fmt.Errorf("config validation failed: saga.wal_retention must be > 0")
-		}
-		if c.Saga.WALCleanupInterval <= 0 {
-			return fmt.Errorf("config validation failed: saga.wal_cleanup_interval must be > 0")
-		}
-		if c.Saga.DefaultTimeout <= 0 {
-			return fmt.Errorf("config validation failed: saga.default_timeout must be > 0")
-		}
-		if c.Saga.DefaultStepTimeout <= 0 {
-			return fmt.Errorf("config validation failed: saga.default_step_timeout must be > 0")
-		}
-	}
 	return nil
+}
+
+// normalizeTracingConfig applies backward-compatible tracing normalization.
+// It is safe to call repeatedly.
+func normalizeTracingConfig(cfg *Config) {
+	if cfg == nil {
+		return
+	}
+
+	tracing := &cfg.Tracing
+	legacyType := strings.ToLower(strings.TrimSpace(tracing.Type))
+
+	if strings.TrimSpace(tracing.Exporter) == "" {
+		switch legacyType {
+		case "", "otlpgrpc", "jaeger", "zipkin":
+			tracing.Exporter = "otlpgrpc"
+		default:
+			// Preserve invalid value to surface a validation error.
+			tracing.Exporter = legacyType
+		}
+	}
+
+	if strings.TrimSpace(tracing.Sampler) == "" {
+		tracing.Sampler = "parentbased_traceidratio"
+	}
+
+	if tracing.Headers == nil {
+		tracing.Headers = map[string]string{}
+	}
 }
 
 // String returns a string representation of the configuration (without sensitive data).

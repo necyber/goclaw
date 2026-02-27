@@ -58,6 +58,8 @@ func (e ValidationErrors) Error() string {
 
 // ValidateWithDetails performs validation and returns detailed errors.
 func ValidateWithDetails(cfg *Config) error {
+	normalizeTracingConfig(cfg)
+
 	if err := validate.Struct(cfg); err != nil {
 		if validationErrors, ok := err.(validator.ValidationErrors); ok {
 			var details ValidationErrors
@@ -109,6 +111,33 @@ func ValidateWithDetails(cfg *Config) error {
 				Field:   "Config.Saga.DefaultStepTimeout",
 				Message: "must be greater than 0 when saga is enabled",
 				Value:   cfg.Saga.DefaultStepTimeout,
+			})
+		}
+		if len(details) > 0 {
+			return details
+		}
+	}
+	if cfg != nil && cfg.Tracing.Enabled {
+		var details ValidationErrors
+		if strings.TrimSpace(cfg.Tracing.Exporter) == "" {
+			details = append(details, ConfigError{
+				Field:   "Config.Tracing.Exporter",
+				Message: "must be configured when tracing is enabled",
+				Value:   cfg.Tracing.Exporter,
+			})
+		}
+		if strings.TrimSpace(cfg.Tracing.Endpoint) == "" {
+			details = append(details, ConfigError{
+				Field:   "Config.Tracing.Endpoint",
+				Message: "must be configured when tracing is enabled",
+				Value:   cfg.Tracing.Endpoint,
+			})
+		}
+		if cfg.Tracing.Timeout <= 0 {
+			details = append(details, ConfigError{
+				Field:   "Config.Tracing.Timeout",
+				Message: "must be greater than 0 when tracing is enabled",
+				Value:   cfg.Tracing.Timeout,
 			})
 		}
 		if len(details) > 0 {
