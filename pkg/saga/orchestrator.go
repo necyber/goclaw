@@ -146,6 +146,7 @@ func (o *SagaOrchestrator) ExecuteWithID(
 
 	results := make(map[string]any)
 	var resultsMu sync.Mutex
+	var instanceMu sync.Mutex
 	var failedStep string
 	var execErr error
 
@@ -162,7 +163,7 @@ func (o *SagaOrchestrator) ExecuteWithID(
 			wg.Add(1)
 			go func(step *Step) {
 				defer wg.Done()
-				result, err := o.executeStep(sagaCtx, definition, instance, step, input, results, &resultsMu)
+				result, err := o.executeStep(sagaCtx, definition, instance, step, input, results, &resultsMu, &instanceMu)
 				if err != nil {
 					layerErrCh <- stepFailure{stepID: step.ID, err: err}
 					return
@@ -407,6 +408,7 @@ func (o *SagaOrchestrator) executeStep(
 	input any,
 	results map[string]any,
 	resultsMu *sync.Mutex,
+	instanceMu *sync.Mutex,
 ) (any, error) {
 	if err := o.writeWAL(ctx, WALEntry{
 		SagaID: instance.ID,
@@ -456,6 +458,11 @@ func (o *SagaOrchestrator) executeStep(
 		return nil, err
 	}
 
+	if instanceMu != nil {
+		instanceMu.Lock()
+		defer instanceMu.Unlock()
+	}
+
 	if o.checkpointer != nil {
 		if err := o.checkpointer.RecordStepCompletion(ctx, instance, step.ID, result); err != nil {
 			return nil, err
@@ -503,6 +510,7 @@ func (o *SagaOrchestrator) resumeRunning(
 
 	results := copyResultMap(instance.StepResults)
 	var resultsMu sync.Mutex
+	var instanceMu sync.Mutex
 
 	var failedStep string
 	var execErr error
@@ -522,7 +530,7 @@ func (o *SagaOrchestrator) resumeRunning(
 			wg.Add(1)
 			go func(step *Step) {
 				defer wg.Done()
-				result, err := o.executeStep(ctx, definition, instance, step, input, results, &resultsMu)
+				result, err := o.executeStep(ctx, definition, instance, step, input, results, &resultsMu, &instanceMu)
 				if err != nil {
 					layerErrCh <- stepFailure{stepID: step.ID, err: err}
 					return
