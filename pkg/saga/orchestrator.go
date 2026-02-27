@@ -229,6 +229,57 @@ func (o *SagaOrchestrator) TriggerCompensation(
 	return instance, nil
 }
 
+// ResumeFromCheckpoint resumes a saga from persisted checkpoint state.
+func (o *SagaOrchestrator) ResumeFromCheckpoint(
+	ctx context.Context,
+	definition *SagaDefinition,
+	checkpoint *Checkpoint,
+	input any,
+) (*SagaInstance, error) {
+	if definition == nil {
+		return nil, fmt.Errorf("saga definition cannot be nil")
+	}
+	if checkpoint == nil {
+		return nil, fmt.Errorf("checkpoint cannot be nil")
+	}
+	if checkpoint.SagaID == "" {
+		return nil, fmt.Errorf("checkpoint saga_id cannot be empty")
+	}
+
+	instance := &SagaInstance{
+		ID:             checkpoint.SagaID,
+		DefinitionName: definition.Name,
+		State:          checkpoint.State,
+		CompletedSteps: append([]string(nil), checkpoint.CompletedSteps...),
+		StepResults:    copyResultMap(checkpoint.StepResults),
+		FailedStep:     checkpoint.FailedStep,
+		CreatedAt:      checkpoint.LastUpdated,
+		UpdatedAt:      checkpoint.LastUpdated,
+		Compensated:    make([]string, 0),
+	}
+	o.saveInstance(instance)
+
+	switch checkpoint.State {
+	case SagaStateRunning:
+		return o.resumeRunning(ctx, definition, instance, input)
+	case SagaStateCompensating:
+		recoveryErr := fmt.Errorf("resumed compensation from checkpoint")
+		if err := o.compensationExecutor.Execute(ctx, definition, instance, input, recoveryErr); err != nil {
+			_ = instance.TransitionTo(SagaStateCompensationFailed)
+			instance.SetFailure(instance.FailedStep, err)
+			o.saveInstance(instance)
+			return instance, err
+		}
+		if err := instance.TransitionTo(SagaStateCompensated); err != nil {
+			return nil, err
+		}
+		o.saveInstance(instance)
+		return instance, nil
+	default:
+		return instance, nil
+	}
+}
+
 // GetInstance gets one Saga instance by ID.
 func (o *SagaOrchestrator) GetInstance(sagaID string) (*SagaInstance, error) {
 	o.mu.RLock()
@@ -333,6 +384,95 @@ func (o *SagaOrchestrator) writeWAL(ctx context.Context, entry WALEntry) error {
 	}
 	_, err := o.wal.Append(ctx, entry)
 	return err
+}
+
+func (o *SagaOrchestrator) resumeRunning(
+	ctx context.Context,
+	definition *SagaDefinition,
+	instance *SagaInstance,
+	input any,
+) (*SagaInstance, error) {
+	layers, err := definition.TopologicalLayers()
+	if err != nil {
+		return nil, err
+	}
+
+	completedSet := make(map[string]struct{}, len(instance.CompletedSteps))
+	for _, stepID := range instance.CompletedSteps {
+		completedSet[stepID] = struct{}{}
+	}
+
+	results := copyResultMap(instance.StepResults)
+	var resultsMu sync.Mutex
+
+	var failedStep string
+	var execErr error
+	for _, layer := range layers {
+		var wg sync.WaitGroup
+		layerErrCh := make(chan stepFailure, len(layer))
+
+		for _, stepID := range layer {
+			if _, done := completedSet[stepID]; done {
+				continue
+			}
+			step := definition.Steps[stepID]
+			if step == nil {
+				continue
+			}
+
+			wg.Add(1)
+			go func(step *Step) {
+				defer wg.Done()
+				result, err := o.executeStep(ctx, definition, instance, step, input, results, &resultsMu)
+				if err != nil {
+					layerErrCh <- stepFailure{stepID: step.ID, err: err}
+					return
+				}
+				resultsMu.Lock()
+				results[step.ID] = result
+				resultsMu.Unlock()
+			}(step)
+		}
+
+		wg.Wait()
+		close(layerErrCh)
+		if failure, ok := <-layerErrCh; ok {
+			failedStep = failure.stepID
+			execErr = failure.err
+			break
+		}
+	}
+
+	if execErr != nil {
+		instance.SetFailure(failedStep, execErr)
+		switch definition.Policy {
+		case ManualCompensate:
+			_ = instance.TransitionTo(SagaStatePendingCompensation)
+			o.saveInstance(instance)
+			return instance, execErr
+		case SkipCompensate:
+			_ = instance.TransitionTo(SagaStateCompensationFailed)
+			o.saveInstance(instance)
+			return instance, execErr
+		default:
+			_ = instance.TransitionTo(SagaStateCompensating)
+			if compErr := o.compensationExecutor.Execute(ctx, definition, instance, input, execErr); compErr != nil {
+				_ = instance.TransitionTo(SagaStateCompensationFailed)
+				instance.SetFailure(failedStep, compErr)
+				o.saveInstance(instance)
+				return instance, compErr
+			}
+			_ = instance.TransitionTo(SagaStateCompensated)
+			o.saveInstance(instance)
+			return instance, execErr
+		}
+	}
+
+	if err := instance.TransitionTo(SagaStateCompleted); err != nil {
+		return nil, err
+	}
+	o.saveInstance(instance)
+	return instance, nil
 }
 
 type stepFailure struct {

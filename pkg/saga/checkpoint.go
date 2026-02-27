@@ -13,6 +13,7 @@ const checkpointKeyPrefix = "checkpoint:"
 
 // Checkpoint stores resumable Saga runtime state.
 type Checkpoint struct {
+	DefinitionName string         `json:"definition_name,omitempty"`
 	SagaID         string         `json:"saga_id"`
 	State          SagaState      `json:"state"`
 	CompletedSteps []string       `json:"completed_steps"`
@@ -25,6 +26,7 @@ type Checkpoint struct {
 type CheckpointStore interface {
 	Save(ctx context.Context, checkpoint *Checkpoint) error
 	Load(ctx context.Context, sagaID string) (*Checkpoint, error)
+	List(ctx context.Context) ([]*Checkpoint, error)
 	Delete(ctx context.Context, sagaID string) error
 }
 
@@ -103,6 +105,43 @@ func (s *BadgerCheckpointStore) Load(ctx context.Context, sagaID string) (*Check
 	return &checkpoint, nil
 }
 
+// List returns all checkpoints.
+func (s *BadgerCheckpointStore) List(ctx context.Context) ([]*Checkpoint, error) {
+	checkpoints := make([]*Checkpoint, 0)
+	prefix := []byte(checkpointKeyPrefix)
+
+	err := s.db.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.Prefix = prefix
+		it := txn.NewIterator(opts)
+		defer it.Close()
+
+		for it.Rewind(); it.Valid(); it.Next() {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			default:
+			}
+			item := it.Item()
+			if err := item.Value(func(v []byte) error {
+				cp, decErr := DeserializeCheckpoint(v)
+				if decErr != nil {
+					return decErr
+				}
+				checkpoints = append(checkpoints, cp)
+				return nil
+			}); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		return nil, err
+	}
+	return checkpoints, nil
+}
+
 // Delete removes checkpoint data for one saga.
 func (s *BadgerCheckpointStore) Delete(ctx context.Context, sagaID string) error {
 	key := []byte(checkpointKey(sagaID))
@@ -155,6 +194,7 @@ func (c *Checkpointer) RecordStepCompletion(ctx context.Context, instance *SagaI
 
 	instance.MarkStepCompleted(stepID, result)
 	cp := &Checkpoint{
+		DefinitionName: instance.DefinitionName,
 		SagaID:         instance.ID,
 		State:          instance.State,
 		CompletedSteps: append([]string(nil), instance.CompletedSteps...),
@@ -171,6 +211,7 @@ func Snapshot(instance *SagaInstance) *Checkpoint {
 		return nil
 	}
 	return &Checkpoint{
+		DefinitionName: instance.DefinitionName,
 		SagaID:         instance.ID,
 		State:          instance.State,
 		CompletedSteps: append([]string(nil), instance.CompletedSteps...),

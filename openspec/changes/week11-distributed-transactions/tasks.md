@@ -68,22 +68,22 @@
 
 ## 7. 故障恢复
 
-- [ ] 7.1 创建 `pkg/saga/recovery.go` 定义恢复逻辑
-- [ ] 7.2 实现启动时扫描未完成 Saga
-- [ ] 7.3 实现从 Checkpoint 恢复 Running 状态 Saga
-- [ ] 7.4 实现从 Checkpoint 恢复 Compensating 状态 Saga
-- [ ] 7.5 实现恢复幂等性保证
-- [ ] 7.6 实现恢复日志记录
-- [ ] 7.7 编写恢复单元测试
-- [ ] 7.8 编写恢复集成测试（模拟进程崩溃）
+- [x] 7.1 创建 `pkg/saga/recovery.go` 定义恢复逻辑
+- [x] 7.2 实现启动时扫描未完成 Saga
+- [x] 7.3 实现从 Checkpoint 恢复 Running 状态 Saga
+- [x] 7.4 实现从 Checkpoint 恢复 Compensating 状态 Saga
+- [x] 7.5 实现恢复幂等性保证
+- [x] 7.6 实现恢复日志记录
+- [x] 7.7 编写恢复单元测试
+- [x] 7.8 编写恢复集成测试（模拟进程崩溃）
 
 ## 8. WAL 清理
 
-- [ ] 8.1 实现 WAL 保留策略配置（默认 7 天）
-- [ ] 8.2 实现后台 WAL 清理 Goroutine
-- [ ] 8.3 实现批量删除过期 WAL 条目
-- [ ] 8.4 实现 Checkpoint 清理（终态 Saga）
-- [ ] 8.5 编写 WAL 清理测试
+- [x] 8.1 实现 WAL 保留策略配置（默认 7 天）
+- [x] 8.2 实现后台 WAL 清理 Goroutine
+- [x] 8.3 实现批量删除过期 WAL 条目
+- [x] 8.4 实现 Checkpoint 清理（终态 Saga）
+- [x] 8.5 编写 WAL 清理测试
 
 ## 9. Saga 存储层
 
