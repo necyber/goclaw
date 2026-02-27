@@ -4,13 +4,17 @@ package engine
 import (
 	"context"
 	"fmt"
+	"path/filepath"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
 
+	dgbadger "github.com/dgraph-io/badger/v4"
 	"github.com/goclaw/goclaw/config"
 	"github.com/goclaw/goclaw/pkg/dag"
 	"github.com/goclaw/goclaw/pkg/lane"
+	"github.com/goclaw/goclaw/pkg/saga"
 	"github.com/goclaw/goclaw/pkg/signal"
 	"github.com/goclaw/goclaw/pkg/storage"
 	"github.com/redis/go-redis/v9"
@@ -94,19 +98,26 @@ type EventBroadcaster interface {
 
 // Engine is the core orchestration engine.
 type Engine struct {
-	cfg         *config.Config
-	logger      appLogger
-	storage     storage.Storage
-	laneManager *lane.Manager
-	scheduler   *Scheduler
-	metrics     MetricsRecorder
-	memoryHub   MemoryHub
-	signalBus   signal.Bus
-	redisClient redis.Cmdable
-	events      EventBroadcaster
-	state       atomic.Int32
-	execMu      sync.RWMutex
-	executions  map[string]*workflowExecution
+	cfg                 *config.Config
+	logger              appLogger
+	storage             storage.Storage
+	laneManager         *lane.Manager
+	scheduler           *Scheduler
+	metrics             MetricsRecorder
+	memoryHub           MemoryHub
+	signalBus           signal.Bus
+	redisClient         redis.Cmdable
+	events              EventBroadcaster
+	sagaDB              *dgbadger.DB
+	sagaWAL             *saga.BadgerWAL
+	sagaOrchestrator    *saga.SagaOrchestrator
+	sagaCheckpointStore saga.CheckpointStore
+	sagaRecoveryManager *saga.RecoveryManager
+	sagaCleanupManager  *saga.CleanupManager
+	sagaCleanupCancel   context.CancelFunc
+	state               atomic.Int32
+	execMu              sync.RWMutex
+	executions          map[string]*workflowExecution
 }
 
 // New creates a new Engine from the given configuration, logger, and storage.
@@ -121,10 +132,10 @@ func New(cfg *config.Config, logger appLogger, store storage.Storage, opts ...Op
 		return nil, fmt.Errorf("storage cannot be nil")
 	}
 	e := &Engine{
-		cfg:     cfg,
-		logger:  logger,
-		storage: store,
-		metrics: &nopMetrics{},
+		cfg:        cfg,
+		logger:     logger,
+		storage:    store,
+		metrics:    &nopMetrics{},
 		executions: make(map[string]*workflowExecution),
 	}
 	e.state.Store(int32(stateIdle))
@@ -136,6 +147,12 @@ func New(cfg *config.Config, logger appLogger, store storage.Storage, opts ...Op
 
 	if e.signalBus == nil {
 		e.signalBus = signal.NewLocalBus(cfg.Signal.BufferSize)
+	}
+
+	if cfg.Saga.Enabled {
+		if err := e.initializeSagaRuntime(); err != nil {
+			return nil, err
+		}
 	}
 
 	return e, nil
@@ -231,6 +248,22 @@ func (e *Engine) Start(ctx context.Context) error {
 		e.logger.Warn("workflow recovery completed with errors", "error", err)
 	}
 
+	if e.sagaRecoveryManager != nil {
+		recovered, err := e.sagaRecoveryManager.Recover(ctx, map[string]*saga.SagaDefinition{}, nil)
+		if err != nil {
+			e.logger.Warn("saga recovery completed with errors", "error", err)
+		} else if recovered > 0 {
+			e.logger.Info("saga recovery completed", "recovered", recovered)
+		}
+	}
+	if e.sagaCleanupManager != nil {
+		cleanupCtx, cancel := context.WithCancel(context.Background())
+		e.sagaCleanupCancel = cancel
+		if err := e.sagaCleanupManager.Start(cleanupCtx, e.cfg.Saga.WALCleanupInterval, e.cfg.Saga.WALRetention); err != nil {
+			e.logger.Warn("failed to start saga wal cleanup", "error", err)
+		}
+	}
+
 	return nil
 }
 
@@ -260,6 +293,22 @@ func (e *Engine) Stop(ctx context.Context) error {
 		if err := e.signalBus.Close(); err != nil {
 			e.logger.Warn("error stopping signal bus", "error", err)
 		}
+	}
+	if e.sagaCleanupCancel != nil {
+		e.sagaCleanupCancel()
+		e.sagaCleanupCancel = nil
+	}
+	if e.sagaWAL != nil {
+		if err := e.sagaWAL.Close(); err != nil {
+			e.logger.Warn("error closing saga wal", "error", err)
+		}
+		e.sagaWAL = nil
+	}
+	if e.sagaDB != nil {
+		if err := e.sagaDB.Close(); err != nil {
+			e.logger.Warn("error closing saga db", "error", err)
+		}
+		e.sagaDB = nil
 	}
 
 	e.state.Store(int32(stateStopped))
@@ -454,6 +503,88 @@ func (e *Engine) State() string {
 	default:
 		return "unknown"
 	}
+}
+
+// GetSagaOrchestrator returns the saga orchestrator when enabled.
+func (e *Engine) GetSagaOrchestrator() *saga.SagaOrchestrator {
+	return e.sagaOrchestrator
+}
+
+func (e *Engine) initializeSagaRuntime() error {
+	sagaPath := filepath.Join(e.cfg.Storage.Badger.Path, "saga")
+	opts := dgbadger.DefaultOptions(sagaPath)
+	opts.Logger = nil
+
+	db, err := dgbadger.Open(opts)
+	if err != nil {
+		return fmt.Errorf("open saga badger db: %w", err)
+	}
+
+	writeMode := saga.WALWriteModeSync
+	if strings.EqualFold(e.cfg.Saga.WALSyncMode, string(saga.WALWriteModeAsync)) {
+		writeMode = saga.WALWriteModeAsync
+	}
+
+	wal, err := saga.NewBadgerWAL(db, saga.WALOptions{
+		WriteMode: writeMode,
+	})
+	if err != nil {
+		_ = db.Close()
+		return fmt.Errorf("create saga wal: %w", err)
+	}
+
+	checkpointStore, err := saga.NewBadgerCheckpointStore(db)
+	if err != nil {
+		_ = wal.Close()
+		_ = db.Close()
+		return fmt.Errorf("create saga checkpoint store: %w", err)
+	}
+	checkpointer, err := saga.NewCheckpointer(checkpointStore)
+	if err != nil {
+		_ = wal.Close()
+		_ = db.Close()
+		return fmt.Errorf("create saga checkpointer: %w", err)
+	}
+	sagaStore, err := saga.NewBadgerSagaStore(db)
+	if err != nil {
+		_ = wal.Close()
+		_ = db.Close()
+		return fmt.Errorf("create saga store: %w", err)
+	}
+
+	orchestrator := saga.NewSagaOrchestrator(
+		saga.WithMaxConcurrentSagas(e.cfg.Saga.MaxConcurrent),
+		saga.WithWAL(wal),
+		saga.WithCheckpointer(checkpointer),
+		saga.WithSagaStore(sagaStore),
+	)
+	recoveryManager, err := saga.NewRecoveryManager(orchestrator, checkpointStore, e.logger)
+	if err != nil {
+		_ = wal.Close()
+		_ = db.Close()
+		return fmt.Errorf("create saga recovery manager: %w", err)
+	}
+	cleanupManager := saga.NewCleanupManager(
+		wal,
+		checkpointStore,
+		func(sagaID string) bool {
+			instance, getErr := orchestrator.GetInstance(sagaID)
+			if getErr != nil {
+				return false
+			}
+			return instance.State.IsTerminal()
+		},
+		e.logger,
+	)
+
+	e.sagaDB = db
+	e.sagaWAL = wal
+	e.sagaOrchestrator = orchestrator
+	e.sagaCheckpointStore = checkpointStore
+	e.sagaRecoveryManager = recoveryManager
+	e.sagaCleanupManager = cleanupManager
+
+	return nil
 }
 
 // nopLogger is a no-op implementation of appLogger used when no logger is provided.

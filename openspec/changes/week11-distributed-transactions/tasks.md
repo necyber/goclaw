@@ -123,12 +123,12 @@
 
 ## 12. Engine 集成
 
-- [ ] 12.1 在 `pkg/engine/engine.go` 添加 `sagaOrchestrator` 字段
-- [ ] 12.2 在 `New()` 中初始化 Saga 编排器（如果启用）
-- [ ] 12.3 在 `Start()` 中启动 Saga 恢复和 WAL 清理
-- [ ] 12.4 在 `Stop()` 中优雅关闭 Saga 编排器
-- [ ] 12.5 提供 `GetSagaOrchestrator()` 方法
-- [ ] 12.6 编写 Engine 集成测试
+- [x] 12.1 在 `pkg/engine/engine.go` 添加 `sagaOrchestrator` 字段
+- [x] 12.2 在 `New()` 中初始化 Saga 编排器（如果启用）
+- [x] 12.3 在 `Start()` 中启动 Saga 恢复和 WAL 清理
+- [x] 12.4 在 `Stop()` 中优雅关闭 Saga 编排器
+- [x] 12.5 提供 `GetSagaOrchestrator()` 方法
+- [x] 12.6 编写 Engine 集成测试
 
 ## 13. 主程序集成
 
