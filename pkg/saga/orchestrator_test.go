@@ -68,6 +68,47 @@ func TestSagaOrchestratorExecuteParallelSteps(t *testing.T) {
 	}
 }
 
+func TestSagaOrchestratorExecuteMixedGraph(t *testing.T) {
+	def, err := New("mixed").
+		Step("a", Action(func(context.Context, *StepContext) (any, error) {
+			return "a", nil
+		})).
+		Step("b", Action(func(context.Context, *StepContext) (any, error) {
+			return "b", nil
+		}), DependsOn("a")).
+		Step("c", Action(func(context.Context, *StepContext) (any, error) {
+			return "c", nil
+		}), DependsOn("a")).
+		Step("d", Action(func(ctx context.Context, stepCtx *StepContext) (any, error) {
+			if stepCtx.Results["b"] != "b" || stepCtx.Results["c"] != "c" {
+				t.Fatalf("expected mixed dependencies results, got b=%v c=%v", stepCtx.Results["b"], stepCtx.Results["c"])
+			}
+			return "d", nil
+		}), DependsOn("b", "c")).
+		Step("e", Action(func(ctx context.Context, stepCtx *StepContext) (any, error) {
+			if stepCtx.Results["d"] != "d" {
+				t.Fatalf("expected result from step d, got %#v", stepCtx.Results["d"])
+			}
+			return "e", nil
+		}), DependsOn("d")).
+		Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+
+	orchestrator := NewSagaOrchestrator()
+	instance, execErr := orchestrator.Execute(context.Background(), def, nil)
+	if execErr != nil {
+		t.Fatalf("Execute() error = %v", execErr)
+	}
+	if instance.State != SagaStateCompleted {
+		t.Fatalf("expected completed state, got %s", instance.State)
+	}
+	if len(instance.CompletedSteps) != 5 {
+		t.Fatalf("expected 5 completed steps, got %d", len(instance.CompletedSteps))
+	}
+}
+
 func TestSagaOrchestratorStepTimeoutTriggersCompensation(t *testing.T) {
 	var compensated bool
 

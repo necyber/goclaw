@@ -183,6 +183,40 @@ func TestCompensationContextInjection(t *testing.T) {
 	}
 }
 
+func TestCompensationSkipPolicyOnStep(t *testing.T) {
+	compensated := false
+
+	def, err := New("comp-skip-step").
+		Step("a",
+			Action(func(context.Context, *StepContext) (any, error) { return "a", nil }),
+			Compensate(func(context.Context, *CompensationContext) error {
+				compensated = true
+				return nil
+			}),
+			WithStepCompensationPolicy(SkipCompensate),
+		).
+		Step("b",
+			Action(func(context.Context, *StepContext) (any, error) { return nil, errors.New("fail-b") }),
+			DependsOn("a"),
+		).
+		Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+
+	orchestrator := NewSagaOrchestrator()
+	instance, execErr := orchestrator.Execute(context.Background(), def, nil)
+	if execErr == nil {
+		t.Fatal("expected execution error")
+	}
+	if instance.State != SagaStateCompensated {
+		t.Fatalf("expected compensated state, got %s", instance.State)
+	}
+	if compensated {
+		t.Fatal("expected compensation function to be skipped")
+	}
+}
+
 func TestIdempotencyUtilities(t *testing.T) {
 	store := NewInMemoryIdempotencyStore()
 	key := CompensationIdempotencyKey("saga-1", "step-a")
