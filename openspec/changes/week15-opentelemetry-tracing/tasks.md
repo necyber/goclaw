@@ -58,9 +58,9 @@
 
 ## 7. 可观测性关联
 
-- [ ] 7.1 在日志上下文中补充 trace_id/span_id 关联字段（存在 span 时）
-- [ ] 7.2 评估并补充 metrics exemplar/trace 关联点（后端支持时启用）
-- [ ] 7.3 补充日志与指标关联测试（trace 上下文存在/缺失）
+- [x] 7.1 在日志上下文中补充 trace_id/span_id 关联字段（存在 span 时）
+- [x] 7.2 评估并补充 metrics exemplar/trace 关联点（后端支持时启用）
+- [x] 7.3 补充日志与指标关联测试（trace 上下文存在/缺失）
 
 ## 8. 文档更新
 

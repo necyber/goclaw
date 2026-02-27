@@ -5,6 +5,8 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+
+	"go.opentelemetry.io/otel/trace"
 )
 
 func TestParseLevel(t *testing.T) {
@@ -271,5 +273,39 @@ func TestGetWriter(t *testing.T) {
 				t.Error("expected nil closer")
 			}
 		})
+	}
+}
+
+func TestAppendTraceContextFields_WithSpan(t *testing.T) {
+	spanCtx := trace.NewSpanContext(trace.SpanContextConfig{
+		TraceID:    trace.TraceID{1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16},
+		SpanID:     trace.SpanID{1, 2, 3, 4, 5, 6, 7, 8},
+		TraceFlags: trace.FlagsSampled,
+	})
+	ctx := trace.ContextWithSpanContext(context.Background(), spanCtx)
+
+	args := []any{"key", "value"}
+	got := appendTraceContextFields(ctx, args...)
+	if len(got) != 6 {
+		t.Fatalf("expected 6 args after trace enrichment, got %d", len(got))
+	}
+
+	if got[2] != "trace_id" || got[3] != spanCtx.TraceID().String() {
+		t.Fatalf("expected trace_id field appended, got %v", got[2:4])
+	}
+	if got[4] != "span_id" || got[5] != spanCtx.SpanID().String() {
+		t.Fatalf("expected span_id field appended, got %v", got[4:6])
+	}
+}
+
+func TestAppendTraceContextFields_WithoutSpan(t *testing.T) {
+	args := []any{"key", "value"}
+
+	got := appendTraceContextFields(context.Background(), args...)
+	if len(got) != len(args) {
+		t.Fatalf("expected args length %d, got %d", len(args), len(got))
+	}
+	if got[0] != args[0] || got[1] != args[1] {
+		t.Fatalf("expected args unchanged without span, got %v", got)
 	}
 }

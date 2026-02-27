@@ -7,6 +7,8 @@ import (
 	"log/slog"
 	"os"
 	"sync"
+
+	"go.opentelemetry.io/otel/trace"
 )
 
 // Level represents logging levels.
@@ -210,22 +212,22 @@ func (l *SlogLogger) Error(msg string, args ...any) {
 
 // DebugContext logs a debug message with context.
 func (l *SlogLogger) DebugContext(ctx context.Context, msg string, args ...any) {
-	l.logger.DebugContext(ctx, msg, args...)
+	l.logger.DebugContext(ctx, msg, appendTraceContextFields(ctx, args...)...)
 }
 
 // InfoContext logs an info message with context.
 func (l *SlogLogger) InfoContext(ctx context.Context, msg string, args ...any) {
-	l.logger.InfoContext(ctx, msg, args...)
+	l.logger.InfoContext(ctx, msg, appendTraceContextFields(ctx, args...)...)
 }
 
 // WarnContext logs a warning message with context.
 func (l *SlogLogger) WarnContext(ctx context.Context, msg string, args ...any) {
-	l.logger.WarnContext(ctx, msg, args...)
+	l.logger.WarnContext(ctx, msg, appendTraceContextFields(ctx, args...)...)
 }
 
 // ErrorContext logs an error message with context.
 func (l *SlogLogger) ErrorContext(ctx context.Context, msg string, args ...any) {
-	l.logger.ErrorContext(ctx, msg, args...)
+	l.logger.ErrorContext(ctx, msg, appendTraceContextFields(ctx, args...)...)
 }
 
 // With returns a new Logger with the given attributes.
@@ -324,4 +326,18 @@ func WarnContext(ctx context.Context, msg string, args ...any) {
 
 func ErrorContext(ctx context.Context, msg string, args ...any) {
 	global.ErrorContext(ctx, msg, args...)
+}
+
+func appendTraceContextFields(ctx context.Context, args ...any) []any {
+	if ctx == nil {
+		return args
+	}
+	spanCtx := trace.SpanContextFromContext(ctx)
+	if !spanCtx.IsValid() {
+		return args
+	}
+	return append(args,
+		"trace_id", spanCtx.TraceID().String(),
+		"span_id", spanCtx.SpanID().String(),
+	)
 }

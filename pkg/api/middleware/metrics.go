@@ -1,6 +1,7 @@
 package middleware
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 	"strings"
@@ -12,6 +13,13 @@ type MetricsRecorder interface {
 	RecordHTTPRequest(method, path, status string, duration time.Duration)
 	IncActiveConnections()
 	DecActiveConnections()
+}
+
+// TraceAwareMetricsRecorder extends MetricsRecorder with context-aware recording.
+// Implementations can use trace context for exemplar correlation when supported.
+type TraceAwareMetricsRecorder interface {
+	MetricsRecorder
+	RecordHTTPRequestWithContext(ctx context.Context, method, path, status string, duration time.Duration)
 }
 
 // Metrics returns a middleware that records HTTP metrics.
@@ -40,7 +48,7 @@ func Metrics(recorder MetricsRecorder) func(http.Handler) http.Handler {
 					wrapped.statusCode = http.StatusInternalServerError
 					duration := time.Since(start)
 					path := normalizePath(r.URL.Path)
-					recorder.RecordHTTPRequest(r.Method, path, strconv.Itoa(wrapped.statusCode), duration)
+					recordHTTPRequest(recorder, r.Context(), r.Method, path, strconv.Itoa(wrapped.statusCode), duration)
 					panic(err) // Re-panic after recording
 				}
 			}()
@@ -49,9 +57,17 @@ func Metrics(recorder MetricsRecorder) func(http.Handler) http.Handler {
 
 			duration := time.Since(start)
 			path := normalizePath(r.URL.Path)
-			recorder.RecordHTTPRequest(r.Method, path, strconv.Itoa(wrapped.statusCode), duration)
+			recordHTTPRequest(recorder, r.Context(), r.Method, path, strconv.Itoa(wrapped.statusCode), duration)
 		})
 	}
+}
+
+func recordHTTPRequest(recorder MetricsRecorder, ctx context.Context, method, path, status string, duration time.Duration) {
+	if traceAwareRecorder, ok := recorder.(TraceAwareMetricsRecorder); ok {
+		traceAwareRecorder.RecordHTTPRequestWithContext(ctx, method, path, status, duration)
+		return
+	}
+	recorder.RecordHTTPRequest(method, path, status, duration)
 }
 
 // metricsResponseWriter wraps http.ResponseWriter to capture the status code.
