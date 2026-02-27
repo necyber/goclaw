@@ -2,6 +2,12 @@
 
 Goclaw provides production-grade monitoring with Prometheus metrics, Grafana dashboards, and pre-configured alert rules.
 
+Tracing references:
+
+- [OpenTelemetry Tracing Guide](./opentelemetry-tracing-guide.md)
+- [Tracing Architecture](./tracing-architecture.md)
+- [Tracing Runbook](./tracing-runbook.md)
+
 ## Quick Start
 
 ```bash
