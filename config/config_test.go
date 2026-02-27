@@ -454,6 +454,9 @@ func TestGRPCConfig_ToGRPCConfig(t *testing.T) {
 	}
 
 	// Check default values
+	if !grpcCfg.EnableTracing {
+		t.Error("expected gRPC tracing to be enabled by default")
+	}
 	if grpcCfg.MaxConnections != 1000 {
 		t.Errorf("expected 1000, got %d", grpcCfg.MaxConnections)
 	}
@@ -482,6 +485,16 @@ func TestGRPCConfig_ToGRPCConfig_WithTLS(t *testing.T) {
 	}
 	if grpcCfg.TLS.CertFile != "/path/to/cert.pem" {
 		t.Errorf("expected '/path/to/cert.pem', got '%s'", grpcCfg.TLS.CertFile)
+	}
+}
+
+func TestGRPCConfig_ToGRPCConfig_TracingToggle(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Server.GRPC.EnableTracing = false
+
+	grpcCfg := cfg.Server.GRPC.ToGRPCConfig()
+	if grpcCfg.EnableTracing {
+		t.Fatal("expected gRPC tracing to be disabled")
 	}
 }
 

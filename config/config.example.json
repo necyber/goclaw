@@ -9,6 +9,7 @@
     "port": 8080,
     "grpc": {
       "enabled": true,
+      "enable_tracing": true,
       "port": 9090,
       "max_connections": 1000,
       "max_recv_msg_size": 4194304,

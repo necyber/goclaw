@@ -10,7 +10,11 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/attribute"
+	otelcodes "go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/propagation"
+	sdktrace "go.opentelemetry.io/otel/sdk/trace"
+	"go.opentelemetry.io/otel/sdk/trace/tracetest"
 	"go.opentelemetry.io/otel/trace"
 	"go.opentelemetry.io/otel/trace/noop"
 	"google.golang.org/grpc"
@@ -270,6 +274,7 @@ func TestTracingUnaryInterceptor_StartsSpanAndInjects(t *testing.T) {
 	carrier := propagation.MapCarrier{}
 	otel.GetTextMapPropagator().Inject(parentCtx, carrier)
 	incoming := metadata.NewIncomingContext(context.Background(), metadata.New(map[string]string(carrier)))
+	incoming = metadata.NewOutgoingContext(incoming, metadata.Pairs("x-existing", "1"))
 
 	interceptor := TracingUnaryInterceptor()
 	_, err := interceptor(incoming, nil, &grpc.UnaryServerInfo{FullMethod: "/svc/m"}, func(ctx context.Context, req interface{}) (interface{}, error) {
@@ -279,6 +284,9 @@ func TestTracingUnaryInterceptor_StartsSpanAndInjects(t *testing.T) {
 		md, ok := metadata.FromOutgoingContext(ctx)
 		if !ok || len(md.Get("traceparent")) == 0 {
 			return nil, errors.New("traceparent not injected")
+		}
+		if got := md.Get("x-existing"); len(got) != 1 || got[0] != "1" {
+			return nil, errors.New("existing outgoing metadata not preserved")
 		}
 		return nil, nil
 	})
@@ -320,5 +328,75 @@ func TestTracingStreamInterceptor_StartsSpan(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestTracingUnaryInterceptor_MapsGRPCStatusCode(t *testing.T) {
+	prevProvider := otel.GetTracerProvider()
+	prevProp := otel.GetTextMapPropagator()
+	recorder := tracetest.NewSpanRecorder()
+	tp := sdktrace.NewTracerProvider(sdktrace.WithSpanProcessor(recorder))
+	t.Cleanup(func() {
+		otel.SetTracerProvider(prevProvider)
+		otel.SetTextMapPropagator(prevProp)
+		_ = tp.Shutdown(context.Background())
+	})
+
+	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(propagation.TraceContext{})
+
+	interceptor := TracingUnaryInterceptor()
+	_, err := interceptor(context.Background(), nil, &grpc.UnaryServerInfo{FullMethod: "/svc/m"}, func(ctx context.Context, req interface{}) (interface{}, error) {
+		return nil, status.Error(codes.NotFound, "missing")
+	})
+	if status.Code(err) != codes.NotFound {
+		t.Fatalf("expected NotFound error, got %v", status.Code(err))
+	}
+
+	spans := recorder.Ended()
+	if len(spans) != 1 {
+		t.Fatalf("expected 1 ended span, got %d", len(spans))
+	}
+
+	span := spans[0]
+	if got, want := span.Status().Code, otelcodes.Error; got != want {
+		t.Fatalf("span status code = %v, want %v", got, want)
+	}
+	if got, want := span.Status().Description, "NotFound"; got != want {
+		t.Fatalf("span status description = %q, want %q", got, want)
+	}
+
+	attrs := span.Attributes()
+	if !hasIntAttribute(attrs, "rpc.grpc.status_code", int(codes.NotFound)) {
+		t.Fatalf("expected rpc.grpc.status_code=%d attribute", codes.NotFound)
+	}
+}
+
+func hasIntAttribute(attrs []attribute.KeyValue, key string, value int) bool {
+	for _, attr := range attrs {
+		if string(attr.Key) == key && attr.Value.AsInt64() == int64(value) {
+			return true
+		}
+	}
+	return false
+}
+
+func TestDefaultChainWithTracingToggle(t *testing.T) {
+	withTracing := DefaultChainWithTracing(true)
+	withoutTracing := DefaultChainWithTracing(false)
+
+	if len(withTracing.unaryInterceptors) != len(withoutTracing.unaryInterceptors)+1 {
+		t.Fatalf(
+			"expected unary interceptor count +1 when tracing enabled, got with=%d without=%d",
+			len(withTracing.unaryInterceptors),
+			len(withoutTracing.unaryInterceptors),
+		)
+	}
+	if len(withTracing.streamInterceptors) != len(withoutTracing.streamInterceptors)+1 {
+		t.Fatalf(
+			"expected stream interceptor count +1 when tracing enabled, got with=%d without=%d",
+			len(withTracing.streamInterceptors),
+			len(withoutTracing.streamInterceptors),
+		)
 	}
 }

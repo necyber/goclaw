@@ -19,15 +19,15 @@
 
 ## 3. gRPC tracing 集成
 
-- [ ] 3.1 评估并调整 `pkg/grpc/interceptors/tracing.go` 的 span 语义与属性映射
-- [ ] 3.2 完善 unary tracing 拦截器（状态码、错误、方法属性）
-- [ ] 3.3 完善 stream tracing 拦截器（流生命周期与错误语义）
-- [ ] 3.4 验证 metadata 提取/注入链路（入站提取、出站注入）
-- [ ] 3.5 在拦截器链构建中支持 tracing 按配置启停
-- [ ] 3.6 在 gRPC 服务器启动流程中接入 tracing provider 初始化
-- [ ] 3.7 在 gRPC 关闭流程中接入 tracing flush/shutdown
-- [ ] 3.8 增加 gRPC tracing 启动诊断日志（不泄漏敏感头）
-- [ ] 3.9 增加 gRPC tracing 集成测试（启用、禁用、无效配置）
+- [x] 3.1 评估并调整 `pkg/grpc/interceptors/tracing.go` 的 span 语义与属性映射
+- [x] 3.2 完善 unary tracing 拦截器（状态码、错误、方法属性）
+- [x] 3.3 完善 stream tracing 拦截器（流生命周期与错误语义）
+- [x] 3.4 验证 metadata 提取/注入链路（入站提取、出站注入）
+- [x] 3.5 在拦截器链构建中支持 tracing 按配置启停
+- [x] 3.6 在 gRPC 服务器启动流程中接入 tracing provider 初始化
+- [x] 3.7 在 gRPC 关闭流程中接入 tracing flush/shutdown
+- [x] 3.8 增加 gRPC tracing 启动诊断日志（不泄漏敏感头）
+- [x] 3.9 增加 gRPC tracing 集成测试（启用、禁用、无效配置）
 
 ## 4. HTTP tracing 集成
 

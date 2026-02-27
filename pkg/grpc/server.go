@@ -10,6 +10,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/goclaw/goclaw/pkg/grpc/interceptors"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -214,6 +215,9 @@ func (s *Server) buildServerOptions() ([]grpc.ServerOption, error) {
 	}
 	if s.config.MaxSendMsgSize > 0 {
 		opts = append(opts, grpc.MaxSendMsgSize(s.config.MaxSendMsgSize))
+	}
+	if s.config.EnableTracing {
+		opts = append(opts, interceptors.NewChainBuilder().WithTracing().Build()...)
 	}
 
 	return opts, nil

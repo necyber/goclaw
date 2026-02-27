@@ -10,6 +10,7 @@ import (
 func (g *GRPCConfig) ToGRPCConfig() *grpcpkg.Config {
 	cfg := &grpcpkg.Config{
 		Address:           fmt.Sprintf(":%d", g.Port),
+		EnableTracing:     g.EnableTracing,
 		MaxConnections:    g.MaxConnections,
 		MaxRecvMsgSize:    g.MaxRecvMsgSize,
 		MaxSendMsgSize:    g.MaxSendMsgSize,

@@ -87,6 +87,10 @@ type GRPCConfig struct {
 	// Enabled enables the gRPC server.
 	Enabled bool `mapstructure:"enabled"`
 
+	// EnableTracing enables gRPC tracing interceptors.
+	// Tracing spans are produced only when top-level tracing is enabled.
+	EnableTracing bool `mapstructure:"enable_tracing"`
+
 	// Port is the gRPC server port.
 	Port int `mapstructure:"port" validate:"min=1,max=65535"`
 

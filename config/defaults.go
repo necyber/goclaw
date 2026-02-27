@@ -16,6 +16,7 @@ func DefaultConfig() *Config {
 			Port: 8080,
 			GRPC: GRPCConfig{
 				Enabled:           false,
+				EnableTracing:     true,
 				Port:              9090,
 				MaxConnections:    1000,
 				MaxRecvMsgSize:    4 * 1024 * 1024, // 4MB

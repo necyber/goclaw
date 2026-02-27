@@ -13,6 +13,7 @@ server:
 
   # gRPC configuration
   grpc:
+    enable_tracing: true
     port: 9090
     max_concurrent_streams: 1000
 

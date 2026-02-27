@@ -14,6 +14,7 @@ server:
   # gRPC configuration
   grpc:
     enabled: true
+    enable_tracing: true
     port: 9090
     max_concurrent_streams: 1000
     max_recv_msg_size: 4194304  # 4MB

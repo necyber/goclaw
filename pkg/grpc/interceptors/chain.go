@@ -104,7 +104,12 @@ func (b *ChainBuilder) Build() []grpc.ServerOption {
 // DefaultChain returns a chain with recommended interceptors in correct order:
 // recovery -> request_id -> auth -> authorization -> rate_limit -> validation -> logging -> metrics -> tracing
 func DefaultChain() *ChainBuilder {
-	return NewChainBuilder().
+	return DefaultChainWithTracing(true)
+}
+
+// DefaultChainWithTracing returns the default interceptor chain with tracing toggle.
+func DefaultChainWithTracing(enableTracing bool) *ChainBuilder {
+	builder := NewChainBuilder().
 		WithRecovery().
 		WithRequestID().
 		WithAuthentication().
@@ -112,6 +117,9 @@ func DefaultChain() *ChainBuilder {
 		WithRateLimit(100, 200). // 100 req/s, burst of 200
 		WithValidation().
 		WithLogging().
-		WithMetrics(nil). // nil will create default metrics
-		WithTracing()
+		WithMetrics(nil) // nil will create default metrics
+	if enableTracing {
+		builder.WithTracing()
+	}
+	return builder
 }

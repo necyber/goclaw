@@ -10,6 +10,9 @@ type Config struct {
 	// Address is the server listening address (e.g., ":9090")
 	Address string
 
+	// EnableTracing enables tracing interceptors in gRPC server chains.
+	EnableTracing bool
+
 	// TLS configuration
 	TLS *TLSConfig
 
@@ -78,6 +81,7 @@ type KeepaliveConfig struct {
 func DefaultConfig() *Config {
 	return &Config{
 		Address:           ":9090",
+		EnableTracing:     true,
 		MaxConnections:    1000,
 		MaxRecvMsgSize:    4 * 1024 * 1024, // 4MB
 		MaxSendMsgSize:    4 * 1024 * 1024, // 4MB

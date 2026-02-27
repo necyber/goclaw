@@ -43,6 +43,7 @@ import (
 	"github.com/goclaw/goclaw/pkg/storage"
 	badgerstorage "github.com/goclaw/goclaw/pkg/storage/badger"
 	memstorage "github.com/goclaw/goclaw/pkg/storage/memory"
+	tracingpkg "github.com/goclaw/goclaw/pkg/telemetry/tracing"
 	"github.com/goclaw/goclaw/pkg/version"
 
 	dgbadger "github.com/dgraph-io/badger/v4"
@@ -111,6 +112,12 @@ func main() {
 	// Create root context with cancellation
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
+
+	tracingShutdown, err := initGRPCTracing(ctx, cfg, log)
+	if err != nil {
+		log.Error("Failed to initialize gRPC tracing", "error", err)
+		os.Exit(1)
+	}
 
 	// Setup graceful shutdown
 	sigChan := make(chan os.Signal, 1)
@@ -317,6 +324,7 @@ func main() {
 	var grpcServer *grpcpkg.Server
 	if cfg.Server.GRPC.Enabled {
 		grpcCfg := cfg.Server.GRPC.ToGRPCConfig()
+		grpcCfg.EnableTracing = cfg.Server.GRPC.EnableTracing && cfg.Tracing.Enabled
 		grpcServer, err = grpcpkg.New(grpcCfg)
 		if err != nil {
 			log.Error("Failed to create gRPC server", "error", err)
@@ -382,6 +390,9 @@ func main() {
 		if err := grpcServer.Stop(shutdownCtx); err != nil {
 			log.Error("Error shutting down gRPC server", "error", err)
 		}
+	}
+	if err := shutdownTracing(tracingShutdown, cfg.Tracing.Timeout, log); err != nil {
+		log.Error("Error shutting down gRPC tracing", "error", err)
 	}
 
 	// Stop the engine gracefully.
@@ -476,6 +487,99 @@ func initializeSignalBus(cfg *config.Config, redisClient redis.UniversalClient, 
 		bufferSize = cfg.Signal.BufferSize
 	}
 	return signalpkg.NewLocalBus(bufferSize), "local"
+}
+
+func initGRPCTracing(
+	ctx context.Context,
+	cfg *config.Config,
+	log logger.Logger,
+) (func(context.Context) error, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("config cannot be nil")
+	}
+	if !cfg.Server.GRPC.Enabled {
+		return func(context.Context) error { return nil }, nil
+	}
+
+	tracingCfg := cfg.Tracing
+	tracingCfg.Enabled = cfg.Tracing.Enabled && cfg.Server.GRPC.EnableTracing
+
+	shutdown, err := tracingpkg.Init(ctx, tracingCfg, cfg.App.Name, cfg.App.Version)
+	if err != nil {
+		return nil, fmt.Errorf("initialize tracing provider: %w", err)
+	}
+
+	if log != nil {
+		logGRPCTracingStartup(log, cfg, tracingCfg)
+	}
+
+	return shutdown, nil
+}
+
+func shutdownTracing(
+	shutdown func(context.Context) error,
+	timeout time.Duration,
+	log logger.Logger,
+) error {
+	if shutdown == nil {
+		return nil
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), resolveTracingShutdownTimeout(timeout))
+	defer cancel()
+
+	if log != nil {
+		log.Info("Shutting down tracing provider", "timeout", resolveTracingShutdownTimeout(timeout).String())
+	}
+
+	return shutdown(ctx)
+}
+
+func resolveTracingShutdownTimeout(timeout time.Duration) time.Duration {
+	if timeout > 0 {
+		return timeout
+	}
+	return 5 * time.Second
+}
+
+func logGRPCTracingStartup(log logger.Logger, cfg *config.Config, tracingCfg config.TracingConfig) {
+	if log == nil || cfg == nil {
+		return
+	}
+
+	if !tracingCfg.Enabled {
+		reason := "tracing.disabled"
+		if cfg.Tracing.Enabled && !cfg.Server.GRPC.EnableTracing {
+			reason = "server.grpc.enable_tracing=false"
+		}
+		log.Info("gRPC tracing disabled",
+			"enabled", false,
+			"reason", reason,
+		)
+		return
+	}
+
+	log.Info("gRPC tracing enabled",
+		"enabled", true,
+		"exporter", tracingCfg.Exporter,
+		"endpoint", summarizeTracingEndpoint(tracingCfg.Endpoint),
+		"sampler", tracingCfg.Sampler,
+		"sample_rate", tracingCfg.SampleRate,
+	)
+}
+
+func summarizeTracingEndpoint(endpoint string) string {
+	raw := strings.TrimSpace(endpoint)
+	if raw == "" {
+		return ""
+	}
+	if parts := strings.SplitN(raw, "://", 2); len(parts) == 2 {
+		raw = parts[1]
+	}
+	if idx := strings.Index(raw, "/"); idx >= 0 {
+		raw = raw[:idx]
+	}
+	return raw
 }
 
 type runtimeEventBroadcaster struct {

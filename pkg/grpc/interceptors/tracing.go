@@ -10,16 +10,19 @@ import (
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
+
+const grpcTracerName = "goclaw.grpc"
 
 // TracingUnaryInterceptor adds distributed tracing for unary RPCs.
 func TracingUnaryInterceptor() grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{}, info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 		ctx = extractTraceContext(ctx)
 
-		tracer := otel.Tracer("goclaw.grpc")
+		tracer := otel.Tracer(grpcTracerName)
 		ctx, span := tracer.Start(ctx, info.FullMethod, trace.WithSpanKind(trace.SpanKindServer))
 		defer span.End()
 
@@ -36,11 +39,16 @@ func TracingUnaryInterceptor() grpc.UnaryServerInterceptor {
 func TracingStreamInterceptor() grpc.StreamServerInterceptor {
 	return func(srv interface{}, ss grpc.ServerStream, info *grpc.StreamServerInfo, handler grpc.StreamHandler) error {
 		ctx := extractTraceContext(ss.Context())
-		tracer := otel.Tracer("goclaw.grpc")
+		tracer := otel.Tracer(grpcTracerName)
 		ctx, span := tracer.Start(ctx, info.FullMethod, trace.WithSpanKind(trace.SpanKindServer))
 		defer span.End()
 
-		span.SetAttributes(methodAttributes(info.FullMethod)...)
+		attrs := methodAttributes(info.FullMethod)
+		attrs = append(attrs,
+			attribute.Bool("rpc.grpc.is_client_stream", info.IsClientStream),
+			attribute.Bool("rpc.grpc.is_server_stream", info.IsServerStream),
+		)
+		span.SetAttributes(attrs...)
 		ctx = injectTraceContext(ctx)
 
 		wrapped := &wrappedStream{ServerStream: ss, ctx: ctx}
@@ -51,24 +59,35 @@ func TracingStreamInterceptor() grpc.StreamServerInterceptor {
 }
 
 func extractTraceContext(ctx context.Context) context.Context {
-	md, _ := metadata.FromIncomingContext(ctx)
+	md, ok := metadata.FromIncomingContext(ctx)
+	if !ok {
+		return ctx
+	}
 	return otel.GetTextMapPropagator().Extract(ctx, metadataCarrier(md))
 }
 
 func injectTraceContext(ctx context.Context) context.Context {
-	md := metadata.New(nil)
+	md, ok := metadata.FromOutgoingContext(ctx)
+	if ok {
+		md = md.Copy()
+	} else {
+		md = metadata.New(nil)
+	}
 	otel.GetTextMapPropagator().Inject(ctx, metadataCarrier(md))
 	return metadata.NewOutgoingContext(ctx, md)
 }
 
 func recordSpanResult(span trace.Span, err error) {
+	code := codes.OK
 	if err == nil {
+		span.SetAttributes(attribute.Int("rpc.grpc.status_code", int(code)))
 		span.SetStatus(otelcodes.Ok, "ok")
 		return
 	}
+	code = status.Code(err)
 	span.RecordError(err)
-	st := status.Code(err)
-	span.SetStatus(otelcodes.Error, st.String())
+	span.SetAttributes(attribute.Int("rpc.grpc.status_code", int(code)))
+	span.SetStatus(otelcodes.Error, code.String())
 }
 
 func methodAttributes(fullMethod string) []attribute.KeyValue {

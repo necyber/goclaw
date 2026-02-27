@@ -560,3 +560,60 @@ func TestRegisterGRPCServices_Success(t *testing.T) {
 		t.Fatalf("registerGRPCServices() error = %v", err)
 	}
 }
+
+func TestInitGRPCTracing_DisabledByConfig(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Server.GRPC.Enabled = true
+	cfg.Server.GRPC.EnableTracing = false
+	cfg.Tracing.Enabled = true
+
+	log := logger.New(&logger.Config{
+		Level:  logger.InfoLevel,
+		Format: "json",
+		Output: "stdout",
+	})
+
+	shutdown, err := initGRPCTracing(context.Background(), cfg, log)
+	if err != nil {
+		t.Fatalf("initGRPCTracing() error = %v", err)
+	}
+	if shutdown == nil {
+		t.Fatal("expected non-nil shutdown function")
+	}
+	if err := shutdown(context.Background()); err != nil {
+		t.Fatalf("shutdown() error = %v", err)
+	}
+}
+
+func TestInitGRPCTracing_InvalidConfig(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Server.GRPC.Enabled = true
+	cfg.Server.GRPC.EnableTracing = true
+	cfg.Tracing.Enabled = true
+	cfg.Tracing.Endpoint = ""
+
+	_, err := initGRPCTracing(context.Background(), cfg, nil)
+	if err == nil {
+		t.Fatal("expected initGRPCTracing to fail for invalid tracing config")
+	}
+}
+
+func TestSummarizeTracingEndpoint(t *testing.T) {
+	tests := []struct {
+		name     string
+		endpoint string
+		want     string
+	}{
+		{name: "raw host", endpoint: "localhost:4317", want: "localhost:4317"},
+		{name: "with scheme and path", endpoint: "http://collector:4317/v1/traces", want: "collector:4317"},
+		{name: "with spaces", endpoint: "  https://collector.internal:4318/otel  ", want: "collector.internal:4318"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			if got := summarizeTracingEndpoint(tt.endpoint); got != tt.want {
+				t.Fatalf("summarizeTracingEndpoint() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
