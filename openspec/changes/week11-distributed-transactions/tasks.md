@@ -132,12 +132,12 @@
 
 ## 13. 主程序集成
 
-- [ ] 13.1 在 `cmd/goclaw/main.go` 初始化 Saga 编排器
-- [ ] 13.2 传递 Saga 编排器到 Engine
-- [ ] 13.3 传递 Saga 编排器到 API Server 和 gRPC Server
-- [ ] 13.4 在 shutdown 时优雅关闭 Saga 编排器
-- [ ] 13.5 添加 Saga 启动日志
-- [ ] 13.6 测试完整启动和关闭流程
+- [x] 13.1 在 `cmd/goclaw/main.go` 初始化 Saga 编排器
+- [x] 13.2 传递 Saga 编排器到 Engine
+- [x] 13.3 传递 Saga 编排器到 API Server 和 gRPC Server
+- [x] 13.4 在 shutdown 时优雅关闭 Saga 编排器
+- [x] 13.5 添加 Saga 启动日志
+- [x] 13.6 测试完整启动和关闭流程
 
 ## 14. 指标集成
 

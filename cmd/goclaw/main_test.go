@@ -1,7 +1,9 @@
 package main
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"os"
@@ -11,8 +13,10 @@ import (
 	"github.com/goclaw/goclaw/config"
 	"github.com/goclaw/goclaw/pkg/api"
 	"github.com/goclaw/goclaw/pkg/api/handlers"
+	"github.com/goclaw/goclaw/pkg/api/models"
 	"github.com/goclaw/goclaw/pkg/engine"
 	grpcpkg "github.com/goclaw/goclaw/pkg/grpc"
+	grpchandlers "github.com/goclaw/goclaw/pkg/grpc/handlers"
 	grpcstreaming "github.com/goclaw/goclaw/pkg/grpc/streaming"
 	"github.com/goclaw/goclaw/pkg/logger"
 	signalpkg "github.com/goclaw/goclaw/pkg/signal"
@@ -197,6 +201,109 @@ func TestServerStartup(t *testing.T) {
 
 	if err := httpServer.Shutdown(shutdownCtx); err != nil {
 		t.Errorf("Failed to shutdown server: %v", err)
+	}
+}
+
+func TestServerStartup_WithSagaEnabled(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.App.Name = "test-saga"
+	cfg.Server.Host = "127.0.0.1"
+	cfg.Server.Port = 18082
+	cfg.Storage.Type = "memory"
+	cfg.Storage.Badger.Path = t.TempDir()
+	cfg.Saga.Enabled = true
+	cfg.Saga.WALCleanupInterval = 50 * time.Millisecond
+	cfg.Saga.WALRetention = 24 * time.Hour
+
+	log := logger.New(&logger.Config{
+		Level:  logger.InfoLevel,
+		Format: "json",
+		Output: "stdout",
+	})
+
+	ctx := context.Background()
+	store := &mockStorage{}
+	eng, err := engine.New(cfg, log, store)
+	if err != nil {
+		t.Fatalf("Failed to create engine: %v", err)
+	}
+	if err := eng.Start(ctx); err != nil {
+		t.Fatalf("Failed to start engine: %v", err)
+	}
+	defer eng.Stop(ctx)
+
+	sagaOrchestrator := eng.GetSagaOrchestrator()
+	if sagaOrchestrator == nil {
+		t.Fatal("expected saga orchestrator to be initialized")
+	}
+
+	sagaHandler := handlers.NewSagaHandler(
+		sagaOrchestrator,
+		eng.GetSagaCheckpointStore(),
+		eng.GetSagaRecoveryManager(),
+		log,
+	)
+	workflowHandler := handlers.NewWorkflowHandler(eng, log)
+	healthHandler := handlers.NewHealthHandler(eng)
+	wsHandler := handlers.NewWebSocketHandler(log, handlers.WebSocketConfig{
+		AllowedOrigins: cfg.Server.CORS.AllowedOrigins,
+		MaxConnections: 10,
+		PingInterval:   30 * time.Second,
+		PongTimeout:    10 * time.Second,
+	})
+	defer wsHandler.Close()
+
+	apiHandlers := &api.Handlers{
+		Workflow:  workflowHandler,
+		Health:    healthHandler,
+		Saga:      sagaHandler,
+		WebSocket: wsHandler,
+	}
+	httpServer := api.NewHTTPServer(cfg, log, apiHandlers)
+
+	serverErrChan := make(chan error, 1)
+	go func() {
+		if err := httpServer.Start(); err != nil && err != http.ErrServerClosed {
+			serverErrChan <- err
+		}
+	}()
+	time.Sleep(100 * time.Millisecond)
+
+	reqBody := models.SagaSubmitRequest{
+		Name: "startup-saga",
+		Steps: []models.SagaStepRequest{
+			{ID: "a"},
+		},
+	}
+	payload, _ := json.Marshal(reqBody)
+	resp, err := http.Post(
+		fmt.Sprintf("http://127.0.0.1:%d/api/v1/sagas", cfg.Server.Port),
+		"application/json",
+		bytes.NewReader(payload),
+	)
+	if err != nil {
+		t.Fatalf("Failed to submit saga: %v", err)
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusCreated {
+		t.Fatalf("Submit saga status = %d, want %d", resp.StatusCode, http.StatusCreated)
+	}
+
+	grpcServer, err := grpcpkg.New(cfg.Server.GRPC.ToGRPCConfig())
+	if err != nil {
+		t.Fatalf("failed to create grpc server: %v", err)
+	}
+	bus := signalpkg.NewLocalBus(16)
+	defer bus.Close()
+	sagaSvc := grpchandlers.NewSagaServiceServer(sagaOrchestrator, eng.GetSagaCheckpointStore())
+	if err := registerGRPCServices(grpcServer, eng, bus, grpcstreaming.NewSubscriberRegistry(), sagaSvc); err != nil {
+		t.Fatalf("registerGRPCServices() error = %v", err)
+	}
+
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	if err := httpServer.Shutdown(shutdownCtx); err != nil {
+		t.Fatalf("Failed to shutdown server: %v", err)
 	}
 }
 
@@ -427,7 +534,7 @@ func TestRegisterGRPCServices_MissingWiring(t *testing.T) {
 		t.Fatalf("failed to create engine: %v", err)
 	}
 
-	err = registerGRPCServices(grpcServer, eng, signalpkg.NewLocalBus(16), nil)
+	err = registerGRPCServices(grpcServer, eng, signalpkg.NewLocalBus(16), nil, nil)
 	if err == nil {
 		t.Fatal("expected missing streaming registry error")
 	}
@@ -449,7 +556,7 @@ func TestRegisterGRPCServices_Success(t *testing.T) {
 	bus := signalpkg.NewLocalBus(16)
 	defer bus.Close()
 
-	if err := registerGRPCServices(grpcServer, eng, bus, grpcstreaming.NewSubscriberRegistry()); err != nil {
+	if err := registerGRPCServices(grpcServer, eng, bus, grpcstreaming.NewSubscriberRegistry(), nil); err != nil {
 		t.Fatalf("registerGRPCServices() error = %v", err)
 	}
 }

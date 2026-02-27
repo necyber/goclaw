@@ -268,6 +268,27 @@ func main() {
 		os.Exit(1)
 	}
 
+	var sagaHandler *handlers.SagaHandler
+	var sagaGRPCService *grpchandlers.SagaServiceServer
+	if cfg.Saga.Enabled {
+		sagaOrchestrator := eng.GetSagaOrchestrator()
+		if sagaOrchestrator == nil {
+			log.Warn("Saga is enabled but orchestrator is unavailable")
+		} else {
+			sagaCheckpointStore := eng.GetSagaCheckpointStore()
+			sagaRecoveryManager := eng.GetSagaRecoveryManager()
+			sagaHandler = handlers.NewSagaHandler(sagaOrchestrator, sagaCheckpointStore, sagaRecoveryManager, log)
+			sagaGRPCService = grpchandlers.NewSagaServiceServer(sagaOrchestrator, sagaCheckpointStore)
+			log.Info("Saga orchestrator initialized",
+				"max_concurrent", cfg.Saga.MaxConcurrent,
+				"wal_sync_mode", cfg.Saga.WALSyncMode,
+				"compensation_policy", cfg.Saga.CompensationPolicy,
+			)
+		}
+	} else {
+		log.Info("Saga orchestrator disabled")
+	}
+
 	// Initialize HTTP server with handlers
 	workflowHandler := handlers.NewWorkflowHandler(eng, log)
 	healthHandler := handlers.NewHealthHandler(eng)
@@ -276,6 +297,7 @@ func main() {
 		Workflow:  workflowHandler,
 		Health:    healthHandler,
 		Memory:    memoryHandler,
+		Saga:      sagaHandler,
 		Metrics:   metricsManager,
 		WebSocket: wsHandler,
 	}
@@ -300,7 +322,7 @@ func main() {
 			log.Error("Failed to create gRPC server", "error", err)
 			os.Exit(1)
 		}
-		if err := registerGRPCServices(grpcServer, eng, signalBus, streamingRegistry); err != nil {
+		if err := registerGRPCServices(grpcServer, eng, signalBus, streamingRegistry, sagaGRPCService); err != nil {
 			log.Error("Failed to register gRPC services", "error", err)
 			os.Exit(1)
 		}
@@ -544,6 +566,7 @@ func registerGRPCServices(
 	eng *engine.Engine,
 	signalBus signalpkg.Bus,
 	streamingRegistry *grpcstreaming.SubscriberRegistry,
+	sagaSvc *grpchandlers.SagaServiceServer,
 ) error {
 	if grpcServer == nil {
 		return fmt.Errorf("grpc server is nil")
@@ -568,7 +591,9 @@ func registerGRPCServices(
 	streamingSvc := grpchandlers.NewStreamingServiceServer(streamingRegistry)
 	adminSvc := grpchandlers.NewAdminServiceServer(engineAdapter)
 	signalSvc := grpchandlers.NewSignalServiceServer(signalBus)
-	sagaSvc := grpchandlers.NewSagaServiceServer(nil, nil)
+	if sagaSvc == nil {
+		sagaSvc = grpchandlers.NewSagaServiceServer(nil, nil)
+	}
 
 	grpcServer.RegisterService(&pb.WorkflowService_ServiceDesc, workflowSvc)
 	grpcServer.RegisterService(&pb.BatchService_ServiceDesc, batchSvc)

@@ -510,6 +510,16 @@ func (e *Engine) GetSagaOrchestrator() *saga.SagaOrchestrator {
 	return e.sagaOrchestrator
 }
 
+// GetSagaCheckpointStore returns saga checkpoint storage when enabled.
+func (e *Engine) GetSagaCheckpointStore() saga.CheckpointStore {
+	return e.sagaCheckpointStore
+}
+
+// GetSagaRecoveryManager returns saga recovery manager when enabled.
+func (e *Engine) GetSagaRecoveryManager() *saga.RecoveryManager {
+	return e.sagaRecoveryManager
+}
+
 func (e *Engine) initializeSagaRuntime() error {
 	sagaPath := filepath.Join(e.cfg.Storage.Badger.Path, "saga")
 	opts := dgbadger.DefaultOptions(sagaPath)
