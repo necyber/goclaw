@@ -6,6 +6,9 @@ import (
 	"time"
 
 	"github.com/goclaw/goclaw/pkg/dag"
+	"go.opentelemetry.io/otel/attribute"
+	otelcodes "go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // taskRunner wraps a dag.Task to implement the lane.Task interface,
@@ -41,10 +44,22 @@ func (r *taskRunner) Lane() string {
 
 // Execute runs the task function with retry logic and updates the StateTracker.
 func (r *taskRunner) Execute(ctx context.Context) error {
+	ctx, span := runtimeTracer().Start(ctx, spanTaskRun)
+	span.SetAttributes(
+		attribute.String("task.id", r.task.ID),
+		attribute.String("lane.name", r.Lane()),
+		attribute.Int("task.max_retries", r.task.Retries),
+	)
+	defer span.End()
+
 	maxAttempts := r.task.Retries + 1
 	var lastErr error
 
 	for attempt := 0; attempt < maxAttempts; attempt++ {
+		span.AddEvent(
+			"task.attempt",
+			trace.WithAttributes(attribute.Int("task.attempt", attempt+1)),
+		)
 		if attempt > 0 {
 			r.tracker.SetState(r.task.ID, TaskStateRetrying)
 		}
@@ -69,6 +84,7 @@ func (r *taskRunner) Execute(ctx context.Context) error {
 				break
 			}
 			r.tracker.SetState(r.task.ID, TaskStateCompleted)
+			span.SetStatus(otelcodes.Ok, "completed")
 			return nil
 		}
 
@@ -91,8 +107,12 @@ func (r *taskRunner) Execute(ctx context.Context) error {
 done:
 	if errors.Is(lastErr, context.Canceled) || errors.Is(lastErr, context.DeadlineExceeded) || ctx.Err() != nil {
 		r.tracker.SetState(r.task.ID, TaskStateCancelled)
+		span.RecordError(lastErr)
+		span.SetStatus(otelcodes.Error, "cancelled")
 		return &TaskExecutionError{TaskID: r.task.ID, Retries: r.task.Retries, Cause: lastErr}
 	}
 	r.tracker.SetFailed(r.task.ID, lastErr, r.task.Retries)
+	span.RecordError(lastErr)
+	span.SetStatus(otelcodes.Error, "failed")
 	return &TaskExecutionError{TaskID: r.task.ID, Retries: r.task.Retries, Cause: lastErr}
 }

@@ -8,6 +8,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/attribute"
+	otelcodes "go.opentelemetry.io/otel/codes"
 )
 
 // ErrSagaNotFound is returned when saga instance cannot be located.
@@ -108,20 +110,32 @@ func (o *SagaOrchestrator) ExecuteWithID(
 	definition *SagaDefinition,
 	input any,
 ) (*SagaInstance, error) {
+	ctx, sagaSpan := sagaTracer().Start(ctx, spanSagaExecuteForward)
+	sagaSpan.SetAttributes(attribute.String("saga.id", sagaID))
+	if definition != nil {
+		sagaSpan.SetAttributes(attribute.String("saga.definition", definition.Name))
+	}
+	defer sagaSpan.End()
+
 	startedAt := time.Now()
 	o.metrics.IncActiveSagas()
 	defer o.metrics.DecActiveSagas()
 
 	if definition == nil {
+		sagaSpan.SetStatus(otelcodes.Error, "definition_nil")
 		return nil, fmt.Errorf("saga definition cannot be nil")
 	}
 	if err := definition.Validate(); err != nil {
+		sagaSpan.RecordError(err)
+		sagaSpan.SetStatus(otelcodes.Error, "definition_invalid")
 		return nil, err
 	}
 
 	select {
 	case o.sema <- struct{}{}:
 	case <-ctx.Done():
+		sagaSpan.RecordError(ctx.Err())
+		sagaSpan.SetStatus(otelcodes.Error, "cancelled")
 		return nil, ctx.Err()
 	}
 	defer func() { <-o.sema }()
@@ -189,17 +203,20 @@ func (o *SagaOrchestrator) ExecuteWithID(
 	}
 
 	if execErr != nil {
+		sagaSpan.RecordError(execErr)
 		instance.SetFailure(failedStep, execErr)
 		switch definition.Policy {
 		case ManualCompensate:
 			_ = instance.TransitionTo(SagaStatePendingCompensation)
 			o.saveInstance(instance)
 			o.recordExecutionMetrics(instance, startedAt)
+			sagaSpan.SetStatus(otelcodes.Error, SagaStatePendingCompensation.String())
 			return instance, execErr
 		case SkipCompensate:
 			_ = instance.TransitionTo(SagaStateCompensationFailed)
 			o.saveInstance(instance)
 			o.recordExecutionMetrics(instance, startedAt)
+			sagaSpan.SetStatus(otelcodes.Error, SagaStateCompensationFailed.String())
 			return instance, execErr
 		default:
 			_ = instance.TransitionTo(SagaStateCompensating)
@@ -208,20 +225,26 @@ func (o *SagaOrchestrator) ExecuteWithID(
 				instance.SetFailure(failedStep, compErr)
 				o.saveInstance(instance)
 				o.recordExecutionMetrics(instance, startedAt)
+				sagaSpan.RecordError(compErr)
+				sagaSpan.SetStatus(otelcodes.Error, SagaStateCompensationFailed.String())
 				return instance, compErr
 			}
 			_ = instance.TransitionTo(SagaStateCompensated)
 			o.saveInstance(instance)
 			o.recordExecutionMetrics(instance, startedAt)
+			sagaSpan.SetStatus(otelcodes.Error, SagaStateCompensated.String())
 			return instance, execErr
 		}
 	}
 
 	if err := instance.TransitionTo(SagaStateCompleted); err != nil {
+		sagaSpan.RecordError(err)
+		sagaSpan.SetStatus(otelcodes.Error, "transition_failed")
 		return nil, err
 	}
 	o.saveInstance(instance)
 	o.recordExecutionMetrics(instance, startedAt)
+	sagaSpan.SetStatus(otelcodes.Ok, SagaStateCompleted.String())
 	return instance, nil
 }
 
@@ -274,13 +297,25 @@ func (o *SagaOrchestrator) ResumeFromCheckpoint(
 	checkpoint *Checkpoint,
 	input any,
 ) (*SagaInstance, error) {
+	ctx, recoverySpan := sagaTracer().Start(ctx, spanSagaRecoveryResume)
+	if checkpoint != nil {
+		recoverySpan.SetAttributes(
+			attribute.String("saga.id", checkpoint.SagaID),
+			attribute.String("saga.state", checkpoint.State.String()),
+		)
+	}
+	defer recoverySpan.End()
+
 	if definition == nil {
+		recoverySpan.SetStatus(otelcodes.Error, "definition_nil")
 		return nil, fmt.Errorf("saga definition cannot be nil")
 	}
 	if checkpoint == nil {
+		recoverySpan.SetStatus(otelcodes.Error, "checkpoint_nil")
 		return nil, fmt.Errorf("checkpoint cannot be nil")
 	}
 	if checkpoint.SagaID == "" {
+		recoverySpan.SetStatus(otelcodes.Error, "checkpoint_id_empty")
 		return nil, fmt.Errorf("checkpoint saga_id cannot be empty")
 	}
 
@@ -307,6 +342,12 @@ func (o *SagaOrchestrator) ResumeFromCheckpoint(
 		if resumed != nil {
 			o.recordExecutionMetrics(resumed, startedAt)
 		}
+		if err != nil {
+			recoverySpan.RecordError(err)
+			recoverySpan.SetStatus(otelcodes.Error, "resume_failed")
+		} else {
+			recoverySpan.SetStatus(otelcodes.Ok, "resumed")
+		}
 		return resumed, err
 	case SagaStateCompensating:
 		startedAt := time.Now()
@@ -319,15 +360,21 @@ func (o *SagaOrchestrator) ResumeFromCheckpoint(
 			instance.SetFailure(instance.FailedStep, err)
 			o.saveInstance(instance)
 			o.recordExecutionMetrics(instance, startedAt)
+			recoverySpan.RecordError(err)
+			recoverySpan.SetStatus(otelcodes.Error, SagaStateCompensationFailed.String())
 			return instance, err
 		}
 		if err := instance.TransitionTo(SagaStateCompensated); err != nil {
+			recoverySpan.RecordError(err)
+			recoverySpan.SetStatus(otelcodes.Error, "transition_failed")
 			return nil, err
 		}
 		o.saveInstance(instance)
 		o.recordExecutionMetrics(instance, startedAt)
+		recoverySpan.SetStatus(otelcodes.Ok, SagaStateCompensated.String())
 		return instance, nil
 	default:
+		recoverySpan.SetStatus(otelcodes.Ok, "noop")
 		return instance, nil
 	}
 }
@@ -410,11 +457,21 @@ func (o *SagaOrchestrator) executeStep(
 	resultsMu *sync.Mutex,
 	instanceMu *sync.Mutex,
 ) (any, error) {
+	ctx, stepSpan := sagaTracer().Start(ctx, spanSagaStepForward)
+	stepSpan.SetAttributes(
+		attribute.String("saga.id", instance.ID),
+		attribute.String("saga.definition", definition.Name),
+		attribute.String("saga.step.id", step.ID),
+	)
+	defer stepSpan.End()
+
 	if err := o.writeWAL(ctx, WALEntry{
 		SagaID: instance.ID,
 		StepID: step.ID,
 		Type:   WALEntryTypeStepStarted,
 	}); err != nil {
+		stepSpan.RecordError(err)
+		stepSpan.SetStatus(otelcodes.Error, "wal_write_failed")
 		return nil, err
 	}
 
@@ -447,6 +504,8 @@ func (o *SagaOrchestrator) executeStep(
 			Type:   WALEntryTypeStepFailed,
 			Data:   []byte(err.Error()),
 		})
+		stepSpan.RecordError(err)
+		stepSpan.SetStatus(otelcodes.Error, "step_failed")
 		return nil, err
 	}
 
@@ -455,6 +514,8 @@ func (o *SagaOrchestrator) executeStep(
 		StepID: step.ID,
 		Type:   WALEntryTypeStepCompleted,
 	}); err != nil {
+		stepSpan.RecordError(err)
+		stepSpan.SetStatus(otelcodes.Error, "wal_write_failed")
 		return nil, err
 	}
 
@@ -465,12 +526,15 @@ func (o *SagaOrchestrator) executeStep(
 
 	if o.checkpointer != nil {
 		if err := o.checkpointer.RecordStepCompletion(ctx, instance, step.ID, result); err != nil {
+			stepSpan.RecordError(err)
+			stepSpan.SetStatus(otelcodes.Error, "checkpoint_failed")
 			return nil, err
 		}
 	} else {
 		instance.MarkStepCompleted(step.ID, result)
 	}
 	o.saveInstance(instance)
+	stepSpan.SetStatus(otelcodes.Ok, "completed")
 
 	return result, nil
 }

@@ -3,10 +3,14 @@ package engine
 import (
 	"context"
 	"fmt"
+	"time"
 
 	"github.com/goclaw/goclaw/pkg/dag"
 	"github.com/goclaw/goclaw/pkg/lane"
 	"github.com/goclaw/goclaw/pkg/signal"
+	"go.opentelemetry.io/otel/attribute"
+	otelcodes "go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // Scheduler executes an ExecutionPlan layer by layer.
@@ -54,10 +58,19 @@ func (s *Scheduler) Schedule(ctx context.Context, plan *dag.ExecutionPlan, taskF
 	}
 
 	for layerIdx, layer := range plan.Layers {
+		layerCtx, layerSpan := runtimeTracer().Start(ctx, spanWorkflowLayer)
+		layerSpan.SetAttributes(
+			attribute.Int("workflow.layer_index", layerIdx),
+			attribute.Int("workflow.layer_size", len(layer)),
+		)
+
 		if ctx.Err() != nil {
 			for _, taskID := range layer {
 				s.tracker.SetState(taskID, TaskStateCancelled)
 			}
+			layerSpan.RecordError(ctx.Err())
+			layerSpan.SetStatus(otelcodes.Error, "cancelled")
+			layerSpan.End()
 			return ctx.Err()
 		}
 
@@ -89,17 +102,41 @@ func (s *Scheduler) Schedule(ctx context.Context, plan *dag.ExecutionPlan, taskF
 			runner := newTaskRunner(dagTask, s.tracker, fn)
 			s.tracker.SetState(taskID, TaskStateScheduled)
 
+			submitCtx, submitSpan := runtimeTracer().Start(layerCtx, spanTaskSchedule)
+			submitSpan.SetAttributes(
+				attribute.String("task.id", taskID),
+				attribute.String("lane.name", runner.Lane()),
+				attribute.Int("workflow.layer_index", layerIdx),
+			)
+			submittedAt := time.Now()
+
 			laneTask := lane.NewTaskFunc(taskID, runner.Lane(), runner.Priority(), func(_ context.Context) error {
-				taskCtx, cleanup := s.attachSignalChannel(ctx, taskID)
+				taskCtx, cleanup := s.attachSignalChannel(submitCtx, taskID)
 				if cleanup != nil {
 					defer cleanup()
 				}
-				err := runner.Execute(taskCtx)
+
+				waitCtx, waitSpan := runtimeTracer().Start(
+					taskCtx,
+					spanLaneWait,
+					trace.WithTimestamp(submittedAt),
+				)
+				waitSpan.SetAttributes(
+					attribute.String("task.id", taskID),
+					attribute.String("lane.name", runner.Lane()),
+				)
+				waitSpan.SetStatus(otelcodes.Ok, "ok")
+				waitSpan.End()
+
+				err := runner.Execute(waitCtx)
 				resultCh <- scheduledTaskResult{taskID: taskID, err: err}
 				return err
 			})
 
 			if err := s.laneManager.Submit(ctx, laneTask); err != nil {
+				submitSpan.RecordError(err)
+				submitSpan.SetStatus(otelcodes.Error, "submit_failed")
+				submitSpan.End()
 				s.tracker.SetFailed(taskID, err, dagTask.Retries)
 				for _, remainingTaskID := range layer[idx+1:] {
 					s.tracker.SetState(remainingTaskID, TaskStateCancelled)
@@ -107,6 +144,8 @@ func (s *Scheduler) Schedule(ctx context.Context, plan *dag.ExecutionPlan, taskF
 				firstErr = fmt.Errorf("lane submit failed for task %s: %w", taskID, err)
 				break
 			}
+			submitSpan.SetStatus(otelcodes.Ok, "submitted")
+			submitSpan.End()
 			submitted++
 		}
 
@@ -118,10 +157,15 @@ func (s *Scheduler) Schedule(ctx context.Context, plan *dag.ExecutionPlan, taskF
 		}
 
 		if firstErr != nil {
+			layerSpan.RecordError(firstErr)
+			layerSpan.SetStatus(otelcodes.Error, "layer_failed")
+			layerSpan.End()
 			return firstErr
 		}
 
 		s.logger.Debug("layer complete", "layer", layerIdx)
+		layerSpan.SetStatus(otelcodes.Ok, "completed")
+		layerSpan.End()
 	}
 
 	return nil

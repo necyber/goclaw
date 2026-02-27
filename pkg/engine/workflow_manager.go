@@ -12,6 +12,8 @@ import (
 	"github.com/goclaw/goclaw/pkg/dag"
 	"github.com/goclaw/goclaw/pkg/storage"
 	"github.com/google/uuid"
+	"go.opentelemetry.io/otel/attribute"
+	otelcodes "go.opentelemetry.io/otel/codes"
 )
 
 // SubmitWorkflowOptions configures workflow submit behavior.
@@ -57,7 +59,7 @@ func (e *Engine) SubmitWorkflowRuntime(ctx context.Context, req *models.Workflow
 		return e.workflowStateToResponse(wfState), nil
 	}
 
-	exec, err := e.startWorkflowExecution(wfState.ID, opts.TaskFns)
+	exec, err := e.startWorkflowExecution(ctx, wfState.ID, opts.TaskFns)
 	if err != nil {
 		if transitionErr := e.markWorkflowFailedFromPending(ctx, wfState.ID, err); transitionErr != nil {
 			e.logger.Error("failed to mark workflow failed after start error", "workflow_id", wfState.ID, "error", transitionErr)
@@ -117,7 +119,11 @@ func newWorkflowState(req *models.WorkflowRequest) *storage.WorkflowState {
 	}
 }
 
-func (e *Engine) startWorkflowExecution(workflowID string, taskFns map[string]func(context.Context) error) (*workflowExecution, error) {
+func (e *Engine) startWorkflowExecution(
+	parentCtx context.Context,
+	workflowID string,
+	taskFns map[string]func(context.Context) error,
+) (*workflowExecution, error) {
 	if _, exists := e.getExecution(workflowID); exists {
 		return nil, fmt.Errorf("workflow %s is already executing", workflowID)
 	}
@@ -130,7 +136,10 @@ func (e *Engine) startWorkflowExecution(workflowID string, taskFns map[string]fu
 		return nil, fmt.Errorf("workflow %s is not pending: %s", workflowID, wfState.Status)
 	}
 
-	execCtx, cancel := context.WithCancel(context.Background())
+	if parentCtx == nil {
+		parentCtx = context.Background()
+	}
+	execCtx, cancel := context.WithCancel(context.WithoutCancel(parentCtx))
 	exec := &workflowExecution{
 		workflowID: workflowID,
 		cancel:     cancel,
@@ -149,14 +158,26 @@ func (e *Engine) startWorkflowExecution(workflowID string, taskFns map[string]fu
 }
 
 func (e *Engine) runWorkflowExecution(ctx context.Context, exec *workflowExecution, taskFns map[string]func(context.Context) error) {
+	ctx, workflowSpan := runtimeTracer().Start(ctx, spanWorkflowExecute)
+	workflowSpan.SetAttributes(
+		attribute.String("workflow.id", exec.workflowID),
+		attribute.Int("workflow.task_count", len(exec.wfState.Tasks)),
+		attribute.String("workflow.mode", "runtime"),
+	)
+	defer workflowSpan.End()
+
 	wf := e.workflowFromState(exec.wfState, taskFns)
 
 	if err := e.transitionWorkflow(exec, workflowStatusScheduled, ""); err != nil {
+		workflowSpan.RecordError(err)
+		workflowSpan.SetStatus(otelcodes.Error, "schedule_transition_failed")
 		e.logger.Error("failed to transition workflow to scheduled", "workflow_id", exec.workflowID, "error", err)
 		_ = e.transitionWorkflow(exec, workflowStatusFailed, err.Error())
 		return
 	}
 	if err := e.transitionWorkflow(exec, workflowStatusRunning, ""); err != nil {
+		workflowSpan.RecordError(err)
+		workflowSpan.SetStatus(otelcodes.Error, "run_transition_failed")
 		e.logger.Error("failed to transition workflow to running", "workflow_id", exec.workflowID, "error", err)
 		_ = e.transitionWorkflow(exec, workflowStatusFailed, err.Error())
 		return
@@ -168,12 +189,16 @@ func (e *Engine) runWorkflowExecution(ctx context.Context, exec *workflowExecuti
 			t.Lane = defaultLaneName
 		}
 		if err := g.AddTask(t); err != nil {
+			workflowSpan.RecordError(err)
+			workflowSpan.SetStatus(otelcodes.Error, "compile_error")
 			_ = e.transitionWorkflow(exec, workflowStatusFailed, err.Error())
 			return
 		}
 	}
 	plan, err := g.Compile()
 	if err != nil {
+		workflowSpan.RecordError(err)
+		workflowSpan.SetStatus(otelcodes.Error, "compile_error")
 		_ = e.transitionWorkflow(exec, workflowStatusFailed, err.Error())
 		return
 	}
@@ -197,11 +222,15 @@ func (e *Engine) runWorkflowExecution(ctx context.Context, exec *workflowExecuti
 	err = sched.Schedule(ctx, plan, wf.TaskFns)
 	if err != nil {
 		if ctx.Err() != nil {
+			workflowSpan.RecordError(ctx.Err())
+			workflowSpan.SetStatus(otelcodes.Error, workflowStatusCancelled)
 			if transitionErr := e.transitionWorkflow(exec, workflowStatusCancelled, ctx.Err().Error()); transitionErr != nil && !isTerminalWorkflowStatus(exec.wfState.Status) {
 				e.logger.Error("failed to transition cancelled workflow", "workflow_id", exec.workflowID, "error", transitionErr)
 			}
 			return
 		}
+		workflowSpan.RecordError(err)
+		workflowSpan.SetStatus(otelcodes.Error, workflowStatusFailed)
 		if transitionErr := e.transitionWorkflow(exec, workflowStatusFailed, err.Error()); transitionErr != nil && !isTerminalWorkflowStatus(exec.wfState.Status) {
 			e.logger.Error("failed to transition failed workflow", "workflow_id", exec.workflowID, "error", transitionErr)
 		}
@@ -209,8 +238,12 @@ func (e *Engine) runWorkflowExecution(ctx context.Context, exec *workflowExecuti
 	}
 
 	if transitionErr := e.transitionWorkflow(exec, workflowStatusCompleted, ""); transitionErr != nil && !isTerminalWorkflowStatus(exec.wfState.Status) {
+		workflowSpan.RecordError(transitionErr)
+		workflowSpan.SetStatus(otelcodes.Error, workflowStatusFailed)
 		e.logger.Error("failed to transition completed workflow", "workflow_id", exec.workflowID, "error", transitionErr)
+		return
 	}
+	workflowSpan.SetStatus(otelcodes.Ok, workflowStatusCompleted)
 }
 
 func (e *Engine) workflowFromState(state *storage.WorkflowState, taskFns map[string]func(context.Context) error) *Workflow {

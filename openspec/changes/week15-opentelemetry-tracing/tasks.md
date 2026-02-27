@@ -41,13 +41,13 @@
 
 ## 5. 运行时核心 span 覆盖
 
-- [ ] 5.1 梳理 workflow 执行主链路埋点位置并定义稳定 span 命名
-- [ ] 5.2 在 workflow/任务调度关键路径补充 runtime spans
-- [ ] 5.3 在 lane 调度与等待路径补充 spans（含关键属性）
-- [ ] 5.4 在 saga 前向执行路径补充 spans
-- [ ] 5.5 在 saga 补偿路径补充 spans
-- [ ] 5.6 在 saga 恢复路径补充 spans
-- [ ] 5.7 增加 runtime span 覆盖测试（至少 workflow + saga 关键场景）
+- [x] 5.1 梳理 workflow 执行主链路埋点位置并定义稳定 span 命名
+- [x] 5.2 在 workflow/任务调度关键路径补充 runtime spans
+- [x] 5.3 在 lane 调度与等待路径补充 spans（含关键属性）
+- [x] 5.4 在 saga 前向执行路径补充 spans
+- [x] 5.5 在 saga 补偿路径补充 spans
+- [x] 5.6 在 saga 恢复路径补充 spans
+- [x] 5.7 增加 runtime span 覆盖测试（至少 workflow + saga 关键场景）
 
 ## 6. 降级与可靠性
 

@@ -6,6 +6,10 @@ import (
 	"math"
 	"sync"
 	"time"
+
+	"go.opentelemetry.io/otel/attribute"
+	otelcodes "go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 )
 
 // IdempotencyStore tracks executed compensation operations.
@@ -62,20 +66,34 @@ func (e *CompensationExecutor) Execute(
 	input any,
 	cause error,
 ) (err error) {
+	ctx, compensationSpan := sagaTracer().Start(ctx, spanSagaExecuteCompensate)
+	if instance != nil {
+		compensationSpan.SetAttributes(attribute.String("saga.id", instance.ID))
+	}
+	if definition != nil {
+		compensationSpan.SetAttributes(attribute.String("saga.definition", definition.Name))
+	}
+	defer compensationSpan.End()
+
 	startedAt := time.Now()
 	defer func() {
 		if err != nil {
 			e.metrics.RecordCompensation("failure")
+			compensationSpan.RecordError(err)
+			compensationSpan.SetStatus(otelcodes.Error, "failed")
 		} else {
 			e.metrics.RecordCompensation("success")
+			compensationSpan.SetStatus(otelcodes.Ok, "completed")
 		}
 		e.metrics.RecordCompensationDuration(time.Since(startedAt))
 	}()
 
 	if definition == nil {
+		compensationSpan.SetStatus(otelcodes.Error, "definition_nil")
 		return fmt.Errorf("saga definition cannot be nil")
 	}
 	if instance == nil {
+		compensationSpan.SetStatus(otelcodes.Error, "instance_nil")
 		return fmt.Errorf("saga instance cannot be nil")
 	}
 
@@ -138,9 +156,18 @@ func (e *CompensationExecutor) executeStepCompensation(
 	input any,
 	cause error,
 ) error {
+	ctx, stepSpan := sagaTracer().Start(ctx, spanSagaStepCompensate)
+	stepSpan.SetAttributes(
+		attribute.String("saga.id", instance.ID),
+		attribute.String("saga.definition", definition.Name),
+		attribute.String("saga.step.id", step.ID),
+	)
+	defer stepSpan.End()
+
 	stepID := step.ID
 	key := CompensationIdempotencyKey(instance.ID, stepID)
 	if e.idempotencyStore.Seen(key) {
+		stepSpan.SetStatus(otelcodes.Ok, "idempotent_skip")
 		return nil
 	}
 
@@ -156,6 +183,8 @@ func (e *CompensationExecutor) executeStepCompensation(
 			StepID: stepID,
 			Type:   WALEntryTypeCompensationStarted,
 		}); err != nil {
+			stepSpan.RecordError(err)
+			stepSpan.SetStatus(otelcodes.Error, "wal_write_failed")
 			return err
 		}
 
@@ -184,8 +213,11 @@ func (e *CompensationExecutor) executeStepCompensation(
 				StepID: stepID,
 				Type:   WALEntryTypeCompensationCompleted,
 			}); walErr != nil {
+				stepSpan.RecordError(walErr)
+				stepSpan.SetStatus(otelcodes.Error, "wal_write_failed")
 				return walErr
 			}
+			stepSpan.SetStatus(otelcodes.Ok, "completed")
 			return nil
 		}
 
@@ -195,14 +227,22 @@ func (e *CompensationExecutor) executeStepCompensation(
 			Type:   WALEntryTypeCompensationFailed,
 			Data:   []byte(err.Error()),
 		}); walErr != nil {
+			stepSpan.RecordError(walErr)
+			stepSpan.SetStatus(otelcodes.Error, "wal_write_failed")
 			return walErr
 		}
 
 		if attempt == maxRetries {
+			stepSpan.RecordError(err)
+			stepSpan.SetStatus(otelcodes.Error, "failed")
 			return fmt.Errorf("compensation failed for step %s after %d attempts: %w", stepID, maxRetries+1, err)
 		}
 
 		e.metrics.RecordCompensationRetry()
+		stepSpan.AddEvent(
+			"compensation.retry",
+			trace.WithAttributes(attribute.Int("compensation.attempt", attempt+1)),
+		)
 		time.Sleep(backoffForAttempt(retryCfg, attempt))
 	}
 

@@ -18,6 +18,8 @@ import (
 	"github.com/goclaw/goclaw/pkg/signal"
 	"github.com/goclaw/goclaw/pkg/storage"
 	"github.com/redis/go-redis/v9"
+	"go.opentelemetry.io/otel/attribute"
+	otelcodes "go.opentelemetry.io/otel/codes"
 )
 
 // appLogger is the subset of the logger.Logger interface used by the engine.
@@ -327,6 +329,13 @@ func (e *Engine) Submit(ctx context.Context, wf *Workflow) (*WorkflowResult, err
 		return nil, &EngineNotRunningError{}
 	}
 
+	ctx, workflowSpan := runtimeTracer().Start(ctx, spanWorkflowExecute)
+	workflowSpan.SetAttributes(
+		attribute.String("workflow.id", wf.ID),
+		attribute.Int("workflow.task_count", len(wf.Tasks)),
+	)
+	defer workflowSpan.End()
+
 	e.logger.Info("submitting workflow", "workflow_id", wf.ID, "tasks", len(wf.Tasks))
 	e.emitWorkflowStateChanged(wf.ID, wf.ID, "pending", "running")
 
@@ -345,6 +354,8 @@ func (e *Engine) Submit(ctx context.Context, wf *Workflow) (*WorkflowResult, err
 			t.Lane = defaultLaneName
 		}
 		if err := g.AddTask(t); err != nil {
+			workflowSpan.RecordError(err)
+			workflowSpan.SetStatus(otelcodes.Error, "compile_error")
 			return nil, &WorkflowCompileError{WorkflowID: wf.ID, Cause: err}
 		}
 	}
@@ -352,6 +363,8 @@ func (e *Engine) Submit(ctx context.Context, wf *Workflow) (*WorkflowResult, err
 	// Compile to execution plan.
 	plan, err := g.Compile()
 	if err != nil {
+		workflowSpan.RecordError(err)
+		workflowSpan.SetStatus(otelcodes.Error, "compile_error")
 		return nil, &WorkflowCompileError{WorkflowID: wf.ID, Cause: err}
 	}
 
@@ -412,6 +425,12 @@ func (e *Engine) Submit(ctx context.Context, wf *Workflow) (*WorkflowResult, err
 		Status:      status,
 		TaskResults: tracker.Results(),
 		Error:       schedErr,
+	}
+	if schedErr != nil {
+		workflowSpan.RecordError(schedErr)
+		workflowSpan.SetStatus(otelcodes.Error, statusStr)
+	} else {
+		workflowSpan.SetStatus(otelcodes.Ok, statusStr)
 	}
 
 	e.logger.Info("workflow complete",
