@@ -14,10 +14,10 @@
 
 ## 3. NATS Event Backbone
 
-- [ ] 3.1 Define canonical NATS subject taxonomy for workflow/task lifecycle events
-- [ ] 3.2 Implement lifecycle event publisher with retry/backoff policy
-- [ ] 3.3 Implement event identity and idempotency metadata (`event_id`, ordering fields)
-- [ ] 3.4 Implement degraded-mode behavior and telemetry for NATS outages/recovery
+- [x] 3.1 Define canonical NATS subject taxonomy for workflow/task lifecycle events
+- [x] 3.2 Implement lifecycle event publisher with retry/backoff policy
+- [x] 3.3 Implement event identity and idempotency metadata (`event_id`, ordering fields)
+- [x] 3.4 Implement degraded-mode behavior and telemetry for NATS outages/recovery
 
 ## 4. Event Schema and Compatibility
 
