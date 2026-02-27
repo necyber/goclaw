@@ -35,8 +35,8 @@
 
 ## 6. Verification and Rollout Safety
 
-- [ ] 6.1 Add unit tests for lease/fencing, assignment, and rebalance algorithms
-- [ ] 6.2 Add integration tests for multi-node ownership transfer and failover
-- [ ] 6.3 Add integration tests for NATS publish/consume ordering and dedup behavior
-- [ ] 6.4 Add chaos tests for coordination backend and NATS outages with degraded-mode assertions
-- [ ] 6.5 Add staged rollout checklist with feature flags, monitoring, and rollback steps
+- [x] 6.1 Add unit tests for lease/fencing, assignment, and rebalance algorithms
+- [x] 6.2 Add integration tests for multi-node ownership transfer and failover
+- [x] 6.3 Add integration tests for NATS publish/consume ordering and dedup behavior
+- [x] 6.4 Add chaos tests for coordination backend and NATS outages with degraded-mode assertions
+- [x] 6.5 Add staged rollout checklist with feature flags, monitoring, and rollback steps
