@@ -7,10 +7,10 @@
 
 ## 2. Sharding and Ownership
 
-- [ ] 2.1 Implement deterministic shard assignment strategy (consistent hash ring)
-- [ ] 2.2 Implement ownership claim flow with fencing token validation
-- [ ] 2.3 Implement rebalance flow for node join/leave/failure events
-- [ ] 2.4 Implement ownership transfer handling for queued and in-flight workloads
+- [x] 2.1 Implement deterministic shard assignment strategy (consistent hash ring)
+- [x] 2.2 Implement ownership claim flow with fencing token validation
+- [x] 2.3 Implement rebalance flow for node join/leave/failure events
+- [x] 2.4 Implement ownership transfer handling for queued and in-flight workloads
 
 ## 3. NATS Event Backbone
 
