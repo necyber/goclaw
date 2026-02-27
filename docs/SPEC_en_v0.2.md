@@ -2,6 +2,13 @@
 
 **Declarative Multi-Agent Orchestration Engine (Go Implementation)**
 
+> [!IMPORTANT]
+> This document is a historical snapshot for version `v0.2` and is now frozen.
+> It is no longer the source of truth for current capabilities.
+> For current canonical specifications, see `openspec/specs/*`.
+> For implementation progress, see `docs/STATUS.md`.
+> Status note updated on `2026-02-27`.
+
 ## 1. Overview
 
 ### 1.1 Vision

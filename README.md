@@ -715,11 +715,13 @@ curl "http://localhost:8080/api/v1/memory/session-1?query=编译型语言&limit=
 
 ## 📚 Documentation
 
-- [English Specification](docs/SPEC_en_v0.2.md)
+- [Current Canonical Specs (OpenSpec)](openspec/specs/)
+- [Implementation Status Snapshot](docs/STATUS.md)
+- [Historical Specification v0.2 (English)](docs/SPEC_en_v0.2.md)
 - [OpenTelemetry Tracing Guide](docs/opentelemetry-tracing-guide.md)
 - [Tracing Architecture](docs/tracing-architecture.md)
 - [Tracing Runbook](docs/tracing-runbook.md)
-- [中文规格说明](docs/SPEC_zh_v0.2.md)
+- [Historical Specification v0.2 (Chinese)](docs/SPEC_zh_v0.2.md)
 
 ## 🤝 Contributing
 
