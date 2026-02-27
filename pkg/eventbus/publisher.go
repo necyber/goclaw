@@ -66,6 +66,7 @@ type Publisher struct {
 	nodeID    string
 	retry     RetryConfig
 	telemetry Telemetry
+	router    *SchemaRouter
 
 	mu        sync.Mutex
 	sequences map[string]int64
@@ -98,6 +99,13 @@ func NewPublisher(nodeID string, transport Transport, retry RetryConfig, telemet
 	}, nil
 }
 
+// SetSchemaRouter sets schema routing/validation used by publisher.
+func (p *Publisher) SetSchemaRouter(router *SchemaRouter) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	p.router = router
+}
+
 // PublishLifecycleEvent publishes a canonical lifecycle event with retry/backoff and degraded mode handling.
 func (p *Publisher) PublishLifecycleEvent(ctx context.Context, event LifecycleEvent) (Envelope, error) {
 	if err := ctx.Err(); err != nil {
@@ -121,6 +129,9 @@ func (p *Publisher) PublishLifecycleEvent(ctx context.Context, event LifecycleEv
 		Payload:       event.Payload,
 	})
 	if err != nil {
+		return Envelope{}, err
+	}
+	if err := p.validateOutgoing(envelope); err != nil {
 		return Envelope{}, err
 	}
 
@@ -155,6 +166,16 @@ func (p *Publisher) PublishLifecycleEvent(ctx context.Context, event LifecycleEv
 	p.telemetry.RecordPublish("failed")
 	p.onPublishOutage()
 	return Envelope{}, fmt.Errorf("eventbus: publish failed: %w", publishErr)
+}
+
+func (p *Publisher) validateOutgoing(envelope Envelope) error {
+	p.mu.Lock()
+	router := p.router
+	p.mu.Unlock()
+	if router == nil {
+		return nil
+	}
+	return router.ValidateOutgoing(envelope)
 }
 
 // Degraded reports whether the publisher currently considers the bus degraded.

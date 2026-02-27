@@ -21,10 +21,10 @@
 
 ## 4. Event Schema and Compatibility
 
-- [ ] 4.1 Define versioned event envelope and payload schema contract
-- [ ] 4.2 Implement schema version routing/validation in publishers and consumers
-- [ ] 4.3 Implement compatibility checks for additive and breaking schema evolution
-- [ ] 4.4 Document consumer contract for ordering and duplicate suppression
+- [x] 4.1 Define versioned event envelope and payload schema contract
+- [x] 4.2 Implement schema version routing/validation in publishers and consumers
+- [x] 4.3 Implement compatibility checks for additive and breaking schema evolution
+- [x] 4.4 Document consumer contract for ordering and duplicate suppression
 
 ## 5. Integration with Existing Runtime Capabilities
 
