@@ -135,5 +135,19 @@ func DefaultConfig() *Config {
 			BufferSize:    16,
 			ChannelPrefix: "goclaw:signal:",
 		},
+		Saga: SagaConfig{
+			Enabled:                    false,
+			MaxConcurrent:              100,
+			DefaultTimeout:             5 * time.Minute,
+			DefaultStepTimeout:         30 * time.Second,
+			WALSyncMode:                "sync",
+			WALRetention:               7 * 24 * time.Hour,
+			WALCleanupInterval:         1 * time.Hour,
+			CompensationPolicy:         "auto",
+			CompensationMaxRetries:     3,
+			CompensationInitialBackoff: 100 * time.Millisecond,
+			CompensationMaxBackoff:     5 * time.Second,
+			CompensationBackoffFactor:  2.0,
+		},
 	}
 }

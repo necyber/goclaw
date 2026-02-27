@@ -44,6 +44,9 @@ type Config struct {
 
 	// Signal is the Signal Bus configuration.
 	Signal SignalConfig `mapstructure:"signal"`
+
+	// Saga is the distributed transaction configuration.
+	Saga SagaConfig `mapstructure:"saga"`
 }
 
 // AppConfig holds application metadata and settings.
@@ -469,6 +472,45 @@ type SignalConfig struct {
 	ChannelPrefix string `mapstructure:"channel_prefix"`
 }
 
+// SagaConfig holds Saga orchestration settings.
+type SagaConfig struct {
+	// Enabled controls whether Saga features are enabled.
+	Enabled bool `mapstructure:"enabled"`
+
+	// MaxConcurrent is the maximum number of concurrently running Saga instances.
+	MaxConcurrent int `mapstructure:"max_concurrent" validate:"min=1"`
+
+	// DefaultTimeout is the default timeout for a Saga execution.
+	DefaultTimeout time.Duration `mapstructure:"default_timeout"`
+
+	// DefaultStepTimeout is the default timeout for each Saga step.
+	DefaultStepTimeout time.Duration `mapstructure:"default_step_timeout"`
+
+	// WALSyncMode controls WAL durability mode: sync or async.
+	WALSyncMode string `mapstructure:"wal_sync_mode" validate:"oneof=sync async"`
+
+	// WALRetention controls how long WAL entries are retained.
+	WALRetention time.Duration `mapstructure:"wal_retention"`
+
+	// WALCleanupInterval controls how often background cleanup runs.
+	WALCleanupInterval time.Duration `mapstructure:"wal_cleanup_interval"`
+
+	// CompensationPolicy controls behavior on failure: auto, manual, or skip.
+	CompensationPolicy string `mapstructure:"compensation_policy" validate:"oneof=auto manual skip"`
+
+	// CompensationMaxRetries controls retry attempts for compensation operations.
+	CompensationMaxRetries int `mapstructure:"compensation_max_retries" validate:"min=0"`
+
+	// CompensationInitialBackoff is the initial retry backoff duration.
+	CompensationInitialBackoff time.Duration `mapstructure:"compensation_initial_backoff"`
+
+	// CompensationMaxBackoff is the maximum retry backoff duration.
+	CompensationMaxBackoff time.Duration `mapstructure:"compensation_max_backoff"`
+
+	// CompensationBackoffFactor is the exponential multiplier for retries.
+	CompensationBackoffFactor float64 `mapstructure:"compensation_backoff_factor" validate:"min=1"`
+}
+
 // Validate performs validation on the configuration.
 func (c *Config) Validate() error {
 	if err := validate.Struct(c); err != nil {
@@ -476,6 +518,20 @@ func (c *Config) Validate() error {
 	}
 	if c.UI.BasePath != "" && !strings.HasPrefix(c.UI.BasePath, "/") {
 		return fmt.Errorf("config validation failed: ui.base_path must start with '/'")
+	}
+	if c.Saga.Enabled {
+		if c.Saga.WALRetention <= 0 {
+			return fmt.Errorf("config validation failed: saga.wal_retention must be > 0")
+		}
+		if c.Saga.WALCleanupInterval <= 0 {
+			return fmt.Errorf("config validation failed: saga.wal_cleanup_interval must be > 0")
+		}
+		if c.Saga.DefaultTimeout <= 0 {
+			return fmt.Errorf("config validation failed: saga.default_timeout must be > 0")
+		}
+		if c.Saga.DefaultStepTimeout <= 0 {
+			return fmt.Errorf("config validation failed: saga.default_step_timeout must be > 0")
+		}
 	}
 	return nil
 }

@@ -1,21 +1,21 @@
 ## 1. 项目结构和依赖
 
-- [ ] 1.1 创建 `pkg/saga/` 包目录结构
-- [ ] 1.2 在 `config/config.go` 添加 `SagaConfig` 结构
-- [ ] 1.3 更新 `config.example.yaml` 添加 `saga` 配置段
-- [ ] 1.4 添加配置验证规则
-- [ ] 1.5 编写配置加载测试
+- [x] 1.1 创建 `pkg/saga/` 包目录结构
+- [x] 1.2 在 `config/config.go` 添加 `SagaConfig` 结构
+- [x] 1.3 更新 `config.example.yaml` 添加 `saga` 配置段
+- [x] 1.4 添加配置验证规则
+- [x] 1.5 编写配置加载测试
 
 ## 2. Saga 数据模型
 
-- [ ] 2.1 创建 `pkg/saga/step.go` 定义 `Step` 结构（action + compensation）
-- [ ] 2.2 创建 `pkg/saga/saga.go` 定义 `SagaDefinition` 结构
-- [ ] 2.3 实现 Builder 模式 DSL（`New().Step().Step().Build()`）
-- [ ] 2.4 实现步骤依赖验证（DAG 合法性检查）
-- [ ] 2.5 创建 `pkg/saga/state.go` 定义 `SagaState` 状态机
-- [ ] 2.6 实现状态转移验证（合法转移检查）
-- [ ] 2.7 定义 `SagaInstance` 运行时实例结构
-- [ ] 2.8 编写数据模型单元测试
+- [x] 2.1 创建 `pkg/saga/step.go` 定义 `Step` 结构（action + compensation）
+- [x] 2.2 创建 `pkg/saga/saga.go` 定义 `SagaDefinition` 结构
+- [x] 2.3 实现 Builder 模式 DSL（`New().Step().Step().Build()`）
+- [x] 2.4 实现步骤依赖验证（DAG 合法性检查）
+- [x] 2.5 创建 `pkg/saga/state.go` 定义 `SagaState` 状态机
+- [x] 2.6 实现状态转移验证（合法转移检查）
+- [x] 2.7 定义 `SagaInstance` 运行时实例结构
+- [x] 2.8 编写数据模型单元测试
 
 ## 3. WAL 实现
 

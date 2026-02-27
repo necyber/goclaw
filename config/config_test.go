@@ -44,6 +44,17 @@ func TestDefaultConfig(t *testing.T) {
 	if cfg.UI.MaxWebSocketConnections != 100 {
 		t.Errorf("expected max_ws_connections 100, got %d", cfg.UI.MaxWebSocketConnections)
 	}
+
+	// Test Saga defaults
+	if cfg.Saga.Enabled {
+		t.Error("expected saga.enabled to be false")
+	}
+	if cfg.Saga.MaxConcurrent != 100 {
+		t.Errorf("expected saga.max_concurrent 100, got %d", cfg.Saga.MaxConcurrent)
+	}
+	if cfg.Saga.WALSyncMode != "sync" {
+		t.Errorf("expected saga.wal_sync_mode sync, got %s", cfg.Saga.WALSyncMode)
+	}
 }
 
 func TestConfig_Validate(t *testing.T) {
@@ -264,6 +275,8 @@ app:
   environment: production
 server:
   port: 9999
+  grpc:
+    port: 9090
 ui:
   enabled: true
   base_path: /dashboard
@@ -271,6 +284,19 @@ ui:
 log:
   level: debug
   format: text
+saga:
+  enabled: true
+  max_concurrent: 64
+  default_timeout: 2m
+  default_step_timeout: 10s
+  wal_sync_mode: async
+  wal_retention: 72h
+  wal_cleanup_interval: 30m
+  compensation_policy: manual
+  compensation_max_retries: 5
+  compensation_initial_backoff: 200ms
+  compensation_max_backoff: 2s
+  compensation_backoff_factor: 1.8
 `
 	if err := os.WriteFile(configPath, []byte(yamlContent), 0644); err != nil {
 		t.Fatalf("failed to write config: %v", err)
@@ -299,6 +325,18 @@ log:
 	}
 	if cfg.UI.DevProxy != "http://localhost:5173" {
 		t.Errorf("expected dev proxy to be set, got '%s'", cfg.UI.DevProxy)
+	}
+	if !cfg.Saga.Enabled {
+		t.Error("expected saga.enabled to be true")
+	}
+	if cfg.Saga.MaxConcurrent != 64 {
+		t.Errorf("expected saga.max_concurrent 64, got %d", cfg.Saga.MaxConcurrent)
+	}
+	if cfg.Saga.WALSyncMode != "async" {
+		t.Errorf("expected saga.wal_sync_mode async, got %s", cfg.Saga.WALSyncMode)
+	}
+	if cfg.Saga.CompensationPolicy != "manual" {
+		t.Errorf("expected compensation_policy manual, got %s", cfg.Saga.CompensationPolicy)
 	}
 }
 
@@ -506,6 +544,37 @@ func TestValidation_InvalidSignalMode(t *testing.T) {
 	err := cfg.Validate()
 	if err == nil {
 		t.Error("expected validation error for invalid signal mode")
+	}
+}
+
+func TestValidation_InvalidSagaConfig(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Saga.Enabled = true
+	cfg.Saga.WALRetention = 0
+
+	err := cfg.Validate()
+	if err == nil {
+		t.Error("expected validation error for invalid saga wal retention")
+	}
+}
+
+func TestValidateWithDetails_InvalidSagaConfig(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Saga.Enabled = true
+	cfg.Saga.DefaultStepTimeout = 0
+	cfg.Saga.WALCleanupInterval = 0
+
+	err := ValidateWithDetails(cfg)
+	if err == nil {
+		t.Fatal("expected validation error details")
+	}
+
+	details, ok := err.(ValidationErrors)
+	if !ok {
+		t.Fatalf("expected ValidationErrors, got %T", err)
+	}
+	if len(details) == 0 {
+		t.Fatal("expected non-empty validation details")
 	}
 }
 

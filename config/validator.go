@@ -81,6 +81,40 @@ func ValidateWithDetails(cfg *Config) error {
 			},
 		}
 	}
+	if cfg != nil && cfg.Saga.Enabled {
+		var details ValidationErrors
+		if cfg.Saga.WALRetention <= 0 {
+			details = append(details, ConfigError{
+				Field:   "Config.Saga.WALRetention",
+				Message: "must be greater than 0 when saga is enabled",
+				Value:   cfg.Saga.WALRetention,
+			})
+		}
+		if cfg.Saga.WALCleanupInterval <= 0 {
+			details = append(details, ConfigError{
+				Field:   "Config.Saga.WALCleanupInterval",
+				Message: "must be greater than 0 when saga is enabled",
+				Value:   cfg.Saga.WALCleanupInterval,
+			})
+		}
+		if cfg.Saga.DefaultTimeout <= 0 {
+			details = append(details, ConfigError{
+				Field:   "Config.Saga.DefaultTimeout",
+				Message: "must be greater than 0 when saga is enabled",
+				Value:   cfg.Saga.DefaultTimeout,
+			})
+		}
+		if cfg.Saga.DefaultStepTimeout <= 0 {
+			details = append(details, ConfigError{
+				Field:   "Config.Saga.DefaultStepTimeout",
+				Message: "must be greater than 0 when saga is enabled",
+				Value:   cfg.Saga.DefaultStepTimeout,
+			})
+		}
+		if len(details) > 0 {
+			return details
+		}
+	}
 	return nil
 }
 
