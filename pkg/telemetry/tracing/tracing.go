@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/goclaw/goclaw/config"
+	"github.com/goclaw/goclaw/pkg/logger"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
 	"go.opentelemetry.io/otel/propagation"
@@ -18,6 +19,15 @@ import (
 
 // ShutdownFunc shuts down tracing provider resources.
 type ShutdownFunc func(ctx context.Context) error
+
+var reportExporterFailure = func(err error, exporter, endpoint string, spanCount int) {
+	logger.Warn("tracing exporter failed",
+		"error", err,
+		"exporter", exporter,
+		"endpoint", endpoint,
+		"span_count", spanCount,
+	)
+}
 
 var newOTLPExporter = func(ctx context.Context, cfg config.TracingConfig) (sdktrace.SpanExporter, error) {
 	endpoint := normalizeEndpoint(cfg.Endpoint)
@@ -35,6 +45,24 @@ var newOTLPExporter = func(ctx context.Context, cfg config.TracingConfig) (sdktr
 	}
 
 	return otlptracegrpc.New(ctx, opts...)
+}
+
+type isolatingExporter struct {
+	exporter sdktrace.SpanExporter
+	kind     string
+	endpoint string
+}
+
+func (e *isolatingExporter) ExportSpans(ctx context.Context, spans []sdktrace.ReadOnlySpan) error {
+	if err := e.exporter.ExportSpans(ctx, spans); err != nil {
+		reportExporterFailure(err, e.kind, e.endpoint, len(spans))
+		return nil
+	}
+	return nil
+}
+
+func (e *isolatingExporter) Shutdown(ctx context.Context) error {
+	return e.exporter.Shutdown(ctx)
 }
 
 // Init initializes process-wide OpenTelemetry tracing.
@@ -61,6 +89,11 @@ func Init(ctx context.Context, cfg config.TracingConfig, serviceName, serviceVer
 	exp, err := newOTLPExporter(ctx, cfg)
 	if err != nil {
 		return nil, fmt.Errorf("create tracing exporter: %w", err)
+	}
+	exp = &isolatingExporter{
+		exporter: exp,
+		kind:     strings.ToLower(strings.TrimSpace(cfg.Exporter)),
+		endpoint: normalizeEndpoint(cfg.Endpoint),
 	}
 
 	res, err := resource.New(ctx,
