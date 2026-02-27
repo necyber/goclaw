@@ -3,22 +3,23 @@ package engine
 import (
 	"context"
 	"fmt"
-	"sync"
 
 	"github.com/goclaw/goclaw/pkg/dag"
+	"github.com/goclaw/goclaw/pkg/lane"
 	"github.com/goclaw/goclaw/pkg/signal"
 )
 
 // Scheduler executes an ExecutionPlan layer by layer.
 type Scheduler struct {
-	tracker   *StateTracker
-	logger    appLogger
-	signalBus signal.Bus
+	tracker     *StateTracker
+	logger      appLogger
+	signalBus   signal.Bus
+	laneManager *lane.Manager
 }
 
 // newScheduler creates a new Scheduler.
-func newScheduler(tracker *StateTracker, logger appLogger, bus signal.Bus) *Scheduler {
-	return &Scheduler{tracker: tracker, logger: logger, signalBus: bus}
+func newScheduler(tracker *StateTracker, logger appLogger, bus signal.Bus, laneManager *lane.Manager) *Scheduler {
+	return &Scheduler{tracker: tracker, logger: logger, signalBus: bus, laneManager: laneManager}
 }
 
 func (s *Scheduler) attachSignalChannel(ctx context.Context, taskID string) (context.Context, func()) {
@@ -39,56 +40,82 @@ func (s *Scheduler) attachSignalChannel(ctx context.Context, taskID string) (con
 	}
 }
 
+type scheduledTaskResult struct {
+	taskID string
+	err    error
+}
+
 // Schedule executes the plan layer by layer.
 // All tasks within a layer run concurrently; the next layer starts only after
-// every task in the current layer has completed (fail-fast on first error).
+// every task in the current layer has completed.
 func (s *Scheduler) Schedule(ctx context.Context, plan *dag.ExecutionPlan, taskFns map[string]func(context.Context) error) error {
+	if s.laneManager == nil {
+		return fmt.Errorf("lane manager is not configured")
+	}
+
 	for layerIdx, layer := range plan.Layers {
 		if ctx.Err() != nil {
+			for _, taskID := range layer {
+				s.tracker.SetState(taskID, TaskStateCancelled)
+			}
 			return ctx.Err()
 		}
 
 		s.logger.Debug("scheduling layer", "layer", layerIdx, "tasks", layer)
 
-		var (
-			wg       sync.WaitGroup
-			mu       sync.Mutex
-			firstErr error
-		)
+		resultCh := make(chan scheduledTaskResult, len(layer))
+		submitted := 0
+		firstErr := error(nil)
 
-		for _, taskID := range layer {
-			taskID := taskID
+		for idx, taskID := range layer {
+			if ctx.Err() != nil {
+				for _, remainingTaskID := range layer[idx:] {
+					s.tracker.SetState(remainingTaskID, TaskStateCancelled)
+				}
+				firstErr = ctx.Err()
+				break
+			}
 
 			dagTask, ok := plan.GetTask(taskID)
 			if !ok {
-				return fmt.Errorf("task %q not found in execution plan", taskID)
+				for _, remainingTaskID := range layer[idx:] {
+					s.tracker.SetState(remainingTaskID, TaskStateFailed)
+				}
+				firstErr = fmt.Errorf("task %q not found in execution plan", taskID)
+				break
 			}
 
 			fn := taskFns[taskID]
 			runner := newTaskRunner(dagTask, s.tracker, fn)
 			s.tracker.SetState(taskID, TaskStateScheduled)
 
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
+			laneTask := lane.NewTaskFunc(taskID, runner.Lane(), runner.Priority(), func(_ context.Context) error {
 				taskCtx, cleanup := s.attachSignalChannel(ctx, taskID)
 				if cleanup != nil {
 					defer cleanup()
 				}
-				// Execute directly in this goroutine so we can wait for completion.
-				// The lane.Manager is used for resource-constrained workloads in
-				// future phases; for now direct execution gives us synchronous results.
-				if err := runner.Execute(taskCtx); err != nil {
-					mu.Lock()
-					if firstErr == nil {
-						firstErr = err
-					}
-					mu.Unlock()
+				err := runner.Execute(taskCtx)
+				resultCh <- scheduledTaskResult{taskID: taskID, err: err}
+				return err
+			})
+
+			if err := s.laneManager.Submit(ctx, laneTask); err != nil {
+				s.tracker.SetFailed(taskID, err, dagTask.Retries)
+				for _, remainingTaskID := range layer[idx+1:] {
+					s.tracker.SetState(remainingTaskID, TaskStateCancelled)
 				}
-			}()
+				firstErr = fmt.Errorf("lane submit failed for task %s: %w", taskID, err)
+				break
+			}
+			submitted++
 		}
 
-		wg.Wait()
+		for i := 0; i < submitted; i++ {
+			res := <-resultCh
+			if firstErr == nil && res.err != nil {
+				firstErr = res.err
+			}
+		}
 
 		if firstErr != nil {
 			return firstErr

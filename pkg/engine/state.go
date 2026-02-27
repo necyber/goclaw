@@ -12,8 +12,10 @@ const (
 	TaskStatePending TaskState = iota
 	TaskStateScheduled
 	TaskStateRunning
+	TaskStateRetrying
 	TaskStateCompleted
 	TaskStateFailed
+	TaskStateCancelled
 )
 
 // String returns the string representation of TaskState.
@@ -25,10 +27,14 @@ func (s TaskState) String() string {
 		return "scheduled"
 	case TaskStateRunning:
 		return "running"
+	case TaskStateRetrying:
+		return "retrying"
 	case TaskStateCompleted:
 		return "completed"
 	case TaskStateFailed:
 		return "failed"
+	case TaskStateCancelled:
+		return "cancelled"
 	default:
 		return "unknown"
 	}
@@ -89,7 +95,7 @@ func (t *StateTracker) SetState(taskID string, state TaskState) {
 	switch state {
 	case TaskStateRunning:
 		r.StartedAt = time.Now()
-	case TaskStateCompleted, TaskStateFailed:
+	case TaskStateCompleted, TaskStateFailed, TaskStateCancelled:
 		r.EndedAt = time.Now()
 	}
 	snapshot = *r

@@ -4,6 +4,7 @@ package engine
 import (
 	"context"
 	"fmt"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -70,6 +71,9 @@ type MetricsRecorder interface {
 	RecordWorkflowDuration(status string, duration time.Duration)
 	IncActiveWorkflows(status string)
 	DecActiveWorkflows(status string)
+	RecordTaskExecution(status string)
+	RecordTaskDuration(duration time.Duration)
+	RecordTaskRetry()
 	IncQueueDepth(laneName string)
 	DecQueueDepth(laneName string)
 	RecordWaitDuration(laneName string, duration time.Duration)
@@ -101,6 +105,8 @@ type Engine struct {
 	redisClient redis.Cmdable
 	events      EventBroadcaster
 	state       atomic.Int32
+	execMu      sync.RWMutex
+	executions  map[string]*workflowExecution
 }
 
 // New creates a new Engine from the given configuration, logger, and storage.
@@ -119,6 +125,7 @@ func New(cfg *config.Config, logger appLogger, store storage.Storage, opts ...Op
 		logger:  logger,
 		storage: store,
 		metrics: &nopMetrics{},
+		executions: make(map[string]*workflowExecution),
 	}
 	e.state.Store(int32(stateIdle))
 
@@ -205,7 +212,7 @@ func (e *Engine) Start(ctx context.Context) error {
 	}
 
 	// Create scheduler (tracker is per-workflow, created in Submit).
-	e.scheduler = newScheduler(newStateTracker(), e.logger, e.signalBus)
+	e.scheduler = newScheduler(newStateTracker(), e.logger, e.signalBus, e.laneManager)
 
 	// Start memory hub if configured
 	if e.memoryHub != nil {
@@ -319,7 +326,7 @@ func (e *Engine) Submit(ctx context.Context, wf *Workflow) (*WorkflowResult, err
 	})
 
 	// Create a scheduler with this workflow's tracker.
-	sched := newScheduler(tracker, e.logger, e.signalBus)
+	sched := newScheduler(tracker, e.logger, e.signalBus, e.laneManager)
 
 	taskFns := wf.TaskFns
 	if taskFns == nil {
@@ -464,6 +471,9 @@ func (n *nopMetrics) RecordWorkflowSubmission(status string)                    
 func (n *nopMetrics) RecordWorkflowDuration(status string, duration time.Duration) {}
 func (n *nopMetrics) IncActiveWorkflows(status string)                             {}
 func (n *nopMetrics) DecActiveWorkflows(status string)                             {}
+func (n *nopMetrics) RecordTaskExecution(status string)                            {}
+func (n *nopMetrics) RecordTaskDuration(duration time.Duration)                    {}
+func (n *nopMetrics) RecordTaskRetry()                                             {}
 func (n *nopMetrics) IncQueueDepth(laneName string)                                {}
 func (n *nopMetrics) DecQueueDepth(laneName string)                                {}
 func (n *nopMetrics) RecordWaitDuration(laneName string, duration time.Duration)   {}

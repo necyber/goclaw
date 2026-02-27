@@ -16,6 +16,9 @@ type WorkflowRequest struct {
 
 	// Metadata holds optional key-value pairs.
 	Metadata map[string]string `json:"metadata,omitempty" example:"environment:production,team:data-engineering"`
+
+	// Async controls submission mode. When true, request returns after persistence.
+	Async bool `json:"async,omitempty"`
 }
 
 // TaskDefinition defines a single task in a workflow.

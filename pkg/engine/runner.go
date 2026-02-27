@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"time"
 
 	"github.com/goclaw/goclaw/pkg/dag"
@@ -44,6 +45,9 @@ func (r *taskRunner) Execute(ctx context.Context) error {
 	var lastErr error
 
 	for attempt := 0; attempt < maxAttempts; attempt++ {
+		if attempt > 0 {
+			r.tracker.SetState(r.task.ID, TaskStateRetrying)
+		}
 		r.tracker.SetState(r.task.ID, TaskStateRunning)
 
 		// Apply per-task timeout if configured.
@@ -60,11 +64,15 @@ func (r *taskRunner) Execute(ctx context.Context) error {
 		}
 
 		if lastErr == nil {
+			if ctx.Err() != nil {
+				lastErr = ctx.Err()
+				break
+			}
 			r.tracker.SetState(r.task.ID, TaskStateCompleted)
 			return nil
 		}
 
-		// Check if context was cancelled — no point retrying.
+		// Check if context was cancelled - no point retrying.
 		if ctx.Err() != nil {
 			break
 		}
@@ -81,6 +89,10 @@ func (r *taskRunner) Execute(ctx context.Context) error {
 	}
 
 done:
+	if errors.Is(lastErr, context.Canceled) || errors.Is(lastErr, context.DeadlineExceeded) || ctx.Err() != nil {
+		r.tracker.SetState(r.task.ID, TaskStateCancelled)
+		return &TaskExecutionError{TaskID: r.task.ID, Retries: r.task.Retries, Cause: lastErr}
+	}
 	r.tracker.SetFailed(r.task.ID, lastErr, r.task.Retries)
 	return &TaskExecutionError{TaskID: r.task.ID, Retries: r.task.Retries, Cause: lastErr}
 }
