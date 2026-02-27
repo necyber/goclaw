@@ -614,7 +614,8 @@ func (s *BatchServiceServer) getSingleTaskResult(ctx context.Context, workflowID
 
 // isTerminalStatus checks if a workflow status is terminal
 func isTerminalStatus(status string) bool {
-	return status == "COMPLETED" || status == "FAILED" || status == "CANCELLED"
+	return status == "COMPLETED" || status == "FAILED" || status == "CANCELLED" ||
+		status == "completed" || status == "failed" || status == "cancelled"
 }
 
 func parsePageTokenOffset(token string) (int, error) {

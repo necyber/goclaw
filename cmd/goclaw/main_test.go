@@ -12,6 +12,8 @@ import (
 	"github.com/goclaw/goclaw/pkg/api"
 	"github.com/goclaw/goclaw/pkg/api/handlers"
 	"github.com/goclaw/goclaw/pkg/engine"
+	grpcpkg "github.com/goclaw/goclaw/pkg/grpc"
+	grpcstreaming "github.com/goclaw/goclaw/pkg/grpc/streaming"
 	"github.com/goclaw/goclaw/pkg/logger"
 	signalpkg "github.com/goclaw/goclaw/pkg/signal"
 	"github.com/goclaw/goclaw/pkg/storage"
@@ -409,5 +411,45 @@ func TestEngineStartupShutdown_WithDistributedFallback(t *testing.T) {
 
 	if err := eng.Stop(ctx); err != nil {
 		t.Fatalf("failed to stop engine with fallback: %v", err)
+	}
+}
+
+func TestRegisterGRPCServices_MissingWiring(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Server.GRPC.Enabled = true
+	grpcServer, err := grpcpkg.New(cfg.Server.GRPC.ToGRPCConfig())
+	if err != nil {
+		t.Fatalf("failed to create grpc server: %v", err)
+	}
+
+	eng, err := engine.New(cfg, logger.New(&logger.Config{Level: logger.InfoLevel, Format: "json", Output: "stdout"}), &mockStorage{})
+	if err != nil {
+		t.Fatalf("failed to create engine: %v", err)
+	}
+
+	err = registerGRPCServices(grpcServer, eng, signalpkg.NewLocalBus(16), nil)
+	if err == nil {
+		t.Fatal("expected missing streaming registry error")
+	}
+}
+
+func TestRegisterGRPCServices_Success(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Server.GRPC.Enabled = true
+	grpcServer, err := grpcpkg.New(cfg.Server.GRPC.ToGRPCConfig())
+	if err != nil {
+		t.Fatalf("failed to create grpc server: %v", err)
+	}
+
+	eng, err := engine.New(cfg, logger.New(&logger.Config{Level: logger.InfoLevel, Format: "json", Output: "stdout"}), &mockStorage{})
+	if err != nil {
+		t.Fatalf("failed to create engine: %v", err)
+	}
+
+	bus := signalpkg.NewLocalBus(16)
+	defer bus.Close()
+
+	if err := registerGRPCServices(grpcServer, eng, bus, grpcstreaming.NewSubscriberRegistry()); err != nil {
+		t.Fatalf("registerGRPCServices() error = %v", err)
 	}
 }

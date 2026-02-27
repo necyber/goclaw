@@ -149,7 +149,7 @@ func (s *WorkflowServiceServer) ListWorkflows(ctx context.Context, req *pb.ListW
 	// Convert status filter
 	statusFilter := ""
 	if req.StatusFilter != pb.WorkflowStatus_WORKFLOW_STATUS_UNSPECIFIED {
-		statusFilter = req.StatusFilter.String()
+		statusFilter = normalizeWorkflowFilterStatus(req.StatusFilter.String())
 	}
 
 	filter := WorkflowFilter{
@@ -199,12 +199,10 @@ func (s *WorkflowServiceServer) GetWorkflowStatus(ctx context.Context, req *pb.G
 	// Get status from engine
 	ws, err := s.engine.GetWorkflowStatus(ctx, req.WorkflowId)
 	if err != nil {
-		return &pb.GetWorkflowStatusResponse{
-			Error: &pb.Error{
-				Code:    "NOT_FOUND",
-				Message: err.Error(),
-			},
-		}, nil
+		if IsNotFoundError(err) {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	// Convert tasks
@@ -239,13 +237,10 @@ func (s *WorkflowServiceServer) CancelWorkflow(ctx context.Context, req *pb.Canc
 	// Cancel workflow in engine
 	err := s.engine.CancelWorkflow(ctx, req.WorkflowId, req.Force)
 	if err != nil {
-		return &pb.CancelWorkflowResponse{
-			Success: false,
-			Error: &pb.Error{
-				Code:    "CANCEL_FAILED",
-				Message: err.Error(),
-			},
-		}, nil
+		if IsNotFoundError(err) {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		return nil, status.Error(codes.FailedPrecondition, err.Error())
 	}
 
 	return &pb.CancelWorkflowResponse{
@@ -262,12 +257,10 @@ func (s *WorkflowServiceServer) GetTaskResult(ctx context.Context, req *pb.GetTa
 	// Get task result from engine
 	result, err := s.engine.GetTaskResult(ctx, req.WorkflowId, req.TaskId)
 	if err != nil {
-		return &pb.GetTaskResultResponse{
-			Error: &pb.Error{
-				Code:    "NOT_FOUND",
-				Message: err.Error(),
-			},
-		}, nil
+		if IsNotFoundError(err) {
+			return nil, status.Error(codes.NotFound, err.Error())
+		}
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	return &pb.GetTaskResultResponse{

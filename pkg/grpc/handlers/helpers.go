@@ -10,15 +10,15 @@ import (
 // convertToProtoStatus converts string status to proto WorkflowStatus
 func convertToProtoStatus(status string) pb.WorkflowStatus {
 	switch status {
-	case "PENDING":
+	case "PENDING", "pending", "WORKFLOW_STATUS_PENDING":
 		return pb.WorkflowStatus_WORKFLOW_STATUS_PENDING
-	case "RUNNING":
+	case "RUNNING", "running", "WORKFLOW_STATUS_RUNNING":
 		return pb.WorkflowStatus_WORKFLOW_STATUS_RUNNING
-	case "COMPLETED":
+	case "COMPLETED", "completed", "WORKFLOW_STATUS_COMPLETED":
 		return pb.WorkflowStatus_WORKFLOW_STATUS_COMPLETED
-	case "FAILED":
+	case "FAILED", "failed", "WORKFLOW_STATUS_FAILED":
 		return pb.WorkflowStatus_WORKFLOW_STATUS_FAILED
-	case "CANCELLED":
+	case "CANCELLED", "cancelled", "WORKFLOW_STATUS_CANCELLED":
 		return pb.WorkflowStatus_WORKFLOW_STATUS_CANCELLED
 	default:
 		return pb.WorkflowStatus_WORKFLOW_STATUS_UNSPECIFIED
@@ -28,15 +28,15 @@ func convertToProtoStatus(status string) pb.WorkflowStatus {
 // convertToProtoTaskStatus converts string status to proto TaskStatus
 func convertToProtoTaskStatus(status string) pb.TaskStatus {
 	switch status {
-	case "PENDING":
+	case "PENDING", "pending", "TASK_STATUS_PENDING":
 		return pb.TaskStatus_TASK_STATUS_PENDING
-	case "RUNNING":
+	case "RUNNING", "running", "TASK_STATUS_RUNNING":
 		return pb.TaskStatus_TASK_STATUS_RUNNING
-	case "COMPLETED":
+	case "COMPLETED", "completed", "TASK_STATUS_COMPLETED":
 		return pb.TaskStatus_TASK_STATUS_COMPLETED
-	case "FAILED":
+	case "FAILED", "failed", "TASK_STATUS_FAILED":
 		return pb.TaskStatus_TASK_STATUS_FAILED
-	case "CANCELLED":
+	case "CANCELLED", "cancelled", "TASK_STATUS_CANCELLED":
 		return pb.TaskStatus_TASK_STATUS_CANCELLED
 	default:
 		return pb.TaskStatus_TASK_STATUS_UNSPECIFIED

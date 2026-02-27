@@ -23,8 +23,14 @@ type Server struct {
 	grpcSrv      *grpc.Server
 	listener     net.Listener
 	healthServer *HealthServer
+	pending      []serviceRegistration
 	mu           sync.RWMutex
 	running      bool
+}
+
+type serviceRegistration struct {
+	desc *grpc.ServiceDesc
+	impl interface{}
 }
 
 // New creates a new gRPC server with the given configuration
@@ -68,8 +74,10 @@ func (s *Server) Start() error {
 	// Create gRPC server
 	s.grpcSrv = grpc.NewServer(opts...)
 
-	// Register services (will be done by handlers)
-	// Services are registered via RegisterService method
+	// Register services queued before server start.
+	for _, reg := range s.pending {
+		s.grpcSrv.RegisterService(reg.desc, reg.impl)
+	}
 
 	// Enable reflection if configured
 	if s.config.EnableReflection {
@@ -134,7 +142,9 @@ func (s *Server) RegisterService(desc *grpc.ServiceDesc, impl interface{}) {
 
 	if s.grpcSrv != nil {
 		s.grpcSrv.RegisterService(desc, impl)
+		return
 	}
+	s.pending = append(s.pending, serviceRegistration{desc: desc, impl: impl})
 }
 
 // GetServer returns the underlying gRPC server for advanced configuration

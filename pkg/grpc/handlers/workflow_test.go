@@ -297,17 +297,16 @@ func TestCancelWorkflow_EngineError(t *testing.T) {
 		WorkflowId: "workflow-123",
 	}
 
-	resp, err := server.CancelWorkflow(context.Background(), req)
-	if err != nil {
-		t.Fatalf("Expected no gRPC error, got: %v", err)
+	_, err := server.CancelWorkflow(context.Background(), req)
+	if err == nil {
+		t.Fatal("Expected gRPC error")
 	}
-
-	if resp.Success {
-		t.Error("Expected failure")
+	st, ok := status.FromError(err)
+	if !ok {
+		t.Fatal("Expected gRPC status error")
 	}
-
-	if resp.Error == nil {
-		t.Fatal("Expected error in response")
+	if st.Code() != codes.FailedPrecondition {
+		t.Fatalf("expected FailedPrecondition, got %v", st.Code())
 	}
 }
 

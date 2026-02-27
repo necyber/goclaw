@@ -32,6 +32,9 @@ import (
 	"github.com/goclaw/goclaw/pkg/api/handlers"
 	"github.com/goclaw/goclaw/pkg/engine"
 	grpcpkg "github.com/goclaw/goclaw/pkg/grpc"
+	grpchandlers "github.com/goclaw/goclaw/pkg/grpc/handlers"
+	pb "github.com/goclaw/goclaw/pkg/grpc/pb/v1"
+	grpcstreaming "github.com/goclaw/goclaw/pkg/grpc/streaming"
 	"github.com/goclaw/goclaw/pkg/lane"
 	"github.com/goclaw/goclaw/pkg/logger"
 	memorypkg "github.com/goclaw/goclaw/pkg/memory"
@@ -166,6 +169,13 @@ func main() {
 
 	// Initialize and start the orchestration engine.
 	eventBroadcaster := events.NewBroadcaster()
+	var streamingRegistry *grpcstreaming.SubscriberRegistry
+	var streamObserver *grpcstreaming.WorkflowStreamObserver
+	if cfg.Server.GRPC.Enabled {
+		streamingRegistry = grpcstreaming.NewSubscriberRegistry()
+		streamObserver = grpcstreaming.NewWorkflowStreamObserver(streamingRegistry)
+	}
+	runtimeBroadcaster := newRuntimeEventBroadcaster(eventBroadcaster, streamObserver)
 	wsHandler := handlers.NewWebSocketHandler(log, handlers.WebSocketConfig{
 		AllowedOrigins: cfg.Server.CORS.AllowedOrigins,
 		MaxConnections: cfg.UI.MaxWebSocketConnections,
@@ -186,7 +196,7 @@ func main() {
 
 	engineOpts := []engine.Option{
 		engine.WithMetrics(metricsManager),
-		engine.WithEventBroadcaster(eventBroadcaster),
+		engine.WithEventBroadcaster(runtimeBroadcaster),
 	}
 
 	needsRedis := cfg.Redis.Enabled || cfg.Orchestration.Queue.Type == "redis" || cfg.Signal.Mode == "redis"
@@ -288,6 +298,10 @@ func main() {
 		grpcServer, err = grpcpkg.New(grpcCfg)
 		if err != nil {
 			log.Error("Failed to create gRPC server", "error", err)
+			os.Exit(1)
+		}
+		if err := registerGRPCServices(grpcServer, eng, signalBus, streamingRegistry); err != nil {
+			log.Error("Failed to register gRPC services", "error", err)
 			os.Exit(1)
 		}
 
@@ -440,6 +454,128 @@ func initializeSignalBus(cfg *config.Config, redisClient redis.UniversalClient, 
 		bufferSize = cfg.Signal.BufferSize
 	}
 	return signalpkg.NewLocalBus(bufferSize), "local"
+}
+
+type runtimeEventBroadcaster struct {
+	web      *events.Broadcaster
+	observer *grpcstreaming.WorkflowStreamObserver
+}
+
+func newRuntimeEventBroadcaster(web *events.Broadcaster, observer *grpcstreaming.WorkflowStreamObserver) *runtimeEventBroadcaster {
+	return &runtimeEventBroadcaster{
+		web:      web,
+		observer: observer,
+	}
+}
+
+func (b *runtimeEventBroadcaster) BroadcastWorkflowStateChanged(workflowID, name, oldState, newState string, updatedAt time.Time) {
+	if b.web != nil {
+		b.web.BroadcastWorkflowStateChanged(workflowID, name, oldState, newState, updatedAt)
+	}
+	if b.observer != nil {
+		b.observer.OnWorkflowEvent(engine.WorkflowEvent{
+			WorkflowID: workflowID,
+			EventType:  mapWorkflowEventType(newState),
+			Status:     strings.ToUpper(newState),
+			Message:    "workflow state changed",
+			Timestamp:  updatedAt.Unix(),
+		})
+	}
+}
+
+func (b *runtimeEventBroadcaster) BroadcastTaskStateChanged(
+	workflowID, taskID, taskName, oldState, newState, errorMessage string,
+	result any,
+	updatedAt time.Time,
+) {
+	if b.web != nil {
+		b.web.BroadcastTaskStateChanged(workflowID, taskID, taskName, oldState, newState, errorMessage, result, updatedAt)
+	}
+	if b.observer != nil {
+		message := "task state changed"
+		if errorMessage != "" {
+			message = errorMessage
+		}
+		b.observer.OnTaskEvent(engine.TaskEvent{
+			WorkflowID: workflowID,
+			TaskID:     taskID,
+			EventType:  mapTaskEventType(newState),
+			Status:     strings.ToUpper(newState),
+			Message:    message,
+			Timestamp:  updatedAt.Unix(),
+		})
+	}
+}
+
+func mapWorkflowEventType(state string) engine.WorkflowEventType {
+	switch strings.ToLower(state) {
+	case "pending":
+		return engine.WorkflowEventSubmitted
+	case "running":
+		return engine.WorkflowEventStarted
+	case "completed":
+		return engine.WorkflowEventCompleted
+	case "failed":
+		return engine.WorkflowEventFailed
+	case "cancelled":
+		return engine.WorkflowEventCancelled
+	default:
+		return engine.WorkflowEventStarted
+	}
+}
+
+func mapTaskEventType(state string) engine.TaskEventType {
+	switch strings.ToLower(state) {
+	case "running":
+		return engine.TaskEventStarted
+	case "completed":
+		return engine.TaskEventCompleted
+	case "failed":
+		return engine.TaskEventFailed
+	case "cancelled":
+		return engine.TaskEventCancelled
+	default:
+		return engine.TaskEventProgress
+	}
+}
+
+func registerGRPCServices(
+	grpcServer *grpcpkg.Server,
+	eng *engine.Engine,
+	signalBus signalpkg.Bus,
+	streamingRegistry *grpcstreaming.SubscriberRegistry,
+) error {
+	if grpcServer == nil {
+		return fmt.Errorf("grpc server is nil")
+	}
+	if eng == nil {
+		return fmt.Errorf("engine adapter wiring is missing")
+	}
+	if streamingRegistry == nil {
+		return fmt.Errorf("streaming registry wiring is missing")
+	}
+	if signalBus == nil {
+		return fmt.Errorf("signal bus wiring is missing")
+	}
+
+	engineAdapter := grpchandlers.NewEngineAdapter(eng)
+	if engineAdapter == nil {
+		return fmt.Errorf("engine adapter wiring is invalid")
+	}
+
+	workflowSvc := grpchandlers.NewWorkflowServiceServer(engineAdapter)
+	batchSvc := grpchandlers.NewBatchServiceServer(engineAdapter)
+	streamingSvc := grpchandlers.NewStreamingServiceServer(streamingRegistry)
+	adminSvc := grpchandlers.NewAdminServiceServer(engineAdapter)
+	signalSvc := grpchandlers.NewSignalServiceServer(signalBus)
+
+	grpcServer.RegisterService(&pb.WorkflowService_ServiceDesc, workflowSvc)
+	grpcServer.RegisterService(&pb.BatchService_ServiceDesc, batchSvc)
+	grpcServer.RegisterService(&pb.StreamingService_ServiceDesc, streamingSvc)
+	grpcServer.RegisterService(&pb.AdminService_ServiceDesc, adminSvc)
+	grpcServer.RegisterService(&pb.SignalService_ServiceDesc, signalSvc)
+
+	return nil
 }
 
 func buildOverrides() map[string]interface{} {
