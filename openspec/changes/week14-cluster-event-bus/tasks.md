@@ -1,9 +1,9 @@
 ## 1. Coordination Foundation
 
-- [ ] 1.1 Define coordination abstraction for membership, leases, ownership claims, and watches
-- [ ] 1.2 Implement backend adapters for etcd and Consul under unified coordination interface
-- [ ] 1.3 Implement node join/heartbeat/leave lifecycle with health-state transitions
-- [ ] 1.4 Implement leader lease acquisition and failover behavior
+- [x] 1.1 Define coordination abstraction for membership, leases, ownership claims, and watches
+- [x] 1.2 Implement backend adapters for etcd and Consul under unified coordination interface
+- [x] 1.3 Implement node join/heartbeat/leave lifecycle with health-state transitions
+- [x] 1.4 Implement leader lease acquisition and failover behavior
 
 ## 2. Sharding and Ownership
 
@@ -40,4 +40,3 @@
 - [ ] 6.3 Add integration tests for NATS publish/consume ordering and dedup behavior
 - [ ] 6.4 Add chaos tests for coordination backend and NATS outages with degraded-mode assertions
 - [ ] 6.5 Add staged rollout checklist with feature flags, monitoring, and rollback steps
-
