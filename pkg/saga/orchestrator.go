@@ -47,10 +47,18 @@ func WithIdempotencyStore(store IdempotencyStore) OrchestratorOption {
 	}
 }
 
+// WithSagaStore wires persistent saga storage for runtime instances.
+func WithSagaStore(store SagaStore) OrchestratorOption {
+	return func(orchestrator *SagaOrchestrator) {
+		orchestrator.store = store
+	}
+}
+
 // SagaOrchestrator executes declarative Saga definitions.
 type SagaOrchestrator struct {
 	mu                   sync.RWMutex
 	instances            map[string]*SagaInstance
+	store                SagaStore
 	wal                  WAL
 	checkpointer         *Checkpointer
 	compensationExecutor *CompensationExecutor
@@ -286,13 +294,27 @@ func (o *SagaOrchestrator) GetInstance(sagaID string) (*SagaInstance, error) {
 	instance, ok := o.instances[sagaID]
 	o.mu.RUnlock()
 	if !ok {
-		return nil, ErrSagaNotFound
+		if o.store == nil {
+			return nil, ErrSagaNotFound
+		}
+		stored, err := o.store.Get(context.Background(), sagaID)
+		if err != nil {
+			return nil, err
+		}
+		return cloneInstance(stored), nil
 	}
 	return cloneInstance(instance), nil
 }
 
 // ListInstances returns all in-memory saga instances.
 func (o *SagaOrchestrator) ListInstances() []*SagaInstance {
+	if o.store != nil {
+		stored, _, err := o.store.List(context.Background(), SagaListFilter{})
+		if err == nil {
+			return stored
+		}
+	}
+
 	o.mu.RLock()
 	defer o.mu.RUnlock()
 
@@ -376,6 +398,9 @@ func (o *SagaOrchestrator) saveInstance(instance *SagaInstance) {
 	o.mu.Lock()
 	o.instances[instance.ID] = cloneInstance(instance)
 	o.mu.Unlock()
+	if o.store != nil {
+		_ = o.store.Save(context.Background(), instance)
+	}
 }
 
 func (o *SagaOrchestrator) writeWAL(ctx context.Context, entry WALEntry) error {

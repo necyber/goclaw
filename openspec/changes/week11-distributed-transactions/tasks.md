@@ -87,12 +87,12 @@
 
 ## 9. Saga 存储层
 
-- [ ] 9.1 定义 `SagaStore` 接口（CRUD for Saga instances）
-- [ ] 9.2 实现基于 Badger 的 SagaStore
-- [ ] 9.3 实现 Saga 实例持久化（key: "saga:{sagaID}"）
-- [ ] 9.4 实现按状态查询 Saga 列表
-- [ ] 9.5 实现分页查询
-- [ ] 9.6 编写 SagaStore 单元测试
+- [x] 9.1 定义 `SagaStore` 接口（CRUD for Saga instances）
+- [x] 9.2 实现基于 Badger 的 SagaStore
+- [x] 9.3 实现 Saga 实例持久化（key: "saga:{sagaID}"）
+- [x] 9.4 实现按状态查询 Saga 列表
+- [x] 9.5 实现分页查询
+- [x] 9.6 编写 SagaStore 单元测试
 
 ## 10. HTTP API 端点
 
