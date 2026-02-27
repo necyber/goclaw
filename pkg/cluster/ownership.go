@@ -10,6 +10,12 @@ import (
 type OwnershipManager struct {
 	coordination Coordinator
 	claimTTL     time.Duration
+	observer     OwnershipObserver
+}
+
+// OwnershipObserver receives ownership-transfer/change hooks for observability.
+type OwnershipObserver interface {
+	RecordOwnershipChange(reason string)
 }
 
 // NewOwnershipManager creates an ownership manager.
@@ -24,6 +30,11 @@ func NewOwnershipManager(coordination Coordinator, claimTTL time.Duration) (*Own
 		coordination: coordination,
 		claimTTL:     claimTTL,
 	}, nil
+}
+
+// SetObserver sets optional observability hooks for ownership changes.
+func (m *OwnershipManager) SetObserver(observer OwnershipObserver) {
+	m.observer = observer
 }
 
 // ClaimShard claims ownership for a shard with fencing token semantics.
@@ -44,7 +55,20 @@ func (m *OwnershipManager) ClaimShard(ctx context.Context, shardKey, nodeID, nod
 		request.ExpectedToken = existing.FencingToken
 	}
 
-	return m.coordination.ClaimOwnership(ctx, request)
+	claim, err := m.coordination.ClaimOwnership(ctx, request)
+	if err != nil {
+		return OwnershipClaim{}, err
+	}
+	if m.observer != nil {
+		reason := "claim_new"
+		if ok && existing.NodeID == nodeID {
+			reason = "claim_renew"
+		} else if ok && existing.NodeID != nodeID {
+			reason = "claim_transfer"
+		}
+		m.observer.RecordOwnershipChange(reason)
+	}
+	return claim, nil
 }
 
 // RenewShard renews an existing claim and validates the provided fencing token.

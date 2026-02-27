@@ -28,10 +28,10 @@
 
 ## 5. Integration with Existing Runtime Capabilities
 
-- [ ] 5.1 Integrate distributed ownership checks into Redis lane dequeue/consume path
-- [ ] 5.2 Integrate signal routing with cluster ownership resolution
-- [ ] 5.3 Integrate streaming bridge to consume canonical distributed event bus updates
-- [ ] 5.4 Align observability hooks for distributed ownership changes and event pipeline health
+- [x] 5.1 Integrate distributed ownership checks into Redis lane dequeue/consume path
+- [x] 5.2 Integrate signal routing with cluster ownership resolution
+- [x] 5.3 Integrate streaming bridge to consume canonical distributed event bus updates
+- [x] 5.4 Align observability hooks for distributed ownership changes and event pipeline health
 
 ## 6. Verification and Rollout Safety
 

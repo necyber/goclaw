@@ -1,6 +1,7 @@
 package engine
 
 import (
+	"github.com/goclaw/goclaw/pkg/lane"
 	"github.com/goclaw/goclaw/pkg/signal"
 	"github.com/redis/go-redis/v9"
 )
@@ -40,6 +41,15 @@ func WithRedisClient(client redis.Cmdable) Option {
 	return func(e *Engine) {
 		if client != nil {
 			e.redisClient = client
+		}
+	}
+}
+
+// WithRedisOwnershipGuard sets distributed ownership guard for Redis lane dequeue/consume path.
+func WithRedisOwnershipGuard(guard lane.RedisOwnershipGuard) Option {
+	return func(e *Engine) {
+		if guard != nil {
+			e.redisOwnershipGuard = guard
 		}
 	}
 }

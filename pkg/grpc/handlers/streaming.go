@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/goclaw/goclaw/pkg/engine"
+	"github.com/goclaw/goclaw/pkg/eventbus"
 	pb "github.com/goclaw/goclaw/pkg/grpc/pb/v1"
 	"github.com/goclaw/goclaw/pkg/grpc/streaming"
 	"google.golang.org/grpc/codes"
@@ -17,6 +18,7 @@ type StreamingServiceServer struct {
 	pb.UnimplementedStreamingServiceServer
 	registry *streaming.SubscriberRegistry
 	observer *streaming.WorkflowStreamObserver
+	bridge   *streaming.EventBusBridge
 }
 
 // NewStreamingServiceServer creates a new streaming service server
@@ -25,6 +27,27 @@ func NewStreamingServiceServer(registry *streaming.SubscriberRegistry) *Streamin
 		registry: registry,
 		observer: streaming.NewWorkflowStreamObserver(registry),
 	}
+}
+
+// AttachEventBusBridge enables canonical event-bus backed streaming updates.
+func (s *StreamingServiceServer) AttachEventBusBridge(bus *eventbus.MemoryBus, router *eventbus.SchemaRouter) error {
+	bridge, err := streaming.NewEventBusBridge(s.registry, router)
+	if err != nil {
+		return err
+	}
+	if err := bridge.Start(bus); err != nil {
+		return err
+	}
+	s.bridge = bridge
+	return nil
+}
+
+// Close releases bridge resources.
+func (s *StreamingServiceServer) Close() error {
+	if s.bridge == nil {
+		return nil
+	}
+	return s.bridge.Stop()
 }
 
 // WatchWorkflow implements server-side streaming for workflow status updates

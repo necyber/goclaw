@@ -55,6 +55,15 @@ type Manager struct {
 	sagaCompensationDuration *prometheus.HistogramVec
 	sagaCompensationRetries  *prometheus.CounterVec
 	sagaRecovery             *prometheus.CounterVec
+
+	// Distributed event-bus and ownership metrics
+	ownershipChanges       *prometheus.CounterVec
+	redisOwnershipDecision *prometheus.CounterVec
+	eventBusPublish        *prometheus.CounterVec
+	eventBusRetries        prometheus.Counter
+	eventBusDegraded       prometheus.Gauge
+	eventBusOutages        prometheus.Counter
+	eventBusRecoveries     prometheus.Counter
 }
 
 // Config holds metrics configuration.
@@ -106,6 +115,7 @@ func NewManager(cfg Config) *Manager {
 	m.initSignalMetrics()
 	m.initHTTPMetrics(cfg)
 	m.initSagaMetrics(cfg)
+	m.initDistributedMetrics()
 
 	return m
 }

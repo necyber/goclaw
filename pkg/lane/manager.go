@@ -13,6 +13,7 @@ type Manager struct {
 	lanes       map[string]Lane
 	configs     map[string]*LaneSpec
 	redisClient redis.Cmdable
+	ownership   RedisOwnershipGuard
 	mu          sync.RWMutex
 }
 
@@ -29,6 +30,19 @@ func (m *Manager) SetRedisClient(client redis.Cmdable) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.redisClient = client
+}
+
+// SetRedisOwnershipGuard sets distributed ownership guard for Redis-backed lanes.
+func (m *Manager) SetRedisOwnershipGuard(guard RedisOwnershipGuard) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.ownership = guard
+
+	for _, lane := range m.lanes {
+		if setter, ok := lane.(interface{ SetOwnershipGuard(RedisOwnershipGuard) }); ok {
+			setter.SetOwnershipGuard(guard)
+		}
+	}
 }
 
 // Register registers a new lane with the given configuration.
@@ -77,6 +91,9 @@ func (m *Manager) RegisterSpec(spec *LaneSpec) (Lane, error) {
 		redisLane, err := NewRedisLane(m.redisClient, spec.Redis)
 		if err != nil {
 			return nil, err
+		}
+		if m.ownership != nil {
+			redisLane.SetOwnershipGuard(m.ownership)
 		}
 		lane = redisLane
 

@@ -107,6 +107,7 @@ type Engine struct {
 	memoryHub           MemoryHub
 	signalBus           signal.Bus
 	redisClient         redis.Cmdable
+	redisOwnershipGuard lane.RedisOwnershipGuard
 	events              EventBroadcaster
 	sagaDB              *dgbadger.DB
 	sagaWAL             *saga.BadgerWAL
@@ -179,6 +180,9 @@ func (e *Engine) Start(ctx context.Context) error {
 	e.laneManager = lane.NewManager()
 	if e.redisClient != nil {
 		e.laneManager.SetRedisClient(e.redisClient)
+	}
+	if e.redisOwnershipGuard != nil {
+		e.laneManager.SetRedisOwnershipGuard(e.redisOwnershipGuard)
 	}
 
 	queueSize := e.cfg.Orchestration.Queue.Size

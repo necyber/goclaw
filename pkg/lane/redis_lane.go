@@ -17,10 +17,28 @@ type redisMetricsRecorder interface {
 	RecordRedisThroughput(laneName string)
 }
 
+type redisOwnershipMetricsRecorder interface {
+	RecordRedisOwnershipDecision(laneName string, decision string)
+}
+
+// RedisOwnershipGuard validates ownership before dequeue and execution in distributed mode.
+type RedisOwnershipGuard interface {
+	CanConsume(ctx context.Context, laneName string) (bool, error)
+	ValidateFencing(ctx context.Context, shardKey string, fencingToken uint64) error
+}
+
+// DistributedTaskMetadata exposes shard/fencing metadata used in distributed ownership flows.
+type DistributedTaskMetadata interface {
+	ShardKey() string
+	FencingToken() uint64
+}
+
 // RedisTaskPayload is the JSON structure for tasks stored in Redis.
 type RedisTaskPayload struct {
 	ID         string            `json:"id"`
 	Lane       string            `json:"lane"`
+	ShardKey   string            `json:"shard_key,omitempty"`
+	Fencing    uint64            `json:"fencing_token,omitempty"`
 	Priority   int               `json:"priority"`
 	Payload    json.RawMessage   `json:"payload,omitempty"`
 	Metadata   map[string]string `json:"metadata,omitempty"`
@@ -58,6 +76,9 @@ type RedisLane struct {
 
 	// Metrics
 	metrics MetricsRecorder
+
+	// Optional distributed ownership guard.
+	ownershipGuard RedisOwnershipGuard
 }
 
 // NewRedisLane creates a new Redis-backed Lane.
@@ -170,6 +191,10 @@ func (l *RedisLane) Submit(ctx context.Context, task Task) (err error) {
 		Priority:   task.Priority(),
 		EnqueuedAt: time.Now(),
 	}
+	if distributedTask, ok := task.(DistributedTaskMetadata); ok {
+		payload.ShardKey = distributedTask.ShardKey()
+		payload.Fencing = distributedTask.FencingToken()
+	}
 
 	data, err := json.Marshal(payload)
 	if err != nil {
@@ -270,6 +295,11 @@ func (l *RedisLane) SetMetrics(m MetricsRecorder) {
 	}
 }
 
+// SetOwnershipGuard sets an optional ownership guard for distributed consumption.
+func (l *RedisLane) SetOwnershipGuard(guard RedisOwnershipGuard) {
+	l.ownershipGuard = guard
+}
+
 // SetTaskHandler sets the function that processes dequeued tasks.
 func (l *RedisLane) SetTaskHandler(handler func(ctx context.Context, payload *RedisTaskPayload) error) {
 	l.taskHandler = handler
@@ -294,6 +324,23 @@ func (l *RedisLane) worker() {
 		}
 
 		ctx := context.Background()
+		if l.ownershipGuard != nil {
+			allowed, gErr := l.ownershipGuard.CanConsume(ctx, l.config.Name)
+			if recorder, ok := l.metrics.(redisOwnershipMetricsRecorder); ok {
+				decision := "allow"
+				if gErr != nil {
+					decision = "error"
+				} else if !allowed {
+					decision = "deny"
+				}
+				recorder.RecordRedisOwnershipDecision(l.config.Name, decision)
+			}
+			if gErr != nil || !allowed {
+				time.Sleep(100 * time.Millisecond)
+				continue
+			}
+		}
+
 		payload, err := l.dequeue(ctx)
 		if err != nil {
 			// Timeout or error — retry
@@ -311,6 +358,17 @@ func (l *RedisLane) worker() {
 		}
 
 		start := time.Now()
+		if l.ownershipGuard != nil && payload.Fencing > 0 {
+			shardKey := payload.ShardKey
+			if shardKey == "" {
+				shardKey = l.config.Name
+			}
+			if ferr := l.ownershipGuard.ValidateFencing(ctx, shardKey, payload.Fencing); ferr != nil {
+				l.failed.Add(1)
+				l.running.Add(-1)
+				continue
+			}
+		}
 		if l.taskHandler != nil {
 			if herr := l.taskHandler(ctx, payload); herr != nil {
 				l.failed.Add(1)
