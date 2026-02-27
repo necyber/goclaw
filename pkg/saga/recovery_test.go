@@ -58,7 +58,8 @@ func TestRecoveryManagerRecoverRunningSagaFromCheckpoint(t *testing.T) {
 		t.Fatalf("Save() checkpoint error = %v", err)
 	}
 
-	orchestrator := NewSagaOrchestrator()
+	metrics := newCaptureSagaMetrics()
+	orchestrator := NewSagaOrchestrator(WithMetrics(metrics))
 	logger := &testRecoveryLogger{}
 	manager, err := NewRecoveryManager(orchestrator, checkpointStore, logger)
 	if err != nil {
@@ -90,6 +91,9 @@ func TestRecoveryManagerRecoverRunningSagaFromCheckpoint(t *testing.T) {
 	}
 	if atomic.LoadInt32(&logger.infos) == 0 {
 		t.Fatal("expected recovery logs to be emitted")
+	}
+	if metrics.recovery["success"] != 1 {
+		t.Fatalf("expected one successful recovery metric, got %d", metrics.recovery["success"])
 	}
 }
 
@@ -328,7 +332,8 @@ func TestRecoveryManagerMissingDefinition(t *testing.T) {
 	})
 
 	logger := &testRecoveryLogger{}
-	manager, err := NewRecoveryManager(NewSagaOrchestrator(), checkpointStore, logger)
+	metrics := newCaptureSagaMetrics()
+	manager, err := NewRecoveryManager(NewSagaOrchestrator(WithMetrics(metrics)), checkpointStore, logger)
 	if err != nil {
 		t.Fatalf("NewRecoveryManager() error = %v", err)
 	}
@@ -342,6 +347,9 @@ func TestRecoveryManagerMissingDefinition(t *testing.T) {
 	}
 	if atomic.LoadInt32(&logger.warns) == 0 {
 		t.Fatal("expected warning logs for missing definition")
+	}
+	if metrics.recovery["skipped"] != 1 {
+		t.Fatalf("expected one skipped recovery metric, got %d", metrics.recovery["skipped"])
 	}
 }
 
@@ -370,7 +378,8 @@ func TestRecoveryManagerPropagatesResumeError(t *testing.T) {
 		LastUpdated:    time.Now().UTC(),
 	})
 
-	manager, err := NewRecoveryManager(NewSagaOrchestrator(), checkpointStore, &testRecoveryLogger{})
+	metrics := newCaptureSagaMetrics()
+	manager, err := NewRecoveryManager(NewSagaOrchestrator(WithMetrics(metrics)), checkpointStore, &testRecoveryLogger{})
 	if err != nil {
 		t.Fatalf("NewRecoveryManager() error = %v", err)
 	}
@@ -383,5 +392,8 @@ func TestRecoveryManagerPropagatesResumeError(t *testing.T) {
 	}
 	if recovered != 0 {
 		t.Fatalf("expected no recovered sagas, got %d", recovered)
+	}
+	if metrics.recovery["failed"] != 1 {
+		t.Fatalf("expected one failed recovery metric, got %d", metrics.recovery["failed"])
 	}
 }

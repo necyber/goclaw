@@ -46,6 +46,15 @@ type Manager struct {
 	httpRequests    *prometheus.CounterVec
 	httpDuration    *prometheus.HistogramVec
 	httpConnections prometheus.Gauge
+
+	// Saga metrics
+	sagaExecutions           *prometheus.CounterVec
+	sagaDuration             *prometheus.HistogramVec
+	sagaActive               prometheus.Gauge
+	sagaCompensations        *prometheus.CounterVec
+	sagaCompensationDuration *prometheus.HistogramVec
+	sagaCompensationRetries  *prometheus.CounterVec
+	sagaRecovery             *prometheus.CounterVec
 }
 
 // Config holds metrics configuration.
@@ -96,6 +105,7 @@ func NewManager(cfg Config) *Manager {
 	m.initLaneMetrics(cfg)
 	m.initSignalMetrics()
 	m.initHTTPMetrics(cfg)
+	m.initSagaMetrics(cfg)
 
 	return m
 }

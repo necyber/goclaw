@@ -205,3 +205,98 @@ func TestSagaOrchestratorConcurrentLimit(t *testing.T) {
 	close(release)
 	wg.Wait()
 }
+
+func TestSagaOrchestratorRecordsSagaMetrics(t *testing.T) {
+	def, err := New("metrics").
+		Step("a", Action(func(context.Context, *StepContext) (any, error) {
+			return "ok", nil
+		})).
+		Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+
+	metrics := newCaptureSagaMetrics()
+	orchestrator := NewSagaOrchestrator(WithMetrics(metrics))
+
+	instance, execErr := orchestrator.Execute(context.Background(), def, nil)
+	if execErr != nil {
+		t.Fatalf("Execute() error = %v", execErr)
+	}
+	if instance.State != SagaStateCompleted {
+		t.Fatalf("expected completed state, got %s", instance.State)
+	}
+	if metrics.executionCount("completed") != 1 {
+		t.Fatalf("expected one completed saga execution metric, got %d", metrics.executionCount("completed"))
+	}
+	if metrics.activeInc != 1 || metrics.activeDec != 1 {
+		t.Fatalf("expected active inc/dec to be 1/1, got %d/%d", metrics.activeInc, metrics.activeDec)
+	}
+}
+
+type captureSagaMetrics struct {
+	mu            sync.Mutex
+	executions    map[string]int
+	activeInc     int
+	activeDec     int
+	compensations map[string]int
+	retries       int
+	recovery      map[string]int
+}
+
+func newCaptureSagaMetrics() *captureSagaMetrics {
+	return &captureSagaMetrics{
+		executions:    make(map[string]int),
+		compensations: make(map[string]int),
+		recovery:      make(map[string]int),
+	}
+}
+
+func (m *captureSagaMetrics) RecordSagaExecution(status string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.executions[status]++
+}
+
+func (m *captureSagaMetrics) RecordSagaDuration(status string, duration time.Duration) {
+	_ = status
+	_ = duration
+}
+
+func (m *captureSagaMetrics) IncActiveSagas() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.activeInc++
+}
+
+func (m *captureSagaMetrics) DecActiveSagas() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.activeDec++
+}
+
+func (m *captureSagaMetrics) RecordCompensation(status string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.compensations[status]++
+}
+
+func (m *captureSagaMetrics) RecordCompensationDuration(duration time.Duration) { _ = duration }
+
+func (m *captureSagaMetrics) RecordCompensationRetry() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.retries++
+}
+
+func (m *captureSagaMetrics) RecordSagaRecovery(status string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.recovery[status]++
+}
+
+func (m *captureSagaMetrics) executionCount(status string) int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.executions[status]
+}

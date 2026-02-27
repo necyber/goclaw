@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -54,6 +55,17 @@ func WithSagaStore(store SagaStore) OrchestratorOption {
 	}
 }
 
+// WithMetrics wires metrics recording into saga execution paths.
+func WithMetrics(metrics MetricsRecorder) OrchestratorOption {
+	return func(orchestrator *SagaOrchestrator) {
+		if metrics == nil {
+			return
+		}
+		orchestrator.metrics = metrics
+		orchestrator.compensationExecutor.metrics = metrics
+	}
+}
+
 // SagaOrchestrator executes declarative Saga definitions.
 type SagaOrchestrator struct {
 	mu                   sync.RWMutex
@@ -62,6 +74,7 @@ type SagaOrchestrator struct {
 	wal                  WAL
 	checkpointer         *Checkpointer
 	compensationExecutor *CompensationExecutor
+	metrics              MetricsRecorder
 	maxConcurrent        int
 	sema                 chan struct{}
 }
@@ -71,6 +84,7 @@ func NewSagaOrchestrator(options ...OrchestratorOption) *SagaOrchestrator {
 	orchestrator := &SagaOrchestrator{
 		instances:            make(map[string]*SagaInstance),
 		compensationExecutor: NewCompensationExecutor(nil, NewInMemoryIdempotencyStore()),
+		metrics:              &nopMetricsRecorder{},
 		maxConcurrent:        100,
 		sema:                 make(chan struct{}, 100),
 	}
@@ -94,6 +108,10 @@ func (o *SagaOrchestrator) ExecuteWithID(
 	definition *SagaDefinition,
 	input any,
 ) (*SagaInstance, error) {
+	startedAt := time.Now()
+	o.metrics.IncActiveSagas()
+	defer o.metrics.DecActiveSagas()
+
 	if definition == nil {
 		return nil, fmt.Errorf("saga definition cannot be nil")
 	}
@@ -175,10 +193,12 @@ func (o *SagaOrchestrator) ExecuteWithID(
 		case ManualCompensate:
 			_ = instance.TransitionTo(SagaStatePendingCompensation)
 			o.saveInstance(instance)
+			o.recordExecutionMetrics(instance, startedAt)
 			return instance, execErr
 		case SkipCompensate:
 			_ = instance.TransitionTo(SagaStateCompensationFailed)
 			o.saveInstance(instance)
+			o.recordExecutionMetrics(instance, startedAt)
 			return instance, execErr
 		default:
 			_ = instance.TransitionTo(SagaStateCompensating)
@@ -186,10 +206,12 @@ func (o *SagaOrchestrator) ExecuteWithID(
 				_ = instance.TransitionTo(SagaStateCompensationFailed)
 				instance.SetFailure(failedStep, compErr)
 				o.saveInstance(instance)
+				o.recordExecutionMetrics(instance, startedAt)
 				return instance, compErr
 			}
 			_ = instance.TransitionTo(SagaStateCompensated)
 			o.saveInstance(instance)
+			o.recordExecutionMetrics(instance, startedAt)
 			return instance, execErr
 		}
 	}
@@ -198,6 +220,7 @@ func (o *SagaOrchestrator) ExecuteWithID(
 		return nil, err
 	}
 	o.saveInstance(instance)
+	o.recordExecutionMetrics(instance, startedAt)
 	return instance, nil
 }
 
@@ -209,6 +232,10 @@ func (o *SagaOrchestrator) TriggerCompensation(
 	input any,
 	reason error,
 ) (*SagaInstance, error) {
+	startedAt := time.Now()
+	o.metrics.IncActiveSagas()
+	defer o.metrics.DecActiveSagas()
+
 	if definition == nil {
 		return nil, fmt.Errorf("saga definition cannot be nil")
 	}
@@ -227,6 +254,7 @@ func (o *SagaOrchestrator) TriggerCompensation(
 		_ = instance.TransitionTo(SagaStateCompensationFailed)
 		instance.SetFailure(instance.FailedStep, err)
 		o.saveInstance(instance)
+		o.recordExecutionMetrics(instance, startedAt)
 		return instance, err
 	}
 
@@ -234,6 +262,7 @@ func (o *SagaOrchestrator) TriggerCompensation(
 		return nil, err
 	}
 	o.saveInstance(instance)
+	o.recordExecutionMetrics(instance, startedAt)
 	return instance, nil
 }
 
@@ -269,19 +298,33 @@ func (o *SagaOrchestrator) ResumeFromCheckpoint(
 
 	switch checkpoint.State {
 	case SagaStateRunning:
-		return o.resumeRunning(ctx, definition, instance, input)
+		startedAt := time.Now()
+		o.metrics.IncActiveSagas()
+		defer o.metrics.DecActiveSagas()
+
+		resumed, err := o.resumeRunning(ctx, definition, instance, input)
+		if resumed != nil {
+			o.recordExecutionMetrics(resumed, startedAt)
+		}
+		return resumed, err
 	case SagaStateCompensating:
+		startedAt := time.Now()
+		o.metrics.IncActiveSagas()
+		defer o.metrics.DecActiveSagas()
+
 		recoveryErr := fmt.Errorf("resumed compensation from checkpoint")
 		if err := o.compensationExecutor.Execute(ctx, definition, instance, input, recoveryErr); err != nil {
 			_ = instance.TransitionTo(SagaStateCompensationFailed)
 			instance.SetFailure(instance.FailedStep, err)
 			o.saveInstance(instance)
+			o.recordExecutionMetrics(instance, startedAt)
 			return instance, err
 		}
 		if err := instance.TransitionTo(SagaStateCompensated); err != nil {
 			return nil, err
 		}
 		o.saveInstance(instance)
+		o.recordExecutionMetrics(instance, startedAt)
 		return instance, nil
 	default:
 		return instance, nil
@@ -567,4 +610,13 @@ func cloneInstance(instance *SagaInstance) *SagaInstance {
 		clone.CompletedAt = &finished
 	}
 	return clone
+}
+
+func (o *SagaOrchestrator) recordExecutionMetrics(instance *SagaInstance, startedAt time.Time) {
+	if instance == nil {
+		return
+	}
+	status := instance.State.String()
+	o.metrics.RecordSagaExecution(status)
+	o.metrics.RecordSagaDuration(status, time.Since(startedAt))
 }

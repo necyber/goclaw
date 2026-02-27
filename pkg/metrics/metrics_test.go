@@ -149,6 +149,14 @@ func TestNoOpManager(t *testing.T) {
 	m.RecordWorkflowDuration("test", time.Second)
 	m.IncActiveWorkflows("test")
 	m.DecActiveWorkflows("test")
+	m.RecordSagaExecution("completed")
+	m.RecordSagaDuration("completed", time.Second)
+	m.IncActiveSagas()
+	m.DecActiveSagas()
+	m.RecordCompensation("success")
+	m.RecordCompensationDuration(time.Second)
+	m.RecordCompensationRetry()
+	m.RecordSagaRecovery("success")
 }
 
 func contains(s, substr string) bool {
@@ -279,6 +287,45 @@ func TestSignalAndRedisMetricsRegistered(t *testing.T) {
 		"signal_failures_total",
 		"signal_pattern_total",
 		"signal_pattern_duration_seconds",
+	}
+	for _, metric := range expected {
+		if !contains(body, metric) {
+			t.Errorf("expected metric %s not found in output", metric)
+		}
+	}
+}
+
+func TestSagaMetricsRegistered(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Enabled = true
+	m := NewManager(cfg)
+
+	m.RecordSagaExecution("completed")
+	m.RecordSagaDuration("completed", 20*time.Millisecond)
+	m.IncActiveSagas()
+	m.DecActiveSagas()
+	m.RecordCompensation("success")
+	m.RecordCompensationDuration(8 * time.Millisecond)
+	m.RecordCompensationRetry()
+	m.RecordSagaRecovery("success")
+
+	req := httptest.NewRequest("GET", "/metrics", nil)
+	w := httptest.NewRecorder()
+	m.Handler().ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	expected := []string{
+		"saga_executions_total",
+		"saga_duration_seconds",
+		"saga_active_count",
+		"saga_compensations_total",
+		"saga_compensation_duration_seconds",
+		"saga_compensation_retries_total",
+		"saga_recovery_total",
 	}
 	for _, metric := range expected {
 		if !contains(body, metric) {

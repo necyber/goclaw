@@ -141,15 +141,15 @@
 
 ## 14. 指标集成
 
-- [ ] 14.1 添加 `saga_executions_total` Counter（按状态标签）
-- [ ] 14.2 添加 `saga_duration_seconds` Histogram
-- [ ] 14.3 添加 `saga_active_count` Gauge
-- [ ] 14.4 添加 `saga_compensations_total` Counter
-- [ ] 14.5 添加 `saga_compensation_duration_seconds` Histogram
-- [ ] 14.6 添加 `saga_compensation_retries_total` Counter
-- [ ] 14.7 添加 `saga_recovery_total` Counter
-- [ ] 14.8 在 Prometheus 中注册指标
-- [ ] 14.9 编写指标测试
+- [x] 14.1 添加 `saga_executions_total` Counter（按状态标签）
+- [x] 14.2 添加 `saga_duration_seconds` Histogram
+- [x] 14.3 添加 `saga_active_count` Gauge
+- [x] 14.4 添加 `saga_compensations_total` Counter
+- [x] 14.5 添加 `saga_compensation_duration_seconds` Histogram
+- [x] 14.6 添加 `saga_compensation_retries_total` Counter
+- [x] 14.7 添加 `saga_recovery_total` Counter
+- [x] 14.8 在 Prometheus 中注册指标
+- [x] 14.9 编写指标测试
 
 ## 15. 测试
 

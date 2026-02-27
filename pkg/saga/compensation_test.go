@@ -223,3 +223,52 @@ func TestBackoffForAttempt(t *testing.T) {
 		t.Fatalf("delay should be capped by max backoff, got %v", delays[3])
 	}
 }
+
+func TestCompensationMetricsRetryRecorded(t *testing.T) {
+	attempts := 0
+	def, err := New("comp-metrics").
+		WithRetryConfig(CompensationRetryConfig{
+			MaxRetries:     2,
+			InitialBackoff: time.Millisecond,
+			MaxBackoff:     5 * time.Millisecond,
+			BackoffFactor:  2.0,
+		}).
+		Step("a",
+			Action(func(context.Context, *StepContext) (any, error) { return "a", nil }),
+			Compensate(func(context.Context, *CompensationContext) error {
+				attempts++
+				if attempts == 1 {
+					return errors.New("transient")
+				}
+				return nil
+			}),
+		).
+		Step("b",
+			Action(func(context.Context, *StepContext) (any, error) { return nil, errors.New("fail-b") }),
+			DependsOn("a"),
+		).
+		Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+
+	metrics := newCaptureSagaMetrics()
+	orchestrator := NewSagaOrchestrator(WithMetrics(metrics))
+
+	instance, execErr := orchestrator.Execute(context.Background(), def, nil)
+	if execErr == nil {
+		t.Fatal("expected execution error")
+	}
+	if instance.State != SagaStateCompensated {
+		t.Fatalf("expected compensated state, got %s", instance.State)
+	}
+	if attempts != 2 {
+		t.Fatalf("expected 2 compensation attempts, got %d", attempts)
+	}
+	if metrics.compensations["success"] != 1 {
+		t.Fatalf("expected one successful compensation metric, got %d", metrics.compensations["success"])
+	}
+	if metrics.retries != 1 {
+		t.Fatalf("expected one compensation retry metric, got %d", metrics.retries)
+	}
+}

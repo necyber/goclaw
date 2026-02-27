@@ -39,6 +39,7 @@ func (s *InMemoryIdempotencyStore) Mark(key string) {
 type CompensationExecutor struct {
 	wal              WAL
 	idempotencyStore IdempotencyStore
+	metrics          MetricsRecorder
 }
 
 // NewCompensationExecutor creates a compensation executor.
@@ -49,6 +50,7 @@ func NewCompensationExecutor(wal WAL, store IdempotencyStore) *CompensationExecu
 	return &CompensationExecutor{
 		wal:              wal,
 		idempotencyStore: store,
+		metrics:          &nopMetricsRecorder{},
 	}
 }
 
@@ -59,7 +61,17 @@ func (e *CompensationExecutor) Execute(
 	instance *SagaInstance,
 	input any,
 	cause error,
-) error {
+) (err error) {
+	startedAt := time.Now()
+	defer func() {
+		if err != nil {
+			e.metrics.RecordCompensation("failure")
+		} else {
+			e.metrics.RecordCompensation("success")
+		}
+		e.metrics.RecordCompensationDuration(time.Since(startedAt))
+	}()
+
 	if definition == nil {
 		return fmt.Errorf("saga definition cannot be nil")
 	}
@@ -190,6 +202,7 @@ func (e *CompensationExecutor) executeStepCompensation(
 			return fmt.Errorf("compensation failed for step %s after %d attempts: %w", stepID, maxRetries+1, err)
 		}
 
+		e.metrics.RecordCompensationRetry()
 		time.Sleep(backoffForAttempt(retryCfg, attempt))
 	}
 

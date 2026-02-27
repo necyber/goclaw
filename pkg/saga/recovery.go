@@ -73,6 +73,7 @@ func (m *RecoveryManager) Recover(
 
 		definition, ok := definitions[checkpoint.DefinitionName]
 		if !ok {
+			m.orchestrator.metrics.RecordSagaRecovery("skipped")
 			m.logger.Warn("skipping recovery, definition not found",
 				"saga_id", checkpoint.SagaID,
 				"definition", checkpoint.DefinitionName,
@@ -87,6 +88,7 @@ func (m *RecoveryManager) Recover(
 
 		instance, err := m.orchestrator.ResumeFromCheckpoint(ctx, definition, checkpoint, input)
 		if err != nil {
+			m.orchestrator.metrics.RecordSagaRecovery("failed")
 			m.logger.Warn("saga recovery failed", "saga_id", checkpoint.SagaID, "error", err)
 			if firstErr == nil {
 				firstErr = err
@@ -98,6 +100,7 @@ func (m *RecoveryManager) Recover(
 		}
 
 		recovered++
+		m.orchestrator.metrics.RecordSagaRecovery("success")
 		m.logger.Info("saga recovered from checkpoint",
 			"saga_id", checkpoint.SagaID,
 			"state", checkpoint.State.String(),

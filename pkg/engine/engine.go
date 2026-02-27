@@ -562,12 +562,17 @@ func (e *Engine) initializeSagaRuntime() error {
 		return fmt.Errorf("create saga store: %w", err)
 	}
 
-	orchestrator := saga.NewSagaOrchestrator(
+	sagaOptions := []saga.OrchestratorOption{
 		saga.WithMaxConcurrentSagas(e.cfg.Saga.MaxConcurrent),
 		saga.WithWAL(wal),
 		saga.WithCheckpointer(checkpointer),
 		saga.WithSagaStore(sagaStore),
-	)
+	}
+	if sagaMetrics, ok := e.metrics.(saga.MetricsRecorder); ok {
+		sagaOptions = append(sagaOptions, saga.WithMetrics(sagaMetrics))
+	}
+
+	orchestrator := saga.NewSagaOrchestrator(sagaOptions...)
 	recoveryManager, err := saga.NewRecoveryManager(orchestrator, checkpointStore, e.logger)
 	if err != nil {
 		_ = wal.Close()
