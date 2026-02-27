@@ -27,9 +27,9 @@ type telemetryProbe struct {
 	retries    atomic.Int32
 }
 
-func (telemetryProbe) RecordPublish(status string) {}
+func (p *telemetryProbe) RecordPublish(status string) {}
 func (p *telemetryProbe) RecordRetry()             { p.retries.Add(1) }
-func (telemetryProbe) SetDegradedMode(active bool) {}
+func (p *telemetryProbe) SetDegradedMode(active bool) {}
 func (p *telemetryProbe) RecordOutage()            { p.outages.Add(1) }
 func (p *telemetryProbe) RecordRecovery()          { p.recoveries.Add(1) }
 
