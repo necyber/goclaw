@@ -301,7 +301,7 @@ func TestIntegration_ErrorHandling(t *testing.T) {
 			method:         "POST",
 			endpoint:       "/api/v1/workflows/nonexistent-id/cancel",
 			body:           nil,
-			expectedStatus: http.StatusConflict,
+			expectedStatus: http.StatusNotFound,
 		},
 		{
 			name:           "get nonexistent task result",

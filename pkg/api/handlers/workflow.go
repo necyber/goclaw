@@ -4,6 +4,7 @@ package handlers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -13,6 +14,7 @@ import (
 	"github.com/goclaw/goclaw/pkg/api/response"
 	"github.com/goclaw/goclaw/pkg/engine"
 	"github.com/goclaw/goclaw/pkg/logger"
+	"github.com/goclaw/goclaw/pkg/storage"
 )
 
 // WorkflowHandler handles workflow-related endpoints.
@@ -60,9 +62,20 @@ func (h *WorkflowHandler) SubmitWorkflow(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	// Submit workflow to engine
-	workflowID, err := h.engine.SubmitWorkflowRequest(ctx, &req)
+	mode := engine.SubmissionModeSync
+	if req.Async {
+		mode = engine.SubmissionModeAsync
+	}
+
+	// Submit workflow to runtime engine with explicit mode mapping.
+	statusResp, err := h.engine.SubmitWorkflowRuntime(ctx, &req, engine.SubmitWorkflowOptions{
+		Mode: mode,
+	})
 	if err != nil {
+		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+			response.Error(w, http.StatusGatewayTimeout, response.ErrCodeGatewayTimeout, err.Error(), getRequestID(ctx))
+			return
+		}
 		h.logger.Error("Failed to submit workflow", "error", err)
 		response.Error(w, http.StatusInternalServerError, response.ErrCodeInternalServer, "Failed to submit workflow", getRequestID(ctx))
 		return
@@ -70,10 +83,11 @@ func (h *WorkflowHandler) SubmitWorkflow(w http.ResponseWriter, r *http.Request)
 
 	// Return response
 	resp := models.WorkflowResponse{
-		ID:      workflowID,
-		Name:    req.Name,
-		Status:  "pending",
-		Message: "Workflow submitted successfully",
+		ID:        statusResp.ID,
+		Name:      req.Name,
+		Status:    statusResp.Status,
+		CreatedAt: statusResp.CreatedAt,
+		Message:   "Workflow submitted successfully",
 	}
 
 	response.JSON(w, http.StatusCreated, resp)
@@ -194,6 +208,11 @@ func (h *WorkflowHandler) CancelWorkflow(w http.ResponseWriter, r *http.Request)
 
 	// Cancel workflow
 	if err := h.engine.CancelWorkflowRequest(ctx, workflowID); err != nil {
+		var notFoundErr *storage.NotFoundError
+		if errors.As(err, &notFoundErr) {
+			response.Error(w, http.StatusNotFound, response.ErrCodeNotFound, "Workflow not found", getRequestID(ctx))
+			return
+		}
 		h.logger.Error("Failed to cancel workflow", "id", workflowID, "error", err)
 		response.Error(w, http.StatusConflict, response.ErrCodeConflict, err.Error(), getRequestID(ctx))
 		return
@@ -228,8 +247,13 @@ func (h *WorkflowHandler) GetTaskResult(w http.ResponseWriter, r *http.Request) 
 	// Get task result from engine
 	result, err := h.engine.GetTaskResultResponse(ctx, workflowID, taskID)
 	if err != nil {
+		var notFoundErr *storage.NotFoundError
+		if errors.As(err, &notFoundErr) {
+			response.Error(w, http.StatusNotFound, response.ErrCodeNotFound, "Task result not found", getRequestID(ctx))
+			return
+		}
 		h.logger.Error("Failed to get task result", "workflow_id", workflowID, "task_id", taskID, "error", err)
-		response.Error(w, http.StatusNotFound, response.ErrCodeNotFound, "Task result not found", getRequestID(ctx))
+		response.Error(w, http.StatusInternalServerError, response.ErrCodeInternalServer, "Failed to get task result", getRequestID(ctx))
 		return
 	}
 

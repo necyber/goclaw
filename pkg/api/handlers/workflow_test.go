@@ -458,8 +458,8 @@ func TestWorkflowHandler_CancelWorkflow_NotFound(t *testing.T) {
 
 	handler.CancelWorkflow(w, req)
 
-	if w.Code != http.StatusConflict {
-		t.Errorf("CancelWorkflow() with nonexistent ID status = %v, want %v", w.Code, http.StatusConflict)
+	if w.Code != http.StatusNotFound {
+		t.Errorf("CancelWorkflow() with nonexistent ID status = %v, want %v", w.Code, http.StatusNotFound)
 	}
 }
 
