@@ -1,4 +1,4 @@
-# CLAUDE.md
+﻿# CLAUDE.md
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -67,6 +67,13 @@ Goclaw is a distributed multi-agent orchestration engine. The core execution mod
 
 **`pkg/engine/`** — Orchestration engine: wires DAG + Lane together; manages state (Idle → Running → Stopped/Error); provides workflow management API.
 
+**`pkg/saga/`** — Distributed transaction runtime:
+- `saga.go`, `step.go`, `state.go` define Saga DSL and lifecycle
+- `orchestrator.go` executes forward DAG steps and triggers compensation
+- `compensation.go` handles reverse-order compensation with retries/idempotency
+- `wal.go` and `checkpoint.go` provide persistence for recovery
+- `recovery.go` restores non-terminal Sagas from checkpoints
+
 **`pkg/api/`** — HTTP API server:
 - `server.go` defines HTTP server with graceful shutdown
 - `router.go` sets up chi router with middleware chain
@@ -130,6 +137,10 @@ Copy `config/config.example.yaml` as your config file. Key sections: `app`, `ser
 
 Prometheus metrics on port 9091 (configurable). Workflow, task, lane, HTTP, and system metrics. Grafana dashboard in `config/grafana/`. Alert rules in `config/prometheus/alerts.yml`. See `docs/monitoring-guide.md` for full reference.
 
+Saga metrics are also exported: `saga_executions_total`, `saga_duration_seconds`, `saga_active_count`,
+`saga_compensations_total`, `saga_compensation_duration_seconds`, `saga_compensation_retries_total`, and `saga_recovery_total`.
+See `docs/saga-guide.md` for Saga runtime behavior and operations.
+
 ### HTTP API
 
 The HTTP API server runs on port 8080 (configurable) and provides:
@@ -140,6 +151,13 @@ The HTTP API server runs on port 8080 (configurable) and provides:
 - `GET /api/v1/workflows/{id}` - Get workflow status
 - `POST /api/v1/workflows/{id}/cancel` - Cancel workflow
 - `GET /api/v1/workflows/{id}/tasks/{tid}/result` - Get task result
+
+**Saga Management:**
+- `POST /api/v1/sagas` - Submit saga
+- `GET /api/v1/sagas` - List sagas
+- `GET /api/v1/sagas/{id}` - Get saga status
+- `POST /api/v1/sagas/{id}/compensate` - Trigger manual compensation
+- `POST /api/v1/sagas/{id}/recover` - Recover from checkpoint
 
 **Memory API:**
 - `POST /api/v1/memory/{sessionID}` - Store memory entry

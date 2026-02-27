@@ -174,6 +174,13 @@ Goclaw provides a complete RESTful API for workflow management:
 - `POST /api/v1/workflows/{id}/cancel` - Cancel a workflow
 - `GET /api/v1/workflows/{id}/tasks/{tid}/result` - Get task result
 
+**Saga Management:**
+- `POST /api/v1/sagas` - Submit a saga
+- `GET /api/v1/sagas` - List sagas (with state filter and pagination)
+- `GET /api/v1/sagas/{id}` - Get saga status
+- `POST /api/v1/sagas/{id}/compensate` - Trigger manual compensation
+- `POST /api/v1/sagas/{id}/recover` - Recover from latest checkpoint
+
 **Health Checks:**
 - `GET /health` - Liveness probe
 - `GET /ready` - Readiness probe
@@ -303,6 +310,15 @@ curl http://localhost:9091/metrics
 - `workflow_duration_seconds` - Workflow execution duration histogram
 - `workflow_active_count` - Current active workflows by status
 
+**Saga Metrics:**
+- `saga_executions_total` - Total saga executions by status
+- `saga_duration_seconds` - Saga execution duration histogram
+- `saga_active_count` - Current active saga executions
+- `saga_compensations_total` - Compensation phases by status
+- `saga_compensation_duration_seconds` - Compensation phase duration histogram
+- `saga_compensation_retries_total` - Compensation retry count
+- `saga_recovery_total` - Recovery attempts by status
+
 **Task Metrics:**
 - `task_executions_total` - Total task executions by status
 - `task_duration_seconds` - Task execution duration histogram
@@ -371,6 +387,18 @@ When Redis is unavailable, startup falls back automatically to local mode and re
 - redis connection status (`redis_connected`)
 
 See [docs/distributed-lane-guide.md](docs/distributed-lane-guide.md) for configuration details, signal patterns (steer/interrupt/collect), and deployment steps.
+
+### Saga Distributed Transactions
+
+GoClaw includes orchestration-based Saga support for eventual consistency across multi-step workflows.
+
+Highlights:
+- Declarative Saga DSL with dependency validation
+- Auto/manual/skip compensation policies
+- WAL + checkpoint recovery on restart
+- HTTP + gRPC Saga management APIs
+
+See [docs/saga-guide.md](docs/saga-guide.md) for usage, configuration, troubleshooting, and metrics.
 
 ### Hybrid Memory System
 

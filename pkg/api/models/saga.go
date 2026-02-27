@@ -72,3 +72,9 @@ type SagaCompensateRequest struct {
 
 // SagaRecoverRequest is used for manual recovery trigger.
 type SagaRecoverRequest struct{}
+
+// SagaActionResponse is returned by compensate/recover operations.
+type SagaActionResponse struct {
+	SagaID string `json:"saga_id"`
+	State  string `json:"state"`
+}

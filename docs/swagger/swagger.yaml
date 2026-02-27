@@ -9,6 +9,146 @@ definitions:
       version:
         type: string
     type: object
+  models.SagaActionResponse:
+    properties:
+      saga_id:
+        type: string
+      state:
+        type: string
+    type: object
+  models.SagaCompensateRequest:
+    properties:
+      reason:
+        type: string
+    type: object
+  models.SagaListResponse:
+    properties:
+      items:
+        items:
+          $ref: '#/definitions/models.SagaSummary'
+        type: array
+      limit:
+        type: integer
+      offset:
+        type: integer
+      total:
+        type: integer
+    type: object
+  models.SagaStatusResponse:
+    properties:
+      compensated_steps:
+        items:
+          type: string
+        type: array
+      completed_at:
+        type: string
+      completed_steps:
+        items:
+          type: string
+        type: array
+      created_at:
+        type: string
+      failed_step:
+        type: string
+      failure_reason:
+        type: string
+      name:
+        type: string
+      saga_id:
+        type: string
+      started_at:
+        type: string
+      state:
+        type: string
+      step_results:
+        additionalProperties: {}
+        type: object
+      updated_at:
+        type: string
+    type: object
+  models.SagaStepRequest:
+    properties:
+      delay_ms:
+        minimum: 0
+        type: integer
+      depends_on:
+        items:
+          type: string
+        type: array
+      enable_compensation:
+        type: boolean
+      id:
+        maxLength: 100
+        minLength: 1
+        type: string
+      should_fail:
+        type: boolean
+      skip_compensation:
+        type: boolean
+      timeout_ms:
+        minimum: 1
+        type: integer
+    required:
+    - id
+    type: object
+  models.SagaSubmitRequest:
+    properties:
+      input:
+        additionalProperties: {}
+        type: object
+      metadata:
+        additionalProperties:
+          type: string
+        type: object
+      name:
+        maxLength: 100
+        minLength: 1
+        type: string
+      policy:
+        enum:
+        - auto
+        - manual
+        - skip
+        type: string
+      step_timeout_ms:
+        minimum: 1
+        type: integer
+      steps:
+        items:
+          $ref: '#/definitions/models.SagaStepRequest'
+        minItems: 1
+        type: array
+      timeout_ms:
+        minimum: 1
+        type: integer
+    required:
+    - name
+    - steps
+    type: object
+  models.SagaSubmitResponse:
+    properties:
+      created_at:
+        type: string
+      name:
+        type: string
+      saga_id:
+        type: string
+      status:
+        type: string
+    type: object
+  models.SagaSummary:
+    properties:
+      completed_at:
+        type: string
+      created_at:
+        type: string
+      name:
+        type: string
+      saga_id:
+        type: string
+      state:
+        type: string
+    type: object
   models.TaskDefinition:
     properties:
       config:
@@ -121,6 +261,10 @@ definitions:
     type: object
   models.WorkflowRequest:
     properties:
+      async:
+        description: Async controls submission mode. When true, request returns after
+          persistence.
+        type: boolean
       description:
         description: Description is an optional workflow description.
         example: Process customer data and generate reports
@@ -255,6 +399,188 @@ info:
   title: Goclaw API
   version: "1.0"
 paths:
+  /api/v1/sagas:
+    get:
+      description: List saga instances with optional state filter and pagination
+      parameters:
+      - description: Filter by saga state
+        in: query
+        name: state
+        type: string
+      - default: 20
+        description: Maximum number of results
+        in: query
+        name: limit
+        type: integer
+      - default: 0
+        description: Offset for pagination
+        in: query
+        name: offset
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Saga list
+          schema:
+            $ref: '#/definitions/models.SagaListResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "503":
+          description: Saga runtime unavailable
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: List sagas
+      tags:
+      - sagas
+    post:
+      consumes:
+      - application/json
+      description: Submit a saga definition for asynchronous execution
+      parameters:
+      - description: Saga submit request
+        in: body
+        name: saga
+        required: true
+        schema:
+          $ref: '#/definitions/models.SagaSubmitRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Saga accepted
+          schema:
+            $ref: '#/definitions/models.SagaSubmitResponse'
+        "400":
+          description: Invalid request
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "503":
+          description: Saga runtime unavailable
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Submit a saga
+      tags:
+      - sagas
+  /api/v1/sagas/{id}:
+    get:
+      description: Get runtime status for a saga instance
+      parameters:
+      - description: Saga ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Saga status
+          schema:
+            $ref: '#/definitions/models.SagaStatusResponse'
+        "400":
+          description: Invalid saga ID
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Saga not found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "503":
+          description: Saga runtime unavailable
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Get saga status
+      tags:
+      - sagas
+  /api/v1/sagas/{id}/compensate:
+    post:
+      consumes:
+      - application/json
+      description: Manually trigger compensation for a saga in pending-compensation
+        state
+      parameters:
+      - description: Saga ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Compensation reason
+        in: body
+        name: request
+        schema:
+          $ref: '#/definitions/models.SagaCompensateRequest'
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Compensation started
+          schema:
+            $ref: '#/definitions/models.SagaActionResponse'
+        "400":
+          description: Invalid saga ID
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Saga not found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "409":
+          description: Invalid saga state
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "503":
+          description: Saga runtime unavailable
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Trigger saga compensation
+      tags:
+      - sagas
+  /api/v1/sagas/{id}/recover:
+    post:
+      description: Resume a non-terminal saga from its latest checkpoint
+      parameters:
+      - description: Saga ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "202":
+          description: Recovery executed
+          schema:
+            $ref: '#/definitions/models.SagaActionResponse'
+        "400":
+          description: Invalid saga ID
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "404":
+          description: Definition or checkpoint not found
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "409":
+          description: Saga already terminal
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+        "503":
+          description: Saga recovery unavailable
+          schema:
+            $ref: '#/definitions/response.ErrorResponse'
+      summary: Recover saga from checkpoint
+      tags:
+      - sagas
   /api/v1/workflows:
     get:
       description: List all workflows with optional filtering and pagination

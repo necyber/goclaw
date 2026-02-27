@@ -50,6 +50,16 @@ func NewSagaHandler(
 }
 
 // SubmitSaga handles POST /api/v1/sagas.
+// @Summary Submit a saga
+// @Description Submit a saga definition for asynchronous execution
+// @Tags sagas
+// @Accept json
+// @Produce json
+// @Param saga body models.SagaSubmitRequest true "Saga submit request"
+// @Success 201 {object} models.SagaSubmitResponse "Saga accepted"
+// @Failure 400 {object} response.ErrorResponse "Invalid request"
+// @Failure 503 {object} response.ErrorResponse "Saga runtime unavailable"
+// @Router /api/v1/sagas [post]
 func (h *SagaHandler) SubmitSaga(w http.ResponseWriter, r *http.Request) {
 	if h.orchestrator == nil {
 		response.Error(w, http.StatusServiceUnavailable, response.ErrCodeServiceUnavailable, "saga orchestrator unavailable", getRequestID(r.Context()))
@@ -95,6 +105,16 @@ func (h *SagaHandler) SubmitSaga(w http.ResponseWriter, r *http.Request) {
 }
 
 // GetSaga handles GET /api/v1/sagas/{id}.
+// @Summary Get saga status
+// @Description Get runtime status for a saga instance
+// @Tags sagas
+// @Produce json
+// @Param id path string true "Saga ID"
+// @Success 200 {object} models.SagaStatusResponse "Saga status"
+// @Failure 400 {object} response.ErrorResponse "Invalid saga ID"
+// @Failure 404 {object} response.ErrorResponse "Saga not found"
+// @Failure 503 {object} response.ErrorResponse "Saga runtime unavailable"
+// @Router /api/v1/sagas/{id} [get]
 func (h *SagaHandler) GetSaga(w http.ResponseWriter, r *http.Request) {
 	if h.orchestrator == nil {
 		response.Error(w, http.StatusServiceUnavailable, response.ErrCodeServiceUnavailable, "saga orchestrator unavailable", getRequestID(r.Context()))
@@ -131,6 +151,17 @@ func (h *SagaHandler) GetSaga(w http.ResponseWriter, r *http.Request) {
 }
 
 // ListSagas handles GET /api/v1/sagas.
+// @Summary List sagas
+// @Description List saga instances with optional state filter and pagination
+// @Tags sagas
+// @Produce json
+// @Param state query string false "Filter by saga state"
+// @Param limit query int false "Maximum number of results" default(20)
+// @Param offset query int false "Offset for pagination" default(0)
+// @Success 200 {object} models.SagaListResponse "Saga list"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Failure 503 {object} response.ErrorResponse "Saga runtime unavailable"
+// @Router /api/v1/sagas [get]
 func (h *SagaHandler) ListSagas(w http.ResponseWriter, r *http.Request) {
 	if h.orchestrator == nil {
 		response.Error(w, http.StatusServiceUnavailable, response.ErrCodeServiceUnavailable, "saga orchestrator unavailable", getRequestID(r.Context()))
@@ -181,6 +212,20 @@ func (h *SagaHandler) ListSagas(w http.ResponseWriter, r *http.Request) {
 }
 
 // CompensateSaga handles POST /api/v1/sagas/{id}/compensate.
+// @Summary Trigger saga compensation
+// @Description Manually trigger compensation for a saga in pending-compensation state
+// @Tags sagas
+// @Accept json
+// @Produce json
+// @Param id path string true "Saga ID"
+// @Param request body models.SagaCompensateRequest false "Compensation reason"
+// @Success 202 {object} models.SagaActionResponse "Compensation started"
+// @Failure 400 {object} response.ErrorResponse "Invalid saga ID"
+// @Failure 404 {object} response.ErrorResponse "Saga not found"
+// @Failure 409 {object} response.ErrorResponse "Invalid saga state"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Failure 503 {object} response.ErrorResponse "Saga runtime unavailable"
+// @Router /api/v1/sagas/{id}/compensate [post]
 func (h *SagaHandler) CompensateSaga(w http.ResponseWriter, r *http.Request) {
 	if h.orchestrator == nil {
 		response.Error(w, http.StatusServiceUnavailable, response.ErrCodeServiceUnavailable, "saga orchestrator unavailable", getRequestID(r.Context()))
@@ -220,13 +265,25 @@ func (h *SagaHandler) CompensateSaga(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusAccepted, map[string]any{
-		"saga_id": sagaID,
-		"state":   instance.State.String(),
+	response.JSON(w, http.StatusAccepted, models.SagaActionResponse{
+		SagaID: sagaID,
+		State:  instance.State.String(),
 	})
 }
 
 // RecoverSaga handles POST /api/v1/sagas/{id}/recover.
+// @Summary Recover saga from checkpoint
+// @Description Resume a non-terminal saga from its latest checkpoint
+// @Tags sagas
+// @Produce json
+// @Param id path string true "Saga ID"
+// @Success 202 {object} models.SagaActionResponse "Recovery executed"
+// @Failure 400 {object} response.ErrorResponse "Invalid saga ID"
+// @Failure 404 {object} response.ErrorResponse "Definition or checkpoint not found"
+// @Failure 409 {object} response.ErrorResponse "Saga already terminal"
+// @Failure 500 {object} response.ErrorResponse "Internal server error"
+// @Failure 503 {object} response.ErrorResponse "Saga recovery unavailable"
+// @Router /api/v1/sagas/{id}/recover [post]
 func (h *SagaHandler) RecoverSaga(w http.ResponseWriter, r *http.Request) {
 	if h.orchestrator == nil || h.checkpointStore == nil {
 		response.Error(w, http.StatusServiceUnavailable, response.ErrCodeServiceUnavailable, "saga recovery unavailable", getRequestID(r.Context()))
@@ -260,9 +317,9 @@ func (h *SagaHandler) RecoverSaga(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response.JSON(w, http.StatusAccepted, map[string]any{
-		"saga_id": sagaID,
-		"state":   instance.State.String(),
+	response.JSON(w, http.StatusAccepted, models.SagaActionResponse{
+		SagaID: sagaID,
+		State:  instance.State.String(),
 	})
 }
 
