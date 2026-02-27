@@ -96,17 +96,17 @@
 
 ## 10. HTTP API 端点
 
-- [ ] 10.1 创建 `pkg/api/handlers/saga.go`
-- [ ] 10.2 实现 `POST /api/v1/sagas` 提交 Saga
-- [ ] 10.3 实现 `GET /api/v1/sagas/{id}` 查询 Saga 状态
-- [ ] 10.4 实现 `GET /api/v1/sagas` 列出 Saga（分页 + 状态过滤）
-- [ ] 10.5 实现 `POST /api/v1/sagas/{id}/compensate` 手动触发补偿
-- [ ] 10.6 实现 `POST /api/v1/sagas/{id}/recover` 手动触发恢复
-- [ ] 10.7 在 `pkg/api/router.go` 注册 Saga 路由
-- [ ] 10.8 定义请求/响应模型
-- [ ] 10.9 添加请求验证和错误处理
-- [ ] 10.10 编写 API 端点单元测试
-- [ ] 10.11 编写 API 端点集成测试
+- [x] 10.1 创建 `pkg/api/handlers/saga.go`
+- [x] 10.2 实现 `POST /api/v1/sagas` 提交 Saga
+- [x] 10.3 实现 `GET /api/v1/sagas/{id}` 查询 Saga 状态
+- [x] 10.4 实现 `GET /api/v1/sagas` 列出 Saga（分页 + 状态过滤）
+- [x] 10.5 实现 `POST /api/v1/sagas/{id}/compensate` 手动触发补偿
+- [x] 10.6 实现 `POST /api/v1/sagas/{id}/recover` 手动触发恢复
+- [x] 10.7 在 `pkg/api/router.go` 注册 Saga 路由
+- [x] 10.8 定义请求/响应模型
+- [x] 10.9 添加请求验证和错误处理
+- [x] 10.10 编写 API 端点单元测试
+- [x] 10.11 编写 API 端点集成测试
 
 ## 11. gRPC 服务
 

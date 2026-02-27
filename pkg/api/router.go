@@ -28,6 +28,9 @@ type Handlers struct {
 	// Memory handles memory-related endpoints
 	Memory *handlers.MemoryHandler
 
+	// Saga handles saga-related endpoints
+	Saga *handlers.SagaHandler
+
 	// Metrics is the optional metrics recorder
 	Metrics middleware.MetricsRecorder
 
@@ -83,6 +86,17 @@ func RegisterRoutes(r chi.Router, cfg *config.Config, log logger.Logger, handler
 				r.Get("/stats", handlers.Memory.GetStats)
 				r.Delete("/all", handlers.Memory.DeleteSession)
 				r.Delete("/weak", handlers.Memory.DeleteWeakMemories)
+			})
+		}
+
+		// Saga routes
+		if handlers.Saga != nil {
+			r.Route("/sagas", func(r chi.Router) {
+				r.Post("/", handlers.Saga.SubmitSaga)
+				r.Get("/", handlers.Saga.ListSagas)
+				r.Get("/{id}", handlers.Saga.GetSaga)
+				r.Post("/{id}/compensate", handlers.Saga.CompensateSaga)
+				r.Post("/{id}/recover", handlers.Saga.RecoverSaga)
 			})
 		}
 	})

@@ -325,6 +325,37 @@ func (o *SagaOrchestrator) ListInstances() []*SagaInstance {
 	return instances
 }
 
+// ListInstancesFiltered lists saga instances with optional state filter and pagination.
+func (o *SagaOrchestrator) ListInstancesFiltered(ctx context.Context, filter SagaListFilter) ([]*SagaInstance, int, error) {
+	if o.store != nil {
+		return o.store.List(ctx, filter)
+	}
+
+	o.mu.RLock()
+	defer o.mu.RUnlock()
+
+	all := make([]*SagaInstance, 0, len(o.instances))
+	for _, instance := range o.instances {
+		if filter.State != "" && instance.State.String() != filter.State {
+			continue
+		}
+		all = append(all, cloneInstance(instance))
+	}
+
+	total := len(all)
+	if filter.Offset < 0 {
+		filter.Offset = 0
+	}
+	if filter.Offset > total {
+		filter.Offset = total
+	}
+	end := total
+	if filter.Limit > 0 && filter.Offset+filter.Limit < end {
+		end = filter.Offset + filter.Limit
+	}
+	return all[filter.Offset:end], total, nil
+}
+
 func (o *SagaOrchestrator) executeStep(
 	ctx context.Context,
 	definition *SagaDefinition,
