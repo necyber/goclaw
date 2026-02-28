@@ -73,12 +73,17 @@ func (r *taskRunner) Execute(ctx context.Context) error {
 		}
 
 		lastErr = r.fn(runCtx)
+		runCtxErr := runCtx.Err()
 
 		if cancel != nil {
 			cancel()
 		}
 
 		if lastErr == nil {
+			if runCtxErr != nil {
+				lastErr = runCtxErr
+				break
+			}
 			if ctx.Err() != nil {
 				lastErr = ctx.Err()
 				break

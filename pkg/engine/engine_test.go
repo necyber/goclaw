@@ -169,17 +169,62 @@ func TestTaskRunner_ContextCancelled(t *testing.T) {
 	tr := newStateTracker()
 	tr.InitTasks([]string{"t1"})
 
-	task := &dag.Task{ID: "t1", Name: "t1", Agent: "test", Lane: "default", Retries: 5}
+	task := &dag.Task{ID: "t1", Name: "t1", Agent: "test", Lane: "default", Retries: 0}
 	runner := newTaskRunner(task, tr, func(ctx context.Context) error {
-		return errors.New("fail")
+		<-ctx.Done()
+		return ctx.Err()
 	})
 
-	ctx, cancel := context.WithTimeout(context.Background(), 50*time.Millisecond)
-	defer cancel()
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
 
 	err := runner.Execute(ctx)
 	if err == nil {
 		t.Fatal("expected error")
+	}
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("expected cancellation error, got %v", err)
+	}
+	r, ok := tr.GetResult("t1")
+	if !ok {
+		t.Fatal("expected task result")
+	}
+	if r.State != TaskStateCancelled {
+		t.Fatalf("expected Cancelled state, got %v", r.State)
+	}
+}
+
+func TestTaskRunner_TaskTimeoutReturningNil_IsCancelled(t *testing.T) {
+	tr := newStateTracker()
+	tr.InitTasks([]string{"t1"})
+
+	task := &dag.Task{
+		ID:      "t1",
+		Name:    "t1",
+		Agent:   "test",
+		Lane:    "default",
+		Retries: 0,
+		Timeout: 20 * time.Millisecond,
+	}
+	runner := newTaskRunner(task, tr, func(ctx context.Context) error {
+		<-ctx.Done()
+		// Simulate task function that swallows timeout and returns nil.
+		return nil
+	})
+
+	err := runner.Execute(context.Background())
+	if err == nil {
+		t.Fatal("expected error")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected deadline exceeded, got %v", err)
+	}
+	r, ok := tr.GetResult("t1")
+	if !ok {
+		t.Fatal("expected task result")
+	}
+	if r.State != TaskStateCancelled {
+		t.Fatalf("expected Cancelled state, got %v", r.State)
 	}
 }
 
