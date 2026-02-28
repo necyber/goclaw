@@ -14,6 +14,6 @@
 
 ## 3. Conformance Verification
 
-- [ ] 3.1 Run package-level compile/tests for affected paths (`pkg/engine`, and `cmd/goclaw` if impacted).
-- [ ] 3.2 Verify updated behaviors satisfy week4-engine-spec-conformance delta scenarios.
-- [ ] 3.3 Prepare sync/archive steps after implementation completion.
+- [x] 3.1 Run package-level compile/tests for affected paths (`pkg/engine`, and `cmd/goclaw` if impacted).
+- [x] 3.2 Verify updated behaviors satisfy week4-engine-spec-conformance delta scenarios.
+- [x] 3.3 Prepare sync/archive steps after implementation completion.
