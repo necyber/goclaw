@@ -1,6 +1,7 @@
 package dag
 
 import (
+	"reflect"
 	"testing"
 )
 
@@ -240,5 +241,66 @@ func TestGraph_Levels_Empty(t *testing.T) {
 	}
 	if len(levels) != 0 {
 		t.Errorf("expected empty levels, got %v", levels)
+	}
+}
+
+func TestGraph_TopologicalSort_DeterministicRepeated(t *testing.T) {
+	buildGraph := func() *Graph {
+		g := NewGraph()
+		// Representative branching graph:
+		// a -> c -> e
+		// a -> d -> e
+		// b -> d
+		g.AddTask(&Task{ID: "d", Name: "D", Agent: "test", Deps: []string{"a", "b"}})
+		g.AddTask(&Task{ID: "b", Name: "B", Agent: "test"})
+		g.AddTask(&Task{ID: "e", Name: "E", Agent: "test", Deps: []string{"c", "d"}})
+		g.AddTask(&Task{ID: "a", Name: "A", Agent: "test"})
+		g.AddTask(&Task{ID: "c", Name: "C", Agent: "test", Deps: []string{"a"}})
+		return g
+	}
+
+	expected := []string{"a", "b", "c", "d", "e"}
+	for i := 0; i < 20; i++ {
+		g := buildGraph()
+		order, err := g.TopologicalSort()
+		if err != nil {
+			t.Fatalf("unexpected error on run %d: %v", i, err)
+		}
+		if !reflect.DeepEqual(order, expected) {
+			t.Fatalf("unexpected deterministic order on run %d: got %v want %v", i, order, expected)
+		}
+	}
+}
+
+func TestGraph_Levels_DeterministicRepeated(t *testing.T) {
+	buildGraph := func() *Graph {
+		g := NewGraph()
+		// Representative branching graph:
+		// a -> c -> e
+		// a -> d -> e
+		// b -> d
+		g.AddTask(&Task{ID: "d", Name: "D", Agent: "test", Deps: []string{"a", "b"}})
+		g.AddTask(&Task{ID: "b", Name: "B", Agent: "test"})
+		g.AddTask(&Task{ID: "e", Name: "E", Agent: "test", Deps: []string{"c", "d"}})
+		g.AddTask(&Task{ID: "a", Name: "A", Agent: "test"})
+		g.AddTask(&Task{ID: "c", Name: "C", Agent: "test", Deps: []string{"a"}})
+		return g
+	}
+
+	expected := [][]string{
+		{"a", "b"},
+		{"c", "d"},
+		{"e"},
+	}
+
+	for i := 0; i < 20; i++ {
+		g := buildGraph()
+		levels, err := g.Levels()
+		if err != nil {
+			t.Fatalf("unexpected error on run %d: %v", i, err)
+		}
+		if !reflect.DeepEqual(levels, expected) {
+			t.Fatalf("unexpected deterministic levels on run %d: got %v want %v", i, levels, expected)
+		}
 	}
 }

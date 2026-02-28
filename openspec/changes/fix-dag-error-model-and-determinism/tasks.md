@@ -12,6 +12,6 @@
 
 ## 3. Regression tests and validation
 
-- [ ] 3.1 Add deterministic regression tests for repeated `TopologicalSort()` and `Levels()` on representative branching graphs
-- [ ] 3.2 Run `go test ./pkg/dag` and fix any failures
-- [ ] 3.3 Run `openspec validate --changes --strict` and fix any change artifact issues
+- [x] 3.1 Add deterministic regression tests for repeated `TopologicalSort()` and `Levels()` on representative branching graphs
+- [x] 3.2 Run `go test ./pkg/dag` and fix any failures
+- [x] 3.3 Run `openspec validate --changes --strict` and fix any change artifact issues
