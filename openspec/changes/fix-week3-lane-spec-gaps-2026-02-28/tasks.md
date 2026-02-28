@@ -10,5 +10,5 @@
 
 ## 3. Conformance Tests and Validation
 
-- [ ] 3.1 Add/update tests in `pkg/lane` and `pkg/metrics` for outcome metrics exposure, wait-duration recording, and redirect-failure accounting.
-- [ ] 3.2 Run targeted Go tests (`./pkg/lane`, `./pkg/metrics`) and ensure all new behaviors are covered and passing.
+- [x] 3.1 Add/update tests in `pkg/lane` and `pkg/metrics` for outcome metrics exposure, wait-duration recording, and redirect-failure accounting.
+- [x] 3.2 Run targeted Go tests (`./pkg/lane`, `./pkg/metrics`) and ensure all new behaviors are covered and passing.

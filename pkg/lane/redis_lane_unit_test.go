@@ -245,6 +245,59 @@ func TestRedisLane_Unit_BackpressureRedirect(t *testing.T) {
 	}
 }
 
+func TestRedisLane_Unit_RedirectFailureIsNotClassifiedAsRedirected(t *testing.T) {
+	client := newMockRedisClient(t)
+
+	target, err := New(&Config{
+		Name:           "redirect-target-fail",
+		Capacity:       8,
+		MaxConcurrency: 1,
+		Backpressure:   Block,
+	})
+	if err != nil {
+		t.Fatalf("new target lane failed: %v", err)
+	}
+	if err := target.Close(context.Background()); err != nil {
+		t.Fatalf("close target lane failed: %v", err)
+	}
+
+	manager := NewManager()
+	if err := manager.RegisterLane(target); err != nil {
+		t.Fatalf("register target lane failed: %v", err)
+	}
+
+	cfg := DefaultRedisConfig("redirect-src-fail")
+	cfg.KeyPrefix = uniqueKeyPrefix("redirect-src-fail")
+	cfg.Capacity = 1
+	cfg.Backpressure = Redirect
+	cfg.RedirectLane = "redirect-target-fail"
+
+	src, err := NewRedisLane(client, cfg)
+	if err != nil {
+		t.Fatalf("new source redis lane failed: %v", err)
+	}
+	src.SetManager(manager)
+
+	metrics := newOutcomeMetricsStub()
+	src.SetMetrics(metrics)
+
+	if err := src.Submit(context.Background(), NewTaskFunc("rf1", "redirect-src-fail", 1, nil)); err != nil {
+		t.Fatalf("first submit failed: %v", err)
+	}
+	if err := src.Submit(context.Background(), NewTaskFunc("rf2", "redirect-src-fail", 1, nil)); !IsLaneFullError(err) {
+		t.Fatalf("expected LaneFullError on failed redirect, got %v", err)
+	}
+
+	stats := src.Stats()
+	if stats.Redirected != 0 || stats.Dropped != 1 {
+		t.Fatalf("unexpected source stats: %+v", stats)
+	}
+	if metrics.count("redirected") != 0 || metrics.count("dropped") != 1 {
+		t.Fatalf("unexpected outcome metrics redirected=%d dropped=%d",
+			metrics.count("redirected"), metrics.count("dropped"))
+	}
+}
+
 func TestRedisLane_Unit_BackpressureBlock(t *testing.T) {
 	client := newMockRedisClient(t)
 
