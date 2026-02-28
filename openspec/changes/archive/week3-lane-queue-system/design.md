@@ -19,6 +19,8 @@ type Lane interface {
 }
 ```
 
+- 生命周期方法（Close/IsClosed）按幂等语义设计，支持重复调用安全。
+
 ### 2. ChannelLane 实现
 
 - **任务队列**: 使用 buffered channel 存储待执行的任务
@@ -28,7 +30,7 @@ type Lane interface {
 
 ### 3. Worker Pool
 
-- 固定数量的 worker goroutine
+- 可配置并发的 worker goroutine（默认固定并发，可选动态扩缩容）
 - 任务分发到空闲 worker
 - 支持优雅关闭，等待正在执行的任务完成
 - panic 恢复机制
@@ -44,17 +46,18 @@ type Lane interface {
 
 - 统一管理多个 Lane
 - 支持动态注册/注销
+- 支持并发读写安全的多 Lane 操作
 - 全局统计信息
 - 任务自动路由到对应 Lane
 
 ### 6. 速率限制
 
-**令牌桶 (Token Bucket)**:
+**令牌桶 (Token Bucket，Week 3 规范基线)**:
 - 支持突发流量
 - 可配置产生速率和桶容量
 - 支持等待或立即失败
 
-**漏桶 (Leaky Bucket)**:
+**漏桶 (Leaky Bucket，可选扩展，非 Week 3 验收基线)**:
 - 匀速输出
 - 适合严格限速场景
 
@@ -65,6 +68,17 @@ type Lane interface {
 | Block | 队列满时阻塞提交者 | 不允许丢任务 |
 | Drop | 队列满时丢弃新任务 | 允许丢任务 |
 | Redirect | 重定向到其他 Lane | 负载均衡 |
+
+背压统计口径统一为 `accepted`、`rejected`、`redirected`、`dropped`。
+
+## 需求可追溯性（与 archived specs 对齐）
+
+| 主题 | 归档 specs 约束 | 本文档对齐说明 |
+|------|-----------------|----------------|
+| 同优先级确定性顺序 | `priority-queue-spec.md` FR-2 | 明确“同优先级任务按确定性顺序处理” |
+| Lane Manager 并发安全 | `lane-manager-spec.md` FR-2 | 明确“支持并发读写安全” |
+| 生命周期重复调用安全 | `lane-interface-spec.md` Acceptance Notes | 明确 Close/IsClosed 按幂等语义设计 |
+| 背压一致统计口径 | `backpressure-spec.md` FR-4 | 统一 `accepted/rejected/redirected/dropped` |
 
 ## 使用示例
 

@@ -29,7 +29,7 @@
 ### 2.2 Worker Pool 实现 ✅
 - [x] 创建 `pkg/lane/worker_pool.go`
 - [x] 实现 WorkerPool 结构
-- [x] 实现动态 worker 启动
+- [x] 实现可配置并发 worker 启动（默认固定并发，可选动态扩缩容）
 - [x] 实现优雅关闭
 - [x] 实现任务执行逻辑
 
@@ -63,7 +63,7 @@
 - [x] 实现令牌桶算法
 - [x] 集成到 Lane
 - [x] 支持突发流量
-- [x] 实现漏桶算法
+- [x] 实现漏桶算法（可选扩展，非 Week 3 验收基线）
 
 ## Phase 5: Lane Manager (Day 3-4) ✅
 
@@ -77,6 +77,12 @@
 - [x] 支持从配置创建 Lane
 - [x] 支持动态添加/删除 Lane
 - [x] 支持全局统计
+
+### 5.3 规范可追溯性补充 ✅
+- [x] 明确同优先级任务确定性排序（对应 `priority-queue-spec.md` FR-2）
+- [x] 明确 Lane Manager 并发读写安全（对应 `lane-manager-spec.md` FR-2）
+- [x] 明确生命周期方法重复调用安全（对应 `lane-interface-spec.md` Acceptance Notes）
+- [x] 统一背压统计口径：accepted/rejected/redirected/dropped（对应 `backpressure-spec.md` FR-4）
 
 ## Phase 6: 测试与示例 (Day 4-5) ✅
 
@@ -111,11 +117,11 @@
 | Phase 5 | ✅ 完成 | 100% |
 | Phase 6 | ✅ 完成 | 100% |
 
-**总体进度: 100% ✅**
+**总体进度: 100% ✅（Week 3 范围，不含已明确延后的 Engine 集成项）**
 
 ## 备注
 
-- **Engine 集成**（proposal 任务分解第 9 条）推迟至 week4-engine-core 实现，届时在 engine.go 中初始化 `lane.Manager`。
+- **Engine 集成**（proposal 任务分解第 9 条）推迟至 week4-engine-core 实现；该延后项不计入 Week 3 文档范围完成度。
 
 ## 已创建文件
 
@@ -137,9 +143,9 @@ examples/lane/
 ## 关键特性
 
 1. **三种背压策略**: Block, Drop, Redirect
-2. **Worker Pool**: 支持固定和动态 worker 数量
+2. **Worker Pool**: 支持可配置并发（默认固定并发，可选动态扩缩容）
 3. **优先级队列**: 基于堆实现，高优先级优先执行
-4. **速率限制**: 令牌桶和漏桶算法
+4. **速率限制**: 令牌桶为规范基线，漏桶为可选扩展
 5. **Lane Manager**: 统一管理多个 Lane
-6. **完整统计**: Pending, Running, Completed, Failed, Dropped
+6. **完整统计**: 背压口径 accepted/rejected/redirected/dropped + 运行态 Pending/Running/Completed/Failed
 7. **优雅关闭**: 支持 context 超时控制

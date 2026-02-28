@@ -10,10 +10,10 @@
 
 1. **基础 Lane 实现**：基于 Go Channel 的队列
 2. **背压策略**：支持 Block、Drop、Redirect 三种策略
-3. **Worker Pool**：动态worker管理
+3. **Worker Pool**：可配置并发的 worker 管理（默认固定并发，可选动态扩缩容）
 4. **Lane Manager**：多 Lane 统一管理
 5. **优先级队列**：支持任务优先级
-6. **流控策略**：令牌桶算法实现速率限制
+6. **流控策略**：令牌桶算法实现速率限制（可选漏桶扩展，非 Week 3 验收基线）
 
 ## 详细设计
 
@@ -46,6 +46,13 @@ Lane = Buffered Channel + Worker Pool + Rate Limiter
 
 使用令牌桶算法实现速率限制，支持突发流量。
 
+### 需求可追溯性（对齐 archived specs）
+
+- **Priority Queue FR-2（Deterministic tie-breaking）**：同优先级任务按确定性顺序出队（例如按入队顺序）。
+- **Lane Manager FR-2（Safe multi-lane operations）**：多 Lane 读写操作需保证并发安全。
+- **Lane Interface Acceptance（Lifecycle repeated calls）**：生命周期方法（Close/IsClosed）需支持重复调用安全。
+- **Backpressure FR-4（Consistent metrics）**：背压统计口径统一为 `accepted`、`rejected`、`redirected`、`dropped`。
+
 ## 任务分解
 
 1. 设计 Lane 核心接口和类型定义
@@ -62,8 +69,9 @@ Lane = Buffered Channel + Worker Pool + Rate Limiter
 
 - [ ] Lane 接口设计清晰，符合 Go 惯例
 - [ ] 支持三种背压策略
-- [ ] Worker Pool 动态扩缩容
-- [ ] 优先级队列正确排序
+- [ ] Worker Pool 支持可配置并发（默认固定并发，可选动态扩缩容）
+- [ ] 优先级队列正确排序（含同优先级确定性排序）
+- [ ] 背压指标口径一致：accepted/rejected/redirected/dropped
 - [ ] 单元测试覆盖率 > 85%
 - [ ] 性能基准：单 Lane 10k+ TPS
 
