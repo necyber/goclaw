@@ -7,10 +7,10 @@
 
 ## 2. Cancellation Outcome Mapping
 
-- [ ] 2.1 Update workflow terminal-status mapping so cancellation/deadline-driven task outcomes resolve to cancellation semantics.
-- [ ] 2.2 Keep generic non-cancellation task failures mapped to failed semantics.
-- [ ] 2.3 Add regression tests for per-task timeout/cancellation workflow outcome mapping.
-- [ ] 2.4 Run focused `pkg/engine` tests for timeout/cancellation outcome behavior.
+- [x] 2.1 Update workflow terminal-status mapping so cancellation/deadline-driven task outcomes resolve to cancellation semantics.
+- [x] 2.2 Keep generic non-cancellation task failures mapped to failed semantics.
+- [x] 2.3 Add regression tests for per-task timeout/cancellation workflow outcome mapping.
+- [x] 2.4 Run focused `pkg/engine` tests for timeout/cancellation outcome behavior.
 
 ## 3. Conformance Verification
 

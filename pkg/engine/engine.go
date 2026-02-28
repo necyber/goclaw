@@ -3,6 +3,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"path/filepath"
 	"strings"
@@ -407,7 +408,7 @@ func (e *Engine) Submit(ctx context.Context, wf *Workflow) (*WorkflowResult, err
 	status := WorkflowStatusSuccess
 	statusStr := "completed"
 	if schedErr != nil {
-		if ctx.Err() != nil {
+		if ctx.Err() != nil || errors.Is(schedErr, context.Canceled) || errors.Is(schedErr, context.DeadlineExceeded) {
 			status = WorkflowStatusCancelled
 			statusStr = "cancelled"
 		} else {

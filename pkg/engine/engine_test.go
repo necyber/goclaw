@@ -570,3 +570,52 @@ func TestEngine_Submit_ContextCancelled(t *testing.T) {
 		t.Error("expected non-success result for cancelled context")
 	}
 }
+
+func TestEngine_Submit_TaskTimeoutMarksWorkflowCancelled(t *testing.T) {
+	eng, _ := New(minConfig(), nil, memory.NewMemoryStorage())
+	ctx := context.Background()
+	if err := eng.Start(ctx); err != nil {
+		t.Fatalf("Start: %v", err)
+	}
+	defer eng.Stop(ctx)
+
+	wf := &Workflow{
+		ID: "wf-timeout-cancelled",
+		Tasks: []*dag.Task{
+			{
+				ID:      "t1",
+				Name:    "t1",
+				Agent:   "test",
+				Timeout: 30 * time.Millisecond,
+			},
+		},
+		TaskFns: map[string]func(context.Context) error{
+			"t1": func(taskCtx context.Context) error {
+				<-taskCtx.Done()
+				// Simulate task code that swallows timeout and returns nil.
+				return nil
+			},
+		},
+	}
+
+	result, err := eng.Submit(ctx, wf)
+	if err == nil {
+		t.Fatal("expected timeout-related error")
+	}
+	if !errors.Is(err, context.DeadlineExceeded) {
+		t.Fatalf("expected deadline exceeded error, got %v", err)
+	}
+	if result == nil {
+		t.Fatal("expected workflow result")
+	}
+	if result.Status != WorkflowStatusCancelled {
+		t.Fatalf("expected workflow status cancelled, got %v", result.Status)
+	}
+	taskResult, ok := result.TaskResults["t1"]
+	if !ok {
+		t.Fatal("expected task result for t1")
+	}
+	if taskResult.State != TaskStateCancelled {
+		t.Fatalf("expected task state cancelled, got %v", taskResult.State)
+	}
+}
