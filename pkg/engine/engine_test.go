@@ -36,6 +36,35 @@ func minConfig() *config.Config {
 	}
 }
 
+type blockingMemoryHub struct {
+	stopStarted chan struct{}
+	allowStop   chan struct{}
+}
+
+func newBlockingMemoryHub() *blockingMemoryHub {
+	return &blockingMemoryHub{
+		stopStarted: make(chan struct{}),
+		allowStop:   make(chan struct{}),
+	}
+}
+
+func (h *blockingMemoryHub) Start(context.Context) error { return nil }
+
+func (h *blockingMemoryHub) Stop(ctx context.Context) error {
+	select {
+	case <-h.stopStarted:
+	default:
+		close(h.stopStarted)
+	}
+
+	select {
+	case <-h.allowStop:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
 // --- StateTracker tests ---
 
 func TestStateTracker_InitAndGet(t *testing.T) {
@@ -275,6 +304,63 @@ func TestEngine_StopIdleEngine(t *testing.T) {
 	eng, _ := New(minConfig(), nil, memory.NewMemoryStorage())
 	if err := eng.Stop(context.Background()); err != nil {
 		t.Errorf("Stop on idle engine should return nil, got: %v", err)
+	}
+}
+
+func TestEngine_SubmitRejectedWhileStopping(t *testing.T) {
+	hub := newBlockingMemoryHub()
+	eng, err := New(minConfig(), nil, memory.NewMemoryStorage(), WithMemoryHub(hub))
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+
+	ctx := context.Background()
+	if err := eng.Start(ctx); err != nil {
+		t.Fatalf("Start failed: %v", err)
+	}
+
+	stopDone := make(chan error, 1)
+	go func() {
+		stopDone <- eng.Stop(context.Background())
+	}()
+
+	select {
+	case <-hub.stopStarted:
+	case <-time.After(time.Second):
+		t.Fatal("stop did not reach memory hub stop phase")
+	}
+
+	if eng.State() != "stopping" {
+		t.Fatalf("expected stopping state, got %s", eng.State())
+	}
+
+	wf := &Workflow{
+		ID: "wf-during-stop",
+		Tasks: []*dag.Task{
+			{ID: "t1", Name: "t1", Agent: "test"},
+		},
+	}
+	_, err = eng.Submit(context.Background(), wf)
+	if err == nil {
+		t.Fatal("expected submit to be rejected while stopping")
+	}
+	var notRunning *EngineNotRunningError
+	if !errors.As(err, &notRunning) {
+		t.Fatalf("expected EngineNotRunningError, got %T", err)
+	}
+
+	close(hub.allowStop)
+	select {
+	case err := <-stopDone:
+		if err != nil {
+			t.Fatalf("Stop failed: %v", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("stop did not complete")
+	}
+
+	if eng.State() != "stopped" {
+		t.Fatalf("expected stopped state, got %s", eng.State())
 	}
 }
 

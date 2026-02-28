@@ -630,6 +630,8 @@ func (e *Engine) GetStatus() *EngineStatus {
 		stateStr = "idle"
 	case stateRunning:
 		stateStr = "running"
+	case stateStopping:
+		stateStr = "stopping"
 	case stateStopped:
 		stateStr = "stopped"
 	case stateError:

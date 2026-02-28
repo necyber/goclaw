@@ -39,6 +39,7 @@ type engineState int32
 const (
 	stateIdle engineState = iota
 	stateRunning
+	stateStopping
 	stateStopped
 	stateError
 )
@@ -163,7 +164,8 @@ func New(cfg *config.Config, logger appLogger, store storage.Storage, opts ...Op
 
 // Start initialises the engine and starts the lane manager.
 func (e *Engine) Start(ctx context.Context) error {
-	if engineState(e.state.Load()) == stateRunning {
+	current := engineState(e.state.Load())
+	if current == stateRunning || current == stateStopping {
 		return fmt.Errorf("engine is already running")
 	}
 
@@ -275,7 +277,7 @@ func (e *Engine) Start(ctx context.Context) error {
 
 // Stop gracefully shuts down the engine.
 func (e *Engine) Stop(ctx context.Context) error {
-	if engineState(e.state.Load()) != stateRunning {
+	if !e.state.CompareAndSwap(int32(stateRunning), int32(stateStopping)) {
 		return nil
 	}
 
@@ -519,6 +521,8 @@ func (e *Engine) State() string {
 		return "idle"
 	case stateRunning:
 		return "running"
+	case stateStopping:
+		return "stopping"
 	case stateStopped:
 		return "stopped"
 	case stateError:
