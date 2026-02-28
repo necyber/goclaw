@@ -324,15 +324,25 @@ func (g *Graph) rebuildEdges() {
 	g.inDegree = make(map[string]int, len(g.tasks))
 	g.outDegree = make(map[string]int, len(g.tasks))
 
+	taskIDs := make([]string, 0, len(g.tasks))
 	for id := range g.tasks {
+		taskIDs = append(taskIDs, id)
+	}
+	sort.Strings(taskIDs)
+
+	for _, id := range taskIDs {
 		g.edges[id] = []string{}
 		g.inDegree[id] = 0
 		g.outDegree[id] = 0
 	}
 
 	// Rebuild from task dependencies
-	for id, task := range g.tasks {
-		for _, depID := range task.Deps {
+	for _, id := range taskIDs {
+		task := g.tasks[id]
+		deps := make([]string, len(task.Deps))
+		copy(deps, task.Deps)
+		sort.Strings(deps)
+		for _, depID := range deps {
 			// depID -> id (id depends on depID)
 			g.edges[depID] = append(g.edges[depID], id)
 			g.outDegree[depID]++

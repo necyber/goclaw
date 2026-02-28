@@ -2,6 +2,7 @@ package dag
 
 import (
 	"container/list"
+	"sort"
 )
 
 // TopologicalSort returns a topological ordering of tasks using Kahn's algorithm.
@@ -31,10 +32,15 @@ func (g *Graph) TopologicalSort() ([]string, error) {
 
 	// Initialize queue with all nodes that have no dependencies
 	queue := list.New()
+	ready := make([]string, 0, len(inDegree))
 	for id, degree := range inDegree {
 		if degree == 0 {
-			queue.PushBack(id)
+			ready = append(ready, id)
 		}
+	}
+	sort.Strings(ready)
+	for _, id := range ready {
+		queue.PushBack(id)
 	}
 
 	result := make([]string, 0, len(g.tasks))
@@ -49,11 +55,16 @@ func (g *Graph) TopologicalSort() ([]string, error) {
 		result = append(result, node)
 
 		// Reduce in-degree of all neighbors
+		newlyReady := make([]string, 0)
 		for _, neighbor := range g.edges[node] {
 			inDegree[neighbor]--
 			if inDegree[neighbor] == 0 {
-				queue.PushBack(neighbor)
+				newlyReady = append(newlyReady, neighbor)
 			}
+		}
+		sort.Strings(newlyReady)
+		for _, id := range newlyReady {
+			queue.PushBack(id)
 		}
 	}
 
@@ -198,6 +209,9 @@ func (g *Graph) Levels() ([][]string, error) {
 	levels := make([][]string, maxDepth+1)
 	for id, d := range depth {
 		levels[d] = append(levels[d], id)
+	}
+	for i := range levels {
+		sort.Strings(levels[i])
 	}
 
 	return levels, nil

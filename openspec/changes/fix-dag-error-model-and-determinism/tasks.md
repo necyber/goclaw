@@ -1,8 +1,8 @@
 ## 1. Deterministic DAG ordering
 
-- [ ] 1.1 Update `pkg/dag/toposort.go` so zero in-degree task selection is stable and deterministic across runs
-- [ ] 1.2 Ensure deterministic processing order for newly-ready tasks during topological sort
-- [ ] 1.3 Ensure `Levels()` output is deterministic by sorting task IDs within each emitted layer
+- [x] 1.1 Update `pkg/dag/toposort.go` so zero in-degree task selection is stable and deterministic across runs
+- [x] 1.2 Ensure deterministic processing order for newly-ready tasks during topological sort
+- [x] 1.3 Ensure `Levels()` output is deterministic by sorting task IDs within each emitted layer
 
 ## 2. Dependency error model alignment
 
