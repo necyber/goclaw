@@ -33,6 +33,14 @@ func (m *Manager) initLaneMetrics(cfg Config) {
 		[]string{"lane_name"},
 	)
 
+	m.laneSubmission = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "lane_submission_outcomes_total",
+			Help: "Total number of lane submissions by canonical outcome",
+		},
+		[]string{"lane_name", "outcome"},
+	)
+
 	m.redisQueueDepth = prometheus.NewGaugeVec(
 		prometheus.GaugeOpts{
 			Name: "redis_lane_queue_depth",
@@ -61,6 +69,7 @@ func (m *Manager) initLaneMetrics(cfg Config) {
 	m.registry.MustRegister(m.laneQueueDepth)
 	m.registry.MustRegister(m.laneWaitDuration)
 	m.registry.MustRegister(m.laneThroughput)
+	m.registry.MustRegister(m.laneSubmission)
 	m.registry.MustRegister(m.redisQueueDepth)
 	m.registry.MustRegister(m.redisSubmitDur)
 	m.registry.MustRegister(m.redisThroughput)
@@ -104,6 +113,20 @@ func (m *Manager) RecordThroughput(laneName string) {
 		return
 	}
 	m.laneThroughput.WithLabelValues(laneName).Inc()
+}
+
+// RecordSubmissionOutcome records canonical lane submission outcomes.
+func (m *Manager) RecordSubmissionOutcome(laneName string, outcome string) {
+	if !m.enabled {
+		return
+	}
+
+	switch outcome {
+	case "accepted", "rejected", "redirected", "dropped":
+		m.laneSubmission.WithLabelValues(laneName, outcome).Inc()
+	default:
+		// Ignore unknown outcomes to keep label cardinality bounded.
+	}
 }
 
 // SetRedisQueueDepth sets the current queue depth for a Redis-backed lane.

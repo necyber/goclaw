@@ -31,6 +31,7 @@ type Manager struct {
 	laneQueueDepth   *prometheus.GaugeVec
 	laneWaitDuration *prometheus.HistogramVec
 	laneThroughput   *prometheus.CounterVec
+	laneSubmission   *prometheus.CounterVec
 	redisQueueDepth  *prometheus.GaugeVec
 	redisSubmitDur   *prometheus.HistogramVec
 	redisThroughput  *prometheus.CounterVec

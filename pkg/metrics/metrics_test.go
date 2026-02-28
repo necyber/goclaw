@@ -295,6 +295,39 @@ func TestSignalAndRedisMetricsRegistered(t *testing.T) {
 	}
 }
 
+func TestLaneSubmissionOutcomeMetricsRegistered(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Enabled = true
+	m := NewManager(cfg)
+
+	m.RecordSubmissionOutcome("cpu", "accepted")
+	m.RecordSubmissionOutcome("cpu", "rejected")
+	m.RecordSubmissionOutcome("cpu", "redirected")
+	m.RecordSubmissionOutcome("cpu", "dropped")
+	m.RecordSubmissionOutcome("cpu", "unexpected")
+
+	req := httptest.NewRequest("GET", "/metrics", nil)
+	w := httptest.NewRecorder()
+	m.Handler().ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	if !contains(body, "lane_submission_outcomes_total") {
+		t.Fatalf("expected lane submission outcome metric in output")
+	}
+	for _, outcome := range []string{"accepted", "rejected", "redirected", "dropped"} {
+		if !contains(body, "outcome=\""+outcome+"\"") {
+			t.Fatalf("expected outcome label %q in output", outcome)
+		}
+	}
+	if contains(body, "outcome=\"unexpected\"") {
+		t.Fatalf("unexpected outcome label should not be exported")
+	}
+}
+
 func TestSagaMetricsRegistered(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Enabled = true
