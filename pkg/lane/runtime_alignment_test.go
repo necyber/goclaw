@@ -11,6 +11,7 @@ import (
 type outcomeMetricsStub struct {
 	mu       sync.Mutex
 	outcomes map[string]int
+	waits    int
 }
 
 func newOutcomeMetricsStub() *outcomeMetricsStub {
@@ -23,7 +24,11 @@ func (m *outcomeMetricsStub) IncQueueDepth(string) {}
 
 func (m *outcomeMetricsStub) DecQueueDepth(string) {}
 
-func (m *outcomeMetricsStub) RecordWaitDuration(string, time.Duration) {}
+func (m *outcomeMetricsStub) RecordWaitDuration(string, time.Duration) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.waits++
+}
 
 func (m *outcomeMetricsStub) RecordThroughput(string) {}
 
@@ -37,6 +42,12 @@ func (m *outcomeMetricsStub) count(outcome string) int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.outcomes[outcome]
+}
+
+func (m *outcomeMetricsStub) waitCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.waits
 }
 
 func TestPriorityQueue_DeterministicTieBreak(t *testing.T) {
@@ -138,6 +149,94 @@ func TestChannelLane_RedirectOutcomeAccounting(t *testing.T) {
 	}
 	if metrics.count("redirected") != 1 {
 		t.Fatalf("expected redirected metric=1, got %d", metrics.count("redirected"))
+	}
+
+	if err := mgr.Close(context.Background()); err != nil {
+		t.Fatalf("close manager failed: %v", err)
+	}
+}
+
+func TestChannelLane_WaitDurationRecordedForStandardTask(t *testing.T) {
+	l, err := New(&Config{
+		Name:           "wait-accounting",
+		Capacity:       4,
+		MaxConcurrency: 1,
+		Backpressure:   Block,
+	})
+	if err != nil {
+		t.Fatalf("create lane failed: %v", err)
+	}
+	defer l.Close(context.Background())
+	l.Run()
+
+	metrics := newOutcomeMetricsStub()
+	l.SetMetrics(metrics)
+
+	if err := l.Submit(context.Background(), NewTaskFunc("w1", "wait-accounting", 1, nil)); err != nil {
+		t.Fatalf("submit failed: %v", err)
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if metrics.waitCount() > 0 {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("expected wait duration to be recorded for standard submission")
+}
+
+func TestChannelLane_RedirectFailureIsNotClassifiedAsRedirected(t *testing.T) {
+	target, err := New(&Config{
+		Name:           "redirect-fail-target",
+		Capacity:       2,
+		MaxConcurrency: 1,
+		Backpressure:   Block,
+	})
+	if err != nil {
+		t.Fatalf("create target lane failed: %v", err)
+	}
+
+	source, err := New(&Config{
+		Name:           "redirect-fail-source",
+		Capacity:       1,
+		MaxConcurrency: 1,
+		Backpressure:   Redirect,
+		RedirectLane:   "redirect-fail-target",
+	})
+	if err != nil {
+		t.Fatalf("create source lane failed: %v", err)
+	}
+
+	mgr := NewManager()
+	if err := mgr.RegisterLane(target); err != nil {
+		t.Fatalf("register target failed: %v", err)
+	}
+	if err := mgr.RegisterLane(source); err != nil {
+		t.Fatalf("register source failed: %v", err)
+	}
+	source.SetManager(mgr)
+
+	metrics := newOutcomeMetricsStub()
+	source.SetMetrics(metrics)
+
+	if err := source.Submit(context.Background(), NewTaskFunc("s1", "redirect-fail-source", 1, nil)); err != nil {
+		t.Fatalf("source first submit failed: %v", err)
+	}
+	if err := target.Close(context.Background()); err != nil {
+		t.Fatalf("close target failed: %v", err)
+	}
+	if err := source.Submit(context.Background(), NewTaskFunc("s2", "redirect-fail-source", 1, nil)); !IsTaskDroppedError(err) {
+		t.Fatalf("expected dropped error on failed redirect, got %v", err)
+	}
+
+	stats := source.Stats()
+	if stats.Redirected != 0 || stats.Dropped != 1 {
+		t.Fatalf("unexpected source stats: %+v", stats)
+	}
+	if metrics.count("redirected") != 0 || metrics.count("dropped") != 1 {
+		t.Fatalf("unexpected outcome metrics redirected=%d dropped=%d",
+			metrics.count("redirected"), metrics.count("dropped"))
 	}
 
 	if err := mgr.Close(context.Background()); err != nil {

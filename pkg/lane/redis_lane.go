@@ -172,8 +172,14 @@ func (l *RedisLane) Submit(ctx context.Context, task Task) (err error) {
 				if rerr == nil {
 					_ = l.removeDedup(context.Background(), task.ID())
 					dedupAdded = false
-					l.recordRedirected()
-					return redirectLane.Submit(ctx, task)
+					if submitErr := redirectLane.Submit(ctx, task); submitErr == nil {
+						l.recordRedirected()
+						return nil
+					}
+					if ctx.Err() != nil {
+						l.recordRejected()
+						return ctx.Err()
+					}
 				}
 			}
 			l.dropped.Add(1)

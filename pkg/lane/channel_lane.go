@@ -26,6 +26,38 @@ type taskExecutor interface {
 	Submit(task Task)
 }
 
+type queuedTask struct {
+	task       Task
+	enqueuedAt time.Time
+}
+
+func newQueuedTask(task Task) queuedTask {
+	return queuedTask{
+		task:       task,
+		enqueuedAt: time.Now(),
+	}
+}
+
+func (q queuedTask) ID() string {
+	return q.task.ID()
+}
+
+func (q queuedTask) Priority() int {
+	return q.task.Priority()
+}
+
+func (q queuedTask) Lane() string {
+	return q.task.Lane()
+}
+
+func (q queuedTask) EnqueuedAt() time.Time {
+	return q.enqueuedAt
+}
+
+func (q queuedTask) UnwrapTask() Task {
+	return q.task
+}
+
 // ChannelLane implements Lane using Go channels.
 type ChannelLane struct {
 	config      *Config
@@ -129,8 +161,9 @@ func (l *ChannelLane) Submit(ctx context.Context, task Task) error {
 
 // submitBlock blocks until the task can be submitted or context is cancelled.
 func (l *ChannelLane) submitBlock(ctx context.Context, task Task) error {
+	qt := newQueuedTask(task)
 	select {
-	case l.taskCh <- task:
+	case l.taskCh <- qt:
 		l.pending.Add(1)
 		l.recordAccepted()
 		l.metrics.IncQueueDepth(l.config.Name)
@@ -146,8 +179,9 @@ func (l *ChannelLane) submitBlock(ctx context.Context, task Task) error {
 
 // submitDrop attempts to submit without blocking, drops if full.
 func (l *ChannelLane) submitDrop(task Task) error {
+	qt := newQueuedTask(task)
 	select {
-	case l.taskCh <- task:
+	case l.taskCh <- qt:
 		l.pending.Add(1)
 		l.recordAccepted()
 		l.metrics.IncQueueDepth(l.config.Name)
@@ -172,8 +206,14 @@ func (l *ChannelLane) submitRedirect(ctx context.Context, task Task) error {
 		if l.manager != nil {
 			targetLane, err := l.manager.GetLane(l.config.RedirectLane)
 			if err == nil {
-				l.recordRedirected()
-				return targetLane.Submit(ctx, task)
+				if submitErr := targetLane.Submit(ctx, task); submitErr == nil {
+					l.recordRedirected()
+					return nil
+				}
+				if ctx.Err() != nil {
+					l.recordRejected()
+					return ctx.Err()
+				}
 			}
 		}
 		// If redirect fails, drop the task
@@ -202,8 +242,9 @@ func (l *ChannelLane) TrySubmit(task Task) bool {
 		return false
 	}
 
+	qt := newQueuedTask(task)
 	select {
-	case l.taskCh <- task:
+	case l.taskCh <- qt:
 		l.pending.Add(1)
 		l.recordAccepted()
 		l.metrics.IncQueueDepth(l.config.Name)
@@ -225,6 +266,10 @@ func (l *ChannelLane) executeTask(task Task) {
 		l.metrics.RecordWaitDuration(l.config.Name, waitDuration)
 	}
 
+	if wrapped, ok := task.(interface{ UnwrapTask() Task }); ok {
+		task = wrapped.UnwrapTask()
+	}
+
 	l.running.Add(1)
 	defer l.running.Add(-1)
 
@@ -232,8 +277,8 @@ func (l *ChannelLane) executeTask(task Task) {
 
 	// Execute the task
 	var err error
-	if taskFunc, ok := task.(*TaskFunc); ok {
-		err = taskFunc.Execute(context.Background())
+	if executable, ok := task.(interface{ Execute(context.Context) error }); ok {
+		err = executable.Execute(context.Background())
 	}
 
 	processTime := time.Since(startTime)
@@ -283,9 +328,6 @@ func (l *ChannelLane) Close(ctx context.Context) error {
 		// Mark as closed
 		l.closed.Store(true)
 		close(l.closeCh)
-
-		// Stop accepting new tasks
-		close(l.taskCh)
 
 		// Wait for worker pool to finish with timeout
 		done := make(chan struct{})
@@ -350,8 +392,13 @@ func (l *ChannelLane) recordOutcome(outcome string) {
 // Run starts the main loop that distributes tasks to workers.
 func (l *ChannelLane) Run() {
 	go func() {
-		for task := range l.taskCh {
-			l.workerPool.Submit(task)
+		for {
+			select {
+			case <-l.closeCh:
+				return
+			case task := <-l.taskCh:
+				l.workerPool.Submit(task)
+			}
 		}
 	}()
 }

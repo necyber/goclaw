@@ -5,8 +5,8 @@
 
 ## 2. Lane Runtime Accounting Corrections
 
-- [ ] 2.1 Implement enqueue-time tracking in `ChannelLane` so wait duration is recorded for standard lane submissions even when tasks do not implement `EnqueuedAt()`.
-- [ ] 2.2 Update redirect accounting in `ChannelLane` and `RedisLane` so `redirected` is counted only on successful redirect submission and failed redirects are not misclassified.
+- [x] 2.1 Implement enqueue-time tracking in `ChannelLane` so wait duration is recorded for standard lane submissions even when tasks do not implement `EnqueuedAt()`.
+- [x] 2.2 Update redirect accounting in `ChannelLane` and `RedisLane` so `redirected` is counted only on successful redirect submission and failed redirects are not misclassified.
 
 ## 3. Conformance Tests and Validation
 
