@@ -14,7 +14,7 @@
 
 ## 3. CLI signal shutdown conformance
 
-- [ ] 3.1 Verify current CLI signal handling path (`SIGINT`/`SIGTERM`) and identify any missing controlled shutdown guarantees.
-- [ ] 3.2 Implement or adjust `cmd/goclaw` shutdown wiring as needed for graceful signal-triggered stop.
-- [ ] 3.3 Add or update CLI/runtime tests for signal-driven shutdown behavior.
-- [ ] 3.4 Run relevant compile/tests for CLI + integrated engine shutdown path.
+- [x] 3.1 Verify current CLI signal handling path (`SIGINT`/`SIGTERM`) and identify any missing controlled shutdown guarantees.
+- [x] 3.2 Implement or adjust `cmd/goclaw` shutdown wiring as needed for graceful signal-triggered stop.
+- [x] 3.3 Add or update CLI/runtime tests for signal-driven shutdown behavior.
+- [x] 3.4 Run relevant compile/tests for CLI + integrated engine shutdown path.

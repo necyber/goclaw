@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"syscall"
 	"testing"
 	"time"
 
@@ -450,6 +451,28 @@ func TestInitializeSignalBus_RedisFallback(t *testing.T) {
 	}
 	if err := bus.Close(); err != nil {
 		t.Fatalf("failed to close fallback bus: %v", err)
+	}
+}
+
+func TestSetupShutdownSignals_ReceivesSIGTERM(t *testing.T) {
+	sigChan := setupShutdownSignals()
+	defer stopShutdownSignals(sigChan)
+
+	proc, err := os.FindProcess(os.Getpid())
+	if err != nil {
+		t.Fatalf("failed to locate current process: %v", err)
+	}
+	if err := proc.Signal(syscall.SIGTERM); err != nil {
+		t.Skipf("unable to deliver SIGTERM on this platform: %v", err)
+	}
+
+	select {
+	case sig := <-sigChan:
+		if sig != syscall.SIGTERM {
+			t.Fatalf("expected SIGTERM, got %v", sig)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for SIGTERM notification")
 	}
 }
 

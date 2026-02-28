@@ -120,8 +120,8 @@ func main() {
 	}
 
 	// Setup graceful shutdown
-	sigChan := make(chan os.Signal, 1)
-	ossignal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	sigChan := setupShutdownSignals()
+	defer stopShutdownSignals(sigChan)
 
 	// Initialize storage backend
 	var store storage.Storage
@@ -654,6 +654,19 @@ func mapTaskEventType(state string) engine.TaskEventType {
 	default:
 		return engine.TaskEventProgress
 	}
+}
+
+func setupShutdownSignals() chan os.Signal {
+	sigChan := make(chan os.Signal, 1)
+	ossignal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	return sigChan
+}
+
+func stopShutdownSignals(sigChan chan os.Signal) {
+	if sigChan == nil {
+		return
+	}
+	ossignal.Stop(sigChan)
 }
 
 func registerGRPCServices(
