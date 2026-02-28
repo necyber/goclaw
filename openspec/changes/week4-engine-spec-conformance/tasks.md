@@ -7,10 +7,10 @@
 
 ## 2. Scheduler fail-fast and layer barrier verification
 
-- [ ] 2.1 Verify scheduler behavior for unrecoverable layer failure and subsequent-layer blocking.
-- [ ] 2.2 Implement or adjust scheduler logic only if current behavior diverges from conformance requirement.
-- [ ] 2.3 Add or update scheduler-focused tests for fail-fast and layer barrier determinism.
-- [ ] 2.4 Run package compile/tests for scheduler conformance scope.
+- [x] 2.1 Verify scheduler behavior for unrecoverable layer failure and subsequent-layer blocking.
+- [x] 2.2 Implement or adjust scheduler logic only if current behavior diverges from conformance requirement.
+- [x] 2.3 Add or update scheduler-focused tests for fail-fast and layer barrier determinism.
+- [x] 2.4 Run package compile/tests for scheduler conformance scope.
 
 ## 3. CLI signal shutdown conformance
 

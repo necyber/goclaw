@@ -385,6 +385,54 @@ func TestEngine_Submit_TaskFailure(t *testing.T) {
 	}
 }
 
+func TestEngine_Submit_FailFastWaitsLayerAndBlocksNextLayer(t *testing.T) {
+	eng, _ := New(minConfig(), nil, memory.NewMemoryStorage())
+	ctx := context.Background()
+	eng.Start(ctx)
+	defer eng.Stop(ctx)
+
+	nextLayerCalled := make(chan struct{}, 1)
+	wf := &Workflow{
+		ID: "wf-failfast-layer-barrier",
+		Tasks: []*dag.Task{
+			{ID: "a", Name: "a", Agent: "test"},
+			{ID: "b", Name: "b", Agent: "test"},
+			{ID: "c", Name: "c", Agent: "test", Deps: []string{"a", "b"}},
+		},
+		TaskFns: map[string]func(context.Context) error{
+			"a": func(context.Context) error { return errors.New("boom") },
+			"b": func(context.Context) error {
+				time.Sleep(80 * time.Millisecond)
+				return nil
+			},
+			"c": func(context.Context) error {
+				nextLayerCalled <- struct{}{}
+				return nil
+			},
+		},
+	}
+
+	start := time.Now()
+	result, err := eng.Submit(ctx, wf)
+	elapsed := time.Since(start)
+	if err == nil {
+		t.Fatal("expected fail-fast error from first layer failure")
+	}
+	if result == nil || result.Status != WorkflowStatusFailed {
+		t.Fatalf("expected failed workflow result, got %#v", result)
+	}
+	// Scheduler should keep the layer barrier and wait for in-flight task "b".
+	if elapsed < 70*time.Millisecond {
+		t.Fatalf("expected scheduler to wait for first-layer barrier, elapsed=%v", elapsed)
+	}
+
+	select {
+	case <-nextLayerCalled:
+		t.Fatal("expected next layer task not to execute after first-layer failure")
+	default:
+	}
+}
+
 func TestEngine_Submit_CyclicDAG(t *testing.T) {
 	eng, _ := New(minConfig(), nil, memory.NewMemoryStorage())
 	ctx := context.Background()
