@@ -9,6 +9,7 @@ import (
 type priorityItem struct {
 	task     Task
 	priority int
+	seq      int64
 	// index is used by heap.Interface methods.
 	index int
 }
@@ -21,7 +22,11 @@ func (h priorityHeap) Len() int { return len(h) }
 
 func (h priorityHeap) Less(i, j int) bool {
 	// Higher priority comes first (reverse order)
-	return h[i].priority > h[j].priority
+	if h[i].priority != h[j].priority {
+		return h[i].priority > h[j].priority
+	}
+	// Deterministic tie-breaker: earlier enqueued task first.
+	return h[i].seq < h[j].seq
 }
 
 func (h priorityHeap) Swap(i, j int) {
@@ -51,6 +56,7 @@ func (h *priorityHeap) Pop() any {
 type PriorityQueue struct {
 	heap *priorityHeap
 	mu   sync.RWMutex
+	seq  int64
 }
 
 // NewPriorityQueue creates a new PriorityQueue.
@@ -76,7 +82,9 @@ func (pq *PriorityQueue) Push(task Task) {
 	item := &priorityItem{
 		task:     task,
 		priority: task.Priority(),
+		seq:      pq.seq,
 	}
+	pq.seq++
 	heap.Push(pq.heap, item)
 }
 

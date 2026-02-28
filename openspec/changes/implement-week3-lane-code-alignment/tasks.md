@@ -1,9 +1,9 @@
 ## 1. Align channel-lane runtime semantics
 
-- [ ] 1.1 Update `pkg/lane/channel_lane.go` submission paths to enforce canonical outcome accounting (`accepted/rejected/redirected/dropped`)
-- [ ] 1.2 Ensure rate-limiter admission path keeps Token Bucket as baseline behavior and does not make Leaky Bucket a baseline gate
-- [ ] 1.3 Implement deterministic tie-breaking for equal-priority tasks in priority queue execution path
-- [ ] 1.4 Verify lane close lifecycle remains idempotent under repeated close calls
+- [x] 1.1 Update `pkg/lane/channel_lane.go` submission paths to enforce canonical outcome accounting (`accepted/rejected/redirected/dropped`)
+- [x] 1.2 Ensure rate-limiter admission path keeps Token Bucket as baseline behavior and does not make Leaky Bucket a baseline gate
+- [x] 1.3 Implement deterministic tie-breaking for equal-priority tasks in priority queue execution path
+- [x] 1.4 Verify lane close lifecycle remains idempotent under repeated close calls
 
 ## 2. Harden manager/runtime safety behavior
 

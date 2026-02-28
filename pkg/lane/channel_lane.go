@@ -16,6 +16,10 @@ type MetricsRecorder interface {
 	RecordThroughput(laneName string)
 }
 
+type submissionOutcomeRecorder interface {
+	RecordSubmissionOutcome(laneName string, outcome string)
+}
+
 // ChannelLane implements Lane using Go channels.
 type ChannelLane struct {
 	config      *Config
@@ -35,6 +39,9 @@ type ChannelLane struct {
 	completed atomic.Int64
 	failed    atomic.Int64
 	dropped   atomic.Int64
+	accepted  atomic.Int64
+	rejected  atomic.Int64
+	redirected atomic.Int64
 
 	// For redirect strategy
 	manager *Manager
@@ -81,16 +88,19 @@ func (l *ChannelLane) Name() string {
 //   - Redirect: redirects to another lane if queue is full
 func (l *ChannelLane) Submit(ctx context.Context, task Task) error {
 	if l.closed.Load() {
+		l.recordRejected()
 		return &LaneClosedError{LaneName: l.config.Name}
 	}
 
 	if task == nil {
+		l.recordRejected()
 		return fmt.Errorf("task cannot be nil")
 	}
 
-	// Check rate limit
+	// Token bucket is the normative Week3 admission baseline for ChannelLane.
 	if l.rateLimiter != nil {
 		if err := l.rateLimiter.Wait(ctx); err != nil {
+			l.recordRejected()
 			return err
 		}
 	}
@@ -112,11 +122,14 @@ func (l *ChannelLane) submitBlock(ctx context.Context, task Task) error {
 	select {
 	case l.taskCh <- task:
 		l.pending.Add(1)
+		l.recordAccepted()
 		l.metrics.IncQueueDepth(l.config.Name)
 		return nil
 	case <-ctx.Done():
+		l.recordRejected()
 		return ctx.Err()
 	case <-l.closeCh:
+		l.recordRejected()
 		return &LaneClosedError{LaneName: l.config.Name}
 	}
 }
@@ -126,10 +139,12 @@ func (l *ChannelLane) submitDrop(task Task) error {
 	select {
 	case l.taskCh <- task:
 		l.pending.Add(1)
+		l.recordAccepted()
 		l.metrics.IncQueueDepth(l.config.Name)
 		return nil
 	default:
 		l.dropped.Add(1)
+		l.recordDropped()
 		return &TaskDroppedError{LaneName: l.config.Name, TaskID: task.ID()}
 	}
 }
@@ -139,6 +154,7 @@ func (l *ChannelLane) submitRedirect(ctx context.Context, task Task) error {
 	select {
 	case l.taskCh <- task:
 		l.pending.Add(1)
+		l.recordAccepted()
 		l.metrics.IncQueueDepth(l.config.Name)
 		return nil
 	default:
@@ -146,11 +162,13 @@ func (l *ChannelLane) submitRedirect(ctx context.Context, task Task) error {
 		if l.manager != nil {
 			targetLane, err := l.manager.GetLane(l.config.RedirectLane)
 			if err == nil {
+				l.recordRedirected()
 				return targetLane.Submit(ctx, task)
 			}
 		}
 		// If redirect fails, drop the task
 		l.dropped.Add(1)
+		l.recordDropped()
 		return &TaskDroppedError{LaneName: l.config.Name, TaskID: task.ID()}
 	}
 }
@@ -159,24 +177,29 @@ func (l *ChannelLane) submitRedirect(ctx context.Context, task Task) error {
 // Returns true if the task was accepted, false otherwise.
 func (l *ChannelLane) TrySubmit(task Task) bool {
 	if l.closed.Load() {
+		l.recordRejected()
 		return false
 	}
 
 	if task == nil {
+		l.recordRejected()
 		return false
 	}
 
-	// Check rate limit
+	// Token bucket is the normative Week3 admission baseline for ChannelLane.
 	if l.rateLimiter != nil && !l.rateLimiter.Allow() {
+		l.recordRejected()
 		return false
 	}
 
 	select {
 	case l.taskCh <- task:
 		l.pending.Add(1)
+		l.recordAccepted()
 		l.metrics.IncQueueDepth(l.config.Name)
 		return true
 	default:
+		l.recordRejected()
 		return false
 	}
 }
@@ -283,6 +306,31 @@ func (l *ChannelLane) SetManager(m *Manager) {
 func (l *ChannelLane) SetMetrics(m MetricsRecorder) {
 	if m != nil {
 		l.metrics = m
+	}
+}
+
+func (l *ChannelLane) recordAccepted() {
+	l.accepted.Add(1)
+	l.recordOutcome("accepted")
+}
+
+func (l *ChannelLane) recordRejected() {
+	l.rejected.Add(1)
+	l.recordOutcome("rejected")
+}
+
+func (l *ChannelLane) recordRedirected() {
+	l.redirected.Add(1)
+	l.recordOutcome("redirected")
+}
+
+func (l *ChannelLane) recordDropped() {
+	l.recordOutcome("dropped")
+}
+
+func (l *ChannelLane) recordOutcome(outcome string) {
+	if recorder, ok := l.metrics.(submissionOutcomeRecorder); ok {
+		recorder.RecordSubmissionOutcome(l.config.Name, outcome)
 	}
 }
 
