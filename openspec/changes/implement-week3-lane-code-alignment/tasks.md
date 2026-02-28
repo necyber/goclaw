@@ -20,6 +20,18 @@
 
 ## 4. Validate and finalize
 
-- [ ] 4.1 Run `go test ./pkg/lane/...` and fix regressions
-- [ ] 4.2 Run `openspec validate --changes --strict` and fix spec/task formatting issues
-- [ ] 4.3 Record implementation summary and mark completed tasks in this file
+- [x] 4.1 Run `go test ./pkg/lane/...` and fix regressions
+- [x] 4.2 Run `openspec validate --changes --strict` and fix spec/task formatting issues
+- [x] 4.3 Record implementation summary and mark completed tasks in this file
+
+## 5. Final Summary (2026-02-28)
+
+- Implemented canonical channel-lane submission outcome accounting (`accepted/rejected/redirected/dropped`) and exposed counters in runtime stats.
+- Kept Token Bucket as the normative channel-lane admission baseline and documented that path in submission code.
+- Implemented deterministic equal-priority tie-breaking in priority queue via enqueue sequence ordering.
+- Hardened manager lifecycle/concurrency invariants with explicit closed-state checks and lock-safe close flow.
+- Added optional dynamic worker configuration (`EnableDynamicWorkers`, `MinConcurrency`) with fixed-size default behavior.
+- Expanded regression tests for priority tie-break determinism, outcome accounting, idempotent close, manager concurrent close invariants, and dynamic worker selection.
+- Validation complete:
+  - `go test ./pkg/lane/... -race` => pass
+  - `openspec validate --changes --strict --json` => 1 change passed, 0 failed
