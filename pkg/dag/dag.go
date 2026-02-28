@@ -65,7 +65,9 @@ func (g *Graph) AddTask(task *Task) error {
 }
 
 // AddEdge adds a dependency edge from 'from' to 'to' (to depends on from).
-// Returns error if either task doesn't exist or if the edge would create a cycle.
+// Returns DependencyNotFoundError when the dependency source task ('from')
+// does not exist, TaskNotFoundError when the target task ('to') does not exist,
+// or CyclicDependencyError if the edge would create a cycle.
 // The graph remains unchanged when a cycle is detected.
 func (g *Graph) AddEdge(from, to string) error {
 	if from == "" || to == "" {
@@ -77,11 +79,11 @@ func (g *Graph) AddEdge(from, to string) error {
 	}
 
 	// Check if tasks exist
-	if _, exists := g.tasks[from]; !exists {
-		return &TaskNotFoundError{ID: from}
-	}
 	if _, exists := g.tasks[to]; !exists {
 		return &TaskNotFoundError{ID: to}
+	}
+	if _, exists := g.tasks[from]; !exists {
+		return &DependencyNotFoundError{SrcTask: to, DepID: from}
 	}
 
 	// Ensure edges reflect current dependencies for duplicate/cycle checks.

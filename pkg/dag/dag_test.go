@@ -68,11 +68,19 @@ func TestGraph_AddEdge(t *testing.T) {
 	// Edge to non-existent task
 	if err := g.AddEdge("a", "c"); err == nil {
 		t.Error("expected error for non-existent target")
+	} else if _, ok := err.(*TaskNotFoundError); !ok {
+		t.Errorf("expected TaskNotFoundError for missing target, got %T", err)
 	}
 
 	// Edge from non-existent task
 	if err := g.AddEdge("c", "b"); err == nil {
 		t.Error("expected error for non-existent source")
+	} else if depErr, ok := err.(*DependencyNotFoundError); !ok {
+		t.Errorf("expected DependencyNotFoundError for missing source, got %T", err)
+	} else {
+		if depErr.SrcTask != "b" || depErr.DepID != "c" {
+			t.Errorf("unexpected dependency error payload: %+v", depErr)
+		}
 	}
 
 	// Self edge
@@ -193,6 +201,26 @@ func TestGraph_Dependencies(t *testing.T) {
 	_, err = g.Dependencies("nonexistent")
 	if err == nil {
 		t.Error("expected error for non-existent task")
+	} else if _, ok := err.(*TaskNotFoundError); !ok {
+		t.Errorf("expected TaskNotFoundError for direct dependency query, got %T", err)
+	}
+}
+
+func TestGraph_Validate_MissingDependency(t *testing.T) {
+	g := NewGraph()
+	g.AddTask(&Task{ID: "a", Name: "A", Agent: "test", Deps: []string{"missing"}})
+
+	err := g.Validate()
+	if err == nil {
+		t.Fatal("expected validation error for missing dependency")
+	}
+
+	depErr, ok := err.(*DependencyNotFoundError)
+	if !ok {
+		t.Fatalf("expected DependencyNotFoundError, got %T", err)
+	}
+	if depErr.SrcTask != "a" || depErr.DepID != "missing" {
+		t.Fatalf("unexpected dependency error payload: %+v", depErr)
 	}
 }
 

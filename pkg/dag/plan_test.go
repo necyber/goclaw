@@ -77,6 +77,25 @@ func TestGraph_Compile_WithCycle(t *testing.T) {
 	}
 }
 
+func TestGraph_Compile_WithMissingDependency(t *testing.T) {
+	g := NewGraph()
+
+	g.AddTask(&Task{ID: "a", Name: "A", Agent: "test", Deps: []string{"missing"}})
+
+	_, err := g.Compile()
+	if err == nil {
+		t.Fatal("expected error for missing dependency")
+	}
+
+	depErr, ok := err.(*DependencyNotFoundError)
+	if !ok {
+		t.Fatalf("expected DependencyNotFoundError, got %T", err)
+	}
+	if depErr.SrcTask != "a" || depErr.DepID != "missing" {
+		t.Fatalf("unexpected dependency error payload: %+v", depErr)
+	}
+}
+
 func TestGraph_Compile_Empty(t *testing.T) {
 	g := NewGraph()
 

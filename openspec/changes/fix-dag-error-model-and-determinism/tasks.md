@@ -6,9 +6,9 @@
 
 ## 2. Dependency error model alignment
 
-- [ ] 2.1 Update dependency-related mutation path(s) in `pkg/dag/dag.go` so unknown dependency references return `DependencyNotFoundError`
-- [ ] 2.2 Preserve `TaskNotFoundError` for direct lookup/query paths and document/assert this boundary in tests
-- [ ] 2.3 Add/adjust tests for missing dependency behavior in validation/compile and edge insertion paths
+- [x] 2.1 Update dependency-related mutation path(s) in `pkg/dag/dag.go` so unknown dependency references return `DependencyNotFoundError`
+- [x] 2.2 Preserve `TaskNotFoundError` for direct lookup/query paths and document/assert this boundary in tests
+- [x] 2.3 Add/adjust tests for missing dependency behavior in validation/compile and edge insertion paths
 
 ## 3. Regression tests and validation
 
