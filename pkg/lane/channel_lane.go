@@ -20,11 +20,17 @@ type submissionOutcomeRecorder interface {
 	RecordSubmissionOutcome(laneName string, outcome string)
 }
 
+type taskExecutor interface {
+	Start()
+	Stop()
+	Submit(task Task)
+}
+
 // ChannelLane implements Lane using Go channels.
 type ChannelLane struct {
 	config      *Config
 	taskCh      chan Task
-	workerPool  *WorkerPool
+	workerPool  taskExecutor
 	rateLimiter *TokenBucket
 	metrics     MetricsRecorder
 
@@ -39,8 +45,8 @@ type ChannelLane struct {
 	completed atomic.Int64
 	failed    atomic.Int64
 	dropped   atomic.Int64
-	accepted  atomic.Int64
-	rejected  atomic.Int64
+	accepted   atomic.Int64
+	rejected   atomic.Int64
 	redirected atomic.Int64
 
 	// For redirect strategy
@@ -69,8 +75,12 @@ func New(config *Config) (*ChannelLane, error) {
 		l.rateLimiter = NewTokenBucket(config.RateLimit, config.RateLimit*2)
 	}
 
-	// Initialize worker pool
-	l.workerPool = NewWorkerPool(config.MaxConcurrency, l.executeTask)
+	// Fixed-size workers are the default. Dynamic scaling is optional.
+	if config.EnableDynamicWorkers {
+		l.workerPool = NewDynamicWorkerPool(config.MinConcurrency, config.MaxConcurrency, l.executeTask)
+	} else {
+		l.workerPool = NewWorkerPool(config.MaxConcurrency, l.executeTask)
+	}
 	l.workerPool.Start()
 
 	return l, nil
@@ -249,6 +259,9 @@ func (l *ChannelLane) Stats() Stats {
 		Completed:      l.completed.Load(),
 		Failed:         l.failed.Load(),
 		Dropped:        l.dropped.Load(),
+		Accepted:       l.accepted.Load(),
+		Rejected:       l.rejected.Load(),
+		Redirected:     l.redirected.Load(),
 		Capacity:       l.config.Capacity,
 		MaxConcurrency: l.config.MaxConcurrency,
 	}

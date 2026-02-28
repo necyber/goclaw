@@ -66,6 +66,9 @@ type RedisLane struct {
 	completed atomic.Int64
 	failed    atomic.Int64
 	dropped   atomic.Int64
+	accepted  atomic.Int64
+	rejected  atomic.Int64
+	redirected atomic.Int64
 
 	// Worker management
 	taskHandler func(ctx context.Context, payload *RedisTaskPayload) error
@@ -113,7 +116,12 @@ func (l *RedisLane) Name() string {
 func (l *RedisLane) Submit(ctx context.Context, task Task) (err error) {
 	start := time.Now()
 	if l.closed.Load() {
+		l.recordRejected()
 		return &LaneClosedError{LaneName: l.config.Name}
+	}
+	if task == nil {
+		l.recordRejected()
+		return fmt.Errorf("task cannot be nil")
 	}
 
 	dedupAdded := false
@@ -121,9 +129,11 @@ func (l *RedisLane) Submit(ctx context.Context, task Task) (err error) {
 	if l.config.EnableDedup {
 		added, sErr := l.client.SAdd(ctx, l.dedupKey, task.ID()).Result()
 		if sErr != nil {
+			l.recordRejected()
 			return fmt.Errorf("dedup check failed: %w", sErr)
 		}
 		if added == 0 {
+			l.recordRejected()
 			return &TaskDuplicateError{LaneName: l.config.Name, TaskID: task.ID()}
 		}
 		dedupAdded = true
@@ -145,6 +155,7 @@ func (l *RedisLane) Submit(ctx context.Context, task Task) (err error) {
 		var err error
 		queueLen, err = l.queueLength(ctx)
 		if err != nil {
+			l.recordRejected()
 			return fmt.Errorf("failed to check queue length: %w", err)
 		}
 	}
@@ -153,6 +164,7 @@ func (l *RedisLane) Submit(ctx context.Context, task Task) (err error) {
 		switch l.config.Backpressure {
 		case Drop:
 			l.dropped.Add(1)
+			l.recordDropped()
 			return &TaskDroppedError{LaneName: l.config.Name, TaskID: task.ID()}
 		case Redirect:
 			if l.manager != nil {
@@ -160,23 +172,28 @@ func (l *RedisLane) Submit(ctx context.Context, task Task) (err error) {
 				if rerr == nil {
 					_ = l.removeDedup(context.Background(), task.ID())
 					dedupAdded = false
+					l.recordRedirected()
 					return redirectLane.Submit(ctx, task)
 				}
 			}
 			l.dropped.Add(1)
+			l.recordDropped()
 			return &LaneFullError{LaneName: l.config.Name, Capacity: l.config.Capacity}
 		case Block:
 			// Poll until space available
 			for queueLen >= int64(l.config.Capacity) {
 				select {
 				case <-ctx.Done():
+					l.recordRejected()
 					return ctx.Err()
 				case <-l.closeCh:
+					l.recordRejected()
 					return &LaneClosedError{LaneName: l.config.Name}
 				case <-time.After(100 * time.Millisecond):
 					var err error
 					queueLen, err = l.queueLength(ctx)
 					if err != nil {
+						l.recordRejected()
 						return err
 					}
 				}
@@ -198,6 +215,7 @@ func (l *RedisLane) Submit(ctx context.Context, task Task) (err error) {
 
 	data, err := json.Marshal(payload)
 	if err != nil {
+		l.recordRejected()
 		return fmt.Errorf("failed to marshal task: %w", err)
 	}
 
@@ -211,10 +229,12 @@ func (l *RedisLane) Submit(ctx context.Context, task Task) (err error) {
 	}
 
 	if err != nil {
+		l.recordRejected()
 		return fmt.Errorf("failed to enqueue task: %w", err)
 	}
 
 	l.pending.Add(1)
+	l.recordAccepted()
 	l.metrics.IncQueueDepth(l.config.Name)
 	if recorder, ok := l.metrics.(redisMetricsRecorder); ok {
 		recorder.SetRedisQueueDepth(l.config.Name, float64(l.pending.Load()))
@@ -226,6 +246,11 @@ func (l *RedisLane) Submit(ctx context.Context, task Task) (err error) {
 // TrySubmit attempts to submit a task without blocking.
 func (l *RedisLane) TrySubmit(task Task) bool {
 	if l.closed.Load() {
+		l.recordRejected()
+		return false
+	}
+	if task == nil {
+		l.recordRejected()
 		return false
 	}
 
@@ -234,6 +259,7 @@ func (l *RedisLane) TrySubmit(task Task) bool {
 
 	queueLen, err := l.queueLength(ctx)
 	if err != nil || queueLen >= int64(l.config.Capacity) {
+		l.recordRejected()
 		return false
 	}
 
@@ -250,6 +276,9 @@ func (l *RedisLane) Stats() Stats {
 		Completed:      l.completed.Load(),
 		Failed:         l.failed.Load(),
 		Dropped:        l.dropped.Load(),
+		Accepted:       l.accepted.Load(),
+		Rejected:       l.rejected.Load(),
+		Redirected:     l.redirected.Load(),
 		Capacity:       l.config.Capacity,
 		MaxConcurrency: l.config.MaxConcurrency,
 	}
@@ -292,6 +321,31 @@ func (l *RedisLane) SetManager(m *Manager) {
 func (l *RedisLane) SetMetrics(m MetricsRecorder) {
 	if m != nil {
 		l.metrics = m
+	}
+}
+
+func (l *RedisLane) recordAccepted() {
+	l.accepted.Add(1)
+	l.recordOutcome("accepted")
+}
+
+func (l *RedisLane) recordRejected() {
+	l.rejected.Add(1)
+	l.recordOutcome("rejected")
+}
+
+func (l *RedisLane) recordRedirected() {
+	l.redirected.Add(1)
+	l.recordOutcome("redirected")
+}
+
+func (l *RedisLane) recordDropped() {
+	l.recordOutcome("dropped")
+}
+
+func (l *RedisLane) recordOutcome(outcome string) {
+	if recorder, ok := l.metrics.(submissionOutcomeRecorder); ok {
+		recorder.RecordSubmissionOutcome(l.config.Name, outcome)
 	}
 }
 

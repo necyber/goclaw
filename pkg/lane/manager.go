@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sync"
+	"sync/atomic"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -15,6 +16,8 @@ type Manager struct {
 	redisClient redis.Cmdable
 	ownership   RedisOwnershipGuard
 	mu          sync.RWMutex
+	closed      atomic.Bool
+	closeOnce   sync.Once
 }
 
 // NewManager creates a new Lane Manager.
@@ -62,6 +65,9 @@ func (m *Manager) Register(config *Config) (Lane, error) {
 func (m *Manager) RegisterSpec(spec *LaneSpec) (Lane, error) {
 	if err := spec.Validate(); err != nil {
 		return nil, err
+	}
+	if m.closed.Load() {
+		return nil, fmt.Errorf("manager is closed")
 	}
 
 	name := spec.Name()
@@ -131,6 +137,9 @@ func (m *Manager) RegisterLane(lane Lane) error {
 	if lane == nil {
 		return fmt.Errorf("lane cannot be nil")
 	}
+	if m.closed.Load() {
+		return fmt.Errorf("manager is closed")
+	}
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -182,6 +191,9 @@ func (m *Manager) Unregister(ctx context.Context, name string) error {
 
 // Submit submits a task to the appropriate lane based on task.Lane().
 func (m *Manager) Submit(ctx context.Context, task Task) error {
+	if m.closed.Load() {
+		return fmt.Errorf("manager is closed")
+	}
 	if task == nil {
 		return fmt.Errorf("task cannot be nil")
 	}
@@ -201,6 +213,9 @@ func (m *Manager) Submit(ctx context.Context, task Task) error {
 
 // TrySubmit attempts to submit a task without blocking.
 func (m *Manager) TrySubmit(task Task) bool {
+	if m.closed.Load() {
+		return false
+	}
 	if task == nil {
 		return false
 	}
@@ -244,6 +259,9 @@ func (m *Manager) AggregateStats() Stats {
 		agg.Completed += stats.Completed
 		agg.Failed += stats.Failed
 		agg.Dropped += stats.Dropped
+		agg.Accepted += stats.Accepted
+		agg.Rejected += stats.Rejected
+		agg.Redirected += stats.Redirected
 		agg.Capacity += stats.Capacity
 		agg.MaxConcurrency += stats.MaxConcurrency
 	}
@@ -253,19 +271,25 @@ func (m *Manager) AggregateStats() Stats {
 
 // Close gracefully closes all lanes.
 func (m *Manager) Close(ctx context.Context) error {
-	m.mu.Lock()
-	defer m.mu.Unlock()
-
 	var errs []error
-	for name, lane := range m.lanes {
-		if err := lane.Close(ctx); err != nil {
-			errs = append(errs, fmt.Errorf("failed to close lane %s: %w", name, err))
-		}
-	}
+	m.closeOnce.Do(func() {
+		m.closed.Store(true)
 
-	// Clear the maps
-	m.lanes = make(map[string]Lane)
-	m.configs = make(map[string]*LaneSpec)
+		m.mu.Lock()
+		lanes := make(map[string]Lane, len(m.lanes))
+		for name, lane := range m.lanes {
+			lanes[name] = lane
+		}
+		m.lanes = make(map[string]Lane)
+		m.configs = make(map[string]*LaneSpec)
+		m.mu.Unlock()
+
+		for name, lane := range lanes {
+			if err := lane.Close(ctx); err != nil {
+				errs = append(errs, fmt.Errorf("failed to close lane %s: %w", name, err))
+			}
+		}
+	})
 
 	if len(errs) > 0 {
 		return fmt.Errorf("errors closing lanes: %v", errs)

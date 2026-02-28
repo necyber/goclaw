@@ -124,6 +124,14 @@ type Config struct {
 	// MaxConcurrency is the maximum number of concurrent workers.
 	MaxConcurrency int
 
+	// EnableDynamicWorkers enables optional dynamic worker scaling.
+	// Default is false, which keeps a fixed-size worker pool.
+	EnableDynamicWorkers bool
+
+	// MinConcurrency is the minimum number of workers when dynamic scaling is enabled.
+	// Ignored when EnableDynamicWorkers is false.
+	MinConcurrency int
+
 	// Backpressure is the strategy when the queue is full.
 	Backpressure BackpressureStrategy
 
@@ -147,6 +155,14 @@ func (c *Config) Validate() error {
 	}
 	if c.MaxConcurrency <= 0 {
 		return fmt.Errorf("max concurrency must be positive, got %d", c.MaxConcurrency)
+	}
+	if c.EnableDynamicWorkers {
+		if c.MinConcurrency <= 0 {
+			return fmt.Errorf("min concurrency must be positive when dynamic workers are enabled, got %d", c.MinConcurrency)
+		}
+		if c.MinConcurrency > c.MaxConcurrency {
+			return fmt.Errorf("min concurrency (%d) cannot exceed max concurrency (%d)", c.MinConcurrency, c.MaxConcurrency)
+		}
 	}
 	if c.Backpressure == Redirect && c.RedirectLane == "" {
 		return fmt.Errorf("redirect lane must be specified when using redirect strategy")
@@ -200,6 +216,15 @@ type Stats struct {
 	// Dropped is the total number of dropped tasks.
 	Dropped int64
 
+	// Accepted is the total number of directly accepted submissions.
+	Accepted int64
+
+	// Rejected is the total number of submissions rejected before admission.
+	Rejected int64
+
+	// Redirected is the total number of submissions redirected to other lanes.
+	Redirected int64
+
 	// Capacity is the queue capacity.
 	Capacity int
 
@@ -229,7 +254,7 @@ func (s Stats) IsFull() bool {
 // String returns a human-readable string representation of Stats.
 func (s Stats) String() string {
 	return fmt.Sprintf(
-		"Stats{Name: %s, Pending: %d, Running: %d, Completed: %d, Failed: %d, Dropped: %d, Utilization: %.2f%%}",
-		s.Name, s.Pending, s.Running, s.Completed, s.Failed, s.Dropped, s.Utilization()*100,
+		"Stats{Name: %s, Pending: %d, Running: %d, Completed: %d, Failed: %d, Dropped: %d, Accepted: %d, Rejected: %d, Redirected: %d, Utilization: %.2f%%}",
+		s.Name, s.Pending, s.Running, s.Completed, s.Failed, s.Dropped, s.Accepted, s.Rejected, s.Redirected, s.Utilization()*100,
 	)
 }

@@ -7,9 +7,9 @@
 
 ## 2. Harden manager/runtime safety behavior
 
-- [ ] 2.1 Review and adjust `pkg/lane/manager.go` for concurrent-safe register/get/submit/close invariants where needed
-- [ ] 2.2 Ensure worker concurrency behavior is explicit and testable for fixed-default and optional dynamic scaling modes
-- [ ] 2.3 Add/adjust runtime stats structures and plumbing to expose canonical backpressure outcomes for metrics integration
+- [x] 2.1 Review and adjust `pkg/lane/manager.go` for concurrent-safe register/get/submit/close invariants where needed
+- [x] 2.2 Ensure worker concurrency behavior is explicit and testable for fixed-default and optional dynamic scaling modes
+- [x] 2.3 Add/adjust runtime stats structures and plumbing to expose canonical backpressure outcomes for metrics integration
 
 ## 3. Expand test coverage for canonical semantics
 
