@@ -13,10 +13,10 @@
 
 ## 3. Expand test coverage for canonical semantics
 
-- [ ] 3.1 Add unit tests for equal-priority deterministic ordering
-- [ ] 3.2 Add unit tests for backpressure outcome accounting (`accepted/rejected/redirected/dropped`)
-- [ ] 3.3 Add unit tests for repeated close idempotency and manager concurrency safety edge cases
-- [ ] 3.4 Update or add lane-metrics tests/assertions to validate backpressure outcome counters
+- [x] 3.1 Add unit tests for equal-priority deterministic ordering
+- [x] 3.2 Add unit tests for backpressure outcome accounting (`accepted/rejected/redirected/dropped`)
+- [x] 3.3 Add unit tests for repeated close idempotency and manager concurrency safety edge cases
+- [x] 3.4 Update or add lane-metrics tests/assertions to validate backpressure outcome counters
 
 ## 4. Validate and finalize
 
