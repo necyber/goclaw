@@ -22,7 +22,7 @@
 - [ ] 创建 `pkg/dag/cycle.go`
 - [ ] 实现三色标记 DFS
 - [ ] 实现 DetectCycle() 方法
-- [ ] 实现 CycleError 类型及详细错误信息
+- [ ] 实现 CyclicDependencyError 类型及详细错误信息
 
 ### 2.2 错误类型
 - [ ] 创建 `pkg/dag/errors.go`
@@ -36,12 +36,12 @@
 
 ### 3.1 Kahn's Algorithm
 - [ ] 创建 `pkg/dag/toposort.go`
-- [ ] 实现 KahnTopologicalSort()
+- [ ] 实现 TopologicalSort()（Kahn's Algorithm）
 - [ ] 处理入度计算
 - [ ] 实现队列处理逻辑
 
 ### 3.2 备选方案
-- [ ] 实现 DFSTopologicalSort()（作为对比）
+- [ ] 实现 TopologicalSortDFS()（作为对比）
 - [ ] 性能对比测试
 
 ## 4. 执行计划生成
@@ -80,17 +80,17 @@
 - [ ] 测试 10000 节点图
 - [ ] 记录编译时间
 
-## 6. 集成与示例
+## 6. 集成与示例（Deferred：不在 Week 2 DAG-core 范围）
 
-### 6.1 Workflow 集成
-- [ ] 创建 Workflow 构建器
-- [ ] 实现从 Workflow 创建 DAG
-- [ ] 添加便捷方法
+### 6.1 Workflow 集成（Deferred）
+- [ ] （Deferred）创建 Workflow 构建器（后续变更）
+- [ ] （Deferred）实现从 Workflow 创建 DAG（后续变更）
+- [ ] （Deferred）添加便捷方法（后续变更）
 
-### 6.2 示例代码
-- [ ] 创建简单 DAG 示例
-- [ ] 创建复杂工作流示例
-- [ ] 添加性能测试示例
+### 6.2 示例代码（Deferred）
+- [ ] （Deferred）创建简单 DAG 示例（后续变更）
+- [ ] （Deferred）创建复杂工作流示例（后续变更）
+- [ ] （Deferred）添加性能测试示例（后续变更）
 
 ---
 
@@ -116,6 +116,12 @@
 
 - [ ] 所有 P0 任务完成
 - [ ] 单元测试覆盖率 > 85%
-- [ ] 1000 节点图编译时间 < 10ms
+- [ ] 记录 1000 节点图编译基准结果（含测试环境）
 - [ ] 循环依赖错误信息准确指出路径
 - [ ] 代码通过 `make check`
+
+## Errata 记录格式（仅用于非语义修复）
+
+当仅修复编码、错别字、失效链接等非语义问题时，使用如下格式追加记录：
+
+`[Errata YYYY-MM-DD] Type=<encoding|typo|link> Reason=<原因> Scope=<影响段落/文件>`

@@ -43,9 +43,9 @@ Goclaw 的核心功能是多 Agent 编排，其基础是任务依赖图（DAG, D
 
 ## 影响范围
 
-- 新建 `pkg/dag` 包
-- Workflow 定义接口
-- 调度器（依赖执行计划）
+- 新建 `pkg/dag` 包（Week 2 DAG-core 核心范围）
+- Workflow 定义接口（Deferred：后续变更，不属于 Week 2 DAG-core）
+- 调度器集成（Deferred：后续变更，不属于 Week 2 DAG-core）
 
 ## 风险评估
 
@@ -53,3 +53,9 @@ Goclaw 的核心功能是多 Agent 编排，其基础是任务依赖图（DAG, D
 |------|--------|------|----------|
 | 复杂 DAG 性能问题 | 低 | 中 | 使用高效算法，基准测试 |
 | 错误信息不够清晰 | 中 | 中 | 设计专门的错误类型 |
+
+## Errata 记录格式（仅用于非语义修复）
+
+当仅修复编码、错别字、失效链接等非语义问题时，使用如下格式追加记录：
+
+`[Errata YYYY-MM-DD] Type=<encoding|typo|link> Reason=<原因> Scope=<影响段落/文件>`

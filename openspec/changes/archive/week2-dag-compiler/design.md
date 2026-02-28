@@ -31,6 +31,11 @@
 └─────────────────────────────────────────────────────────────┘
 ```
 
+## 范围边界（归档修正）
+
+- Week 2 范围仅包含 DAG-core：Task/Graph/Cycle/Toposort/ExecutionPlan。
+- Workflow 定义接口与调度器集成为 Deferred，放在后续变更中处理。
+
 ## 核心数据结构
 
 ### Task 定义
@@ -101,17 +106,17 @@ func (g *Graph) Dependents(id string) ([]*Task, error)
 ### 1. 环检测（DFS）
 
 ```go
-// CycleError 表示检测到循环依赖
-type CycleError struct {
+// CyclicDependencyError 表示检测到循环依赖
+type CyclicDependencyError struct {
     Path []string // 循环路径
 }
 
-func (e *CycleError) Error() string
+func (e *CyclicDependencyError) Error() string
 
 // DetectCycle 使用 DFS 检测环
 // 时间复杂度: O(V+E)
 // 空间复杂度: O(V)
-func (g *Graph) DetectCycle() (*CycleError, bool)
+func (g *Graph) DetectCycle() (*CyclicDependencyError, bool)
 
 // 实现细节:
 // - 使用三色标记法 (white/gray/black)
@@ -276,3 +281,9 @@ for layerIdx, layer := range plan.Layers {
     // 并行执行本层所有任务
 }
 ```
+
+## Errata 记录格式（仅用于非语义修复）
+
+当仅修复编码、错别字、失效链接等非语义问题时，使用如下格式追加记录：
+
+`[Errata YYYY-MM-DD] Type=<encoding|typo|link> Reason=<原因> Scope=<影响段落/文件>`
