@@ -6,6 +6,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/goclaw/goclaw/pkg/api/models"
 	"github.com/goclaw/goclaw/pkg/storage"
 )
 
@@ -29,22 +30,14 @@ func (m *MemoryStorage) SaveWorkflow(ctx context.Context, wf *storage.WorkflowSt
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
+	copied := cloneWorkflowState(wf)
+
 	// Check for duplicate on create (if workflow doesn't exist yet)
-	if _, exists := m.workflows[wf.ID]; !exists && wf.CreatedAt.IsZero() {
-		wf.CreatedAt = time.Now()
+	if _, exists := m.workflows[copied.ID]; !exists && copied.CreatedAt.IsZero() {
+		copied.CreatedAt = time.Now().UTC()
 	}
 
-	// Deep copy to avoid external modifications
-	copied := *wf
-	if wf.TaskStatus != nil {
-		copied.TaskStatus = make(map[string]*storage.TaskState, len(wf.TaskStatus))
-		for k, v := range wf.TaskStatus {
-			taskCopy := *v
-			copied.TaskStatus[k] = &taskCopy
-		}
-	}
-
-	m.workflows[wf.ID] = &copied
+	m.workflows[copied.ID] = copied
 	return nil
 }
 
@@ -61,17 +54,7 @@ func (m *MemoryStorage) GetWorkflow(ctx context.Context, id string) (*storage.Wo
 		}
 	}
 
-	// Deep copy to avoid external modifications
-	copied := *wf
-	if wf.TaskStatus != nil {
-		copied.TaskStatus = make(map[string]*storage.TaskState, len(wf.TaskStatus))
-		for k, v := range wf.TaskStatus {
-			taskCopy := *v
-			copied.TaskStatus[k] = &taskCopy
-		}
-	}
-
-	return &copied, nil
+	return cloneWorkflowState(wf), nil
 }
 
 // ListWorkflows lists workflows with optional filtering and pagination.
@@ -122,15 +105,7 @@ func (m *MemoryStorage) ListWorkflows(ctx context.Context, filter *storage.Workf
 	// Deep copy results
 	result := make([]*storage.WorkflowState, len(filtered))
 	for i, wf := range filtered {
-		copied := *wf
-		if wf.TaskStatus != nil {
-			copied.TaskStatus = make(map[string]*storage.TaskState, len(wf.TaskStatus))
-			for k, v := range wf.TaskStatus {
-				taskCopy := *v
-				copied.TaskStatus[k] = &taskCopy
-			}
-		}
-		result[i] = &copied
+		result[i] = cloneWorkflowState(wf)
 	}
 
 	return result, total, nil
@@ -172,14 +147,14 @@ func (m *MemoryStorage) SaveTask(ctx context.Context, workflowID string, task *s
 	}
 
 	// Deep copy task
-	copied := *task
-	m.tasks[workflowID][task.ID] = &copied
+	copied := cloneTaskState(task)
+	m.tasks[workflowID][task.ID] = copied
 
 	// Also update in workflow's TaskStatus
 	if m.workflows[workflowID].TaskStatus == nil {
 		m.workflows[workflowID].TaskStatus = make(map[string]*storage.TaskState)
 	}
-	m.workflows[workflowID].TaskStatus[task.ID] = &copied
+	m.workflows[workflowID].TaskStatus[task.ID] = cloneTaskState(copied)
 
 	return nil
 }
@@ -205,9 +180,7 @@ func (m *MemoryStorage) GetTask(ctx context.Context, workflowID, taskID string) 
 		}
 	}
 
-	// Deep copy
-	copied := *task
-	return &copied, nil
+	return cloneTaskState(task), nil
 }
 
 // ListTasks lists all tasks for a workflow.
@@ -225,8 +198,7 @@ func (m *MemoryStorage) ListTasks(ctx context.Context, workflowID string) ([]*st
 
 	result := make([]*storage.TaskState, 0, len(workflowTasks))
 	for _, task := range workflowTasks {
-		copied := *task
-		result = append(result, &copied)
+		result = append(result, cloneTaskState(task))
 	}
 
 	return result, nil
@@ -235,4 +207,103 @@ func (m *MemoryStorage) ListTasks(ctx context.Context, workflowID string) ([]*st
 // Close closes the storage (no-op for memory storage).
 func (m *MemoryStorage) Close() error {
 	return nil
+}
+
+func cloneWorkflowState(wf *storage.WorkflowState) *storage.WorkflowState {
+	if wf == nil {
+		return nil
+	}
+
+	copied := *wf
+	copied.Tasks = cloneTaskDefinitions(wf.Tasks)
+	copied.TaskStatus = cloneTaskStatusMap(wf.TaskStatus)
+	copied.Metadata = cloneStringMap(wf.Metadata)
+	copied.StartedAt = cloneTimePtr(wf.StartedAt)
+	copied.CompletedAt = cloneTimePtr(wf.CompletedAt)
+	return &copied
+}
+
+func cloneTaskState(task *storage.TaskState) *storage.TaskState {
+	if task == nil {
+		return nil
+	}
+	copied := *task
+	copied.StartedAt = cloneTimePtr(task.StartedAt)
+	copied.CompletedAt = cloneTimePtr(task.CompletedAt)
+	copied.Result = deepCopyValue(task.Result)
+	return &copied
+}
+
+func cloneTaskStatusMap(src map[string]*storage.TaskState) map[string]*storage.TaskState {
+	if src == nil {
+		return nil
+	}
+	out := make(map[string]*storage.TaskState, len(src))
+	for taskID, taskState := range src {
+		out[taskID] = cloneTaskState(taskState)
+	}
+	return out
+}
+
+func cloneTaskDefinitions(src []models.TaskDefinition) []models.TaskDefinition {
+	if len(src) == 0 {
+		return nil
+	}
+	out := make([]models.TaskDefinition, len(src))
+	for i := range src {
+		out[i] = src[i]
+		out[i].Dependencies = append([]string(nil), src[i].Dependencies...)
+		out[i].DependsOn = append([]string(nil), src[i].DependsOn...)
+		out[i].Config = cloneAnyMap(src[i].Config)
+	}
+	return out
+}
+
+func cloneStringMap(src map[string]string) map[string]string {
+	if src == nil {
+		return nil
+	}
+	out := make(map[string]string, len(src))
+	for k, v := range src {
+		out[k] = v
+	}
+	return out
+}
+
+func cloneAnyMap(src map[string]interface{}) map[string]interface{} {
+	if src == nil {
+		return nil
+	}
+	out := make(map[string]interface{}, len(src))
+	for k, v := range src {
+		out[k] = deepCopyValue(v)
+	}
+	return out
+}
+
+func cloneTimePtr(src *time.Time) *time.Time {
+	if src == nil {
+		return nil
+	}
+	t := *src
+	return &t
+}
+
+func deepCopyValue(v interface{}) interface{} {
+	switch val := v.(type) {
+	case map[string]interface{}:
+		out := make(map[string]interface{}, len(val))
+		for k, inner := range val {
+			out[k] = deepCopyValue(inner)
+		}
+		return out
+	case []interface{}:
+		out := make([]interface{}, len(val))
+		for i, inner := range val {
+			out[i] = deepCopyValue(inner)
+		}
+		return out
+	default:
+		return val
+	}
 }

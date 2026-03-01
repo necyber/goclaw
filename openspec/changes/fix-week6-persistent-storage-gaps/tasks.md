@@ -20,9 +20,9 @@
 
 ## 4. Memory Storage Isolation
 
-- [ ] 4.1 Implement deep-copy helpers for mutable workflow/task fields (maps, slices, nested task state) in memory storage.
-- [ ] 4.2 Apply deep-copy helpers consistently in `SaveWorkflow`, `GetWorkflow`, `ListWorkflows`, and task list/read paths.
-- [ ] 4.3 Add mutation-isolation tests proving caller-side mutations do not alter persisted state without explicit saves.
+- [x] 4.1 Implement deep-copy helpers for mutable workflow/task fields (maps, slices, nested task state) in memory storage.
+- [x] 4.2 Apply deep-copy helpers consistently in `SaveWorkflow`, `GetWorkflow`, `ListWorkflows`, and task list/read paths.
+- [x] 4.3 Add mutation-isolation tests proving caller-side mutations do not alter persisted state without explicit saves.
 
 ## 5. Configuration Wiring and Bootstrap
 

@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"reflect"
 	"testing"
 	"time"
 
@@ -392,5 +393,113 @@ func TestMemoryStorage_ConcurrentAccess(t *testing.T) {
 	}
 	if len(result) != 10 {
 		t.Errorf("Expected 10 workflows in result, got %d", len(result))
+	}
+}
+
+func TestMemoryStorage_GetWorkflowMutationIsolation(t *testing.T) {
+	s := NewMemoryStorage()
+	ctx := context.Background()
+	started := time.Now().UTC()
+
+	original := &storage.WorkflowState{
+		ID:     "wf-isolation",
+		Name:   "workflow-isolation",
+		Status: "running",
+		Tasks: []models.TaskDefinition{
+			{
+				ID:           "task-1",
+				Name:         "task-1",
+				Type:         "function",
+				Dependencies: []string{"task-0"},
+				Config:       map[string]interface{}{"lane": "cpu", "meta": map[string]interface{}{"x": "y"}},
+			},
+		},
+		TaskStatus: map[string]*storage.TaskState{
+			"task-1": {
+				ID:        "task-1",
+				Name:      "task-1",
+				Status:    "running",
+				StartedAt: &started,
+				Result:    map[string]interface{}{"before": "value"},
+			},
+		},
+		Metadata: map[string]string{"owner": "team-a"},
+	}
+	if err := s.SaveWorkflow(ctx, original); err != nil {
+		t.Fatalf("SaveWorkflow() error = %v", err)
+	}
+
+	read1, err := s.GetWorkflow(ctx, original.ID)
+	if err != nil {
+		t.Fatalf("GetWorkflow() error = %v", err)
+	}
+	read1.Metadata["owner"] = "mutated"
+	read1.Tasks[0].Dependencies[0] = "mutated-dep"
+	read1.Tasks[0].Config["lane"] = "io"
+	read1.TaskStatus["task-1"].Status = "failed"
+	if resultMap, ok := read1.TaskStatus["task-1"].Result.(map[string]interface{}); ok {
+		resultMap["before"] = "mutated-result"
+	}
+
+	read2, err := s.GetWorkflow(ctx, original.ID)
+	if err != nil {
+		t.Fatalf("GetWorkflow(second) error = %v", err)
+	}
+	if read2.Metadata["owner"] != "team-a" {
+		t.Fatalf("metadata mutated unexpectedly: %v", read2.Metadata)
+	}
+	if read2.Tasks[0].Dependencies[0] != "task-0" {
+		t.Fatalf("task dependency mutated unexpectedly: %v", read2.Tasks[0].Dependencies)
+	}
+	if read2.Tasks[0].Config["lane"] != "cpu" {
+		t.Fatalf("task config mutated unexpectedly: %v", read2.Tasks[0].Config)
+	}
+	if read2.TaskStatus["task-1"].Status != "running" {
+		t.Fatalf("task status mutated unexpectedly: %s", read2.TaskStatus["task-1"].Status)
+	}
+	if !reflect.DeepEqual(read2.TaskStatus["task-1"].Result, map[string]interface{}{"before": "value"}) {
+		t.Fatalf("task result mutated unexpectedly: %v", read2.TaskStatus["task-1"].Result)
+	}
+}
+
+func TestMemoryStorage_TaskReadMutationIsolation(t *testing.T) {
+	s := NewMemoryStorage()
+	ctx := context.Background()
+
+	wf := &storage.WorkflowState{
+		ID:     "wf-task-isolation",
+		Name:   "wf-task-isolation",
+		Status: "running",
+	}
+	if err := s.SaveWorkflow(ctx, wf); err != nil {
+		t.Fatalf("SaveWorkflow() error = %v", err)
+	}
+	task := &storage.TaskState{
+		ID:     "task-1",
+		Name:   "task-1",
+		Status: "completed",
+		Result: map[string]interface{}{"value": "original"},
+	}
+	if err := s.SaveTask(ctx, wf.ID, task); err != nil {
+		t.Fatalf("SaveTask() error = %v", err)
+	}
+
+	readTask, err := s.GetTask(ctx, wf.ID, task.ID)
+	if err != nil {
+		t.Fatalf("GetTask() error = %v", err)
+	}
+	if resultMap, ok := readTask.Result.(map[string]interface{}); ok {
+		resultMap["value"] = "mutated"
+	}
+
+	listedTasks, err := s.ListTasks(ctx, wf.ID)
+	if err != nil {
+		t.Fatalf("ListTasks() error = %v", err)
+	}
+	if len(listedTasks) != 1 {
+		t.Fatalf("ListTasks() returned %d tasks, want 1", len(listedTasks))
+	}
+	if !reflect.DeepEqual(listedTasks[0].Result, map[string]interface{}{"value": "original"}) {
+		t.Fatalf("stored task result mutated unexpectedly: %v", listedTasks[0].Result)
 	}
 }
