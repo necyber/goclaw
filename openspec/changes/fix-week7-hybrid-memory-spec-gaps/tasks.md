@@ -26,6 +26,6 @@
 
 ## 5. Verification And Regression Safety
 
-- [ ] 5.1 Run targeted suites: `go test ./pkg/memory/... ./pkg/api/handlers/... -race -v`.
-- [ ] 5.2 Run full impacted suites: `go test ./pkg/memory/... ./pkg/api/... ./cmd/goclaw/...`.
-- [ ] 5.3 Resolve regressions and keep behavior aligned with updated specs/design.
+- [x] 5.1 Run targeted suites: `go test ./pkg/memory/... ./pkg/api/handlers/... -race -v`.
+- [x] 5.2 Run full impacted suites: `go test ./pkg/memory/... ./pkg/api/... ./cmd/goclaw/...`.
+- [x] 5.3 Resolve regressions and keep behavior aligned with updated specs/design.
