@@ -28,18 +28,33 @@ func NewDecayManager(threshold, defaultStability float64, interval time.Duration
 		threshold:        threshold,
 		defaultStability: defaultStability,
 		interval:         interval,
-		done:             make(chan struct{}),
 	}
 }
 
 // UpdateStrength applies the FSRS-6 decay formula: S' = S * e^(-t/τ)
 // where t is hours since last review and τ is the stability parameter.
 func (d *DecayManager) UpdateStrength(entry *MemoryEntry) {
-	elapsed := time.Since(entry.LastReview).Hours()
+	now := time.Now()
 	if entry.Stability <= 0 {
 		entry.Stability = d.defaultStability
 	}
+
+	if entry.LastReview.IsZero() {
+		entry.LastReview = now
+		return
+	}
+
+	elapsed := now.Sub(entry.LastReview).Hours()
+	if elapsed <= 0 {
+		entry.LastReview = now
+		return
+	}
+
 	entry.Strength *= math.Exp(-elapsed / entry.Stability)
+	if entry.Strength < 0 {
+		entry.Strength = 0
+	}
+	entry.LastReview = now
 }
 
 // BoostStrength resets strength to 1.0 and increases stability.
@@ -60,11 +75,27 @@ func (d *DecayManager) InitEntry(entry *MemoryEntry) {
 // StartDecayLoop starts the background decay goroutine.
 // The provided callback is called with entries that need updating.
 func (d *DecayManager) StartDecayLoop(parentCtx context.Context, processFunc func(ctx context.Context) error) {
+	d.mu.Lock()
+	if d.cancel != nil {
+		d.mu.Unlock()
+		return
+	}
+
 	ctx, cancel := context.WithCancel(parentCtx)
+	done := make(chan struct{})
 	d.cancel = cancel
+	d.done = done
+	d.mu.Unlock()
 
 	go func() {
-		defer close(d.done)
+		defer func() {
+			close(done)
+			d.mu.Lock()
+			if d.done == done {
+				d.done = nil
+			}
+			d.mu.Unlock()
+		}()
 		ticker := time.NewTicker(d.interval)
 		defer ticker.Stop()
 
@@ -106,9 +137,17 @@ func (d *DecayManager) DecayEntries(entries []*MemoryEntry) (updated []*MemoryEn
 
 // Stop gracefully stops the decay loop.
 func (d *DecayManager) Stop() {
-	if d.cancel != nil {
-		d.cancel()
-		<-d.done
+	d.mu.Lock()
+	cancel := d.cancel
+	done := d.done
+	d.cancel = nil
+	d.mu.Unlock()
+
+	if cancel != nil {
+		cancel()
+	}
+	if done != nil {
+		<-done
 	}
 }
 

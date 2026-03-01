@@ -79,6 +79,9 @@ type MemoryStats struct {
 	// AverageStrength is the mean strength across all entries.
 	AverageStrength float64 `json:"average_strength"`
 
+	// StorageSize is the approximate serialized size in bytes.
+	StorageSize int64 `json:"storage_size"`
+
 	// SessionCount is the number of distinct sessions.
 	SessionCount int `json:"session_count,omitempty"`
 }

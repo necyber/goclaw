@@ -2,8 +2,11 @@ package memory
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
+	"sort"
+	"strings"
 	"sync"
 	"time"
 
@@ -288,6 +291,10 @@ func (h *MemoryHub) ForgetByThreshold(ctx context.Context, sessionID string, thr
 			h.vector.DeleteVector(entry.ID)
 			h.bm25.RemoveDocument(entry.ID)
 			count++
+			continue
+		}
+		if err := h.storage.Store(ctx, entry); err != nil {
+			h.logger.Warn("failed to persist updated strength", "entry_id", entry.ID, "error", err)
 		}
 	}
 	return count, nil
@@ -295,13 +302,35 @@ func (h *MemoryHub) ForgetByThreshold(ctx context.Context, sessionID string, thr
 
 // List returns paginated memory entries for a session.
 func (h *MemoryHub) List(ctx context.Context, sessionID string, limit, offset int) ([]*MemoryEntry, int, error) {
+	return h.ListSorted(ctx, sessionID, limit, offset, "", "")
+}
+
+// ListSorted returns paginated memory entries for a session using sort options.
+func (h *MemoryHub) ListSorted(ctx context.Context, sessionID string, limit, offset int, sortBy, order string) ([]*MemoryEntry, int, error) {
 	if sessionID == "" {
 		return nil, 0, ErrInvalidSessionID
 	}
 	if limit <= 0 {
 		limit = 20
 	}
-	return h.storage.ListBySession(ctx, sessionID, limit, offset)
+	if offset < 0 {
+		offset = 0
+	}
+
+	entries, err := h.storage.AllBySession(ctx, sessionID)
+	if err != nil {
+		return nil, 0, err
+	}
+	sortMemoryEntries(entries, sortBy, order)
+	total := len(entries)
+	if offset >= total {
+		return nil, total, nil
+	}
+	end := offset + limit
+	if end > total {
+		end = total
+	}
+	return entries[offset:end], total, nil
 }
 
 // Count returns the number of memory entries for a session.
@@ -329,10 +358,17 @@ func (h *MemoryHub) GetStats(ctx context.Context, sessionID string) (*MemoryStat
 
 	if len(entries) > 0 {
 		totalStrength := 0.0
+		storageSize := int64(0)
 		for _, e := range entries {
 			totalStrength += e.Strength
+			data, err := json.Marshal(e)
+			if err != nil {
+				return nil, fmt.Errorf("memory: marshal stats entry: %w", err)
+			}
+			storageSize += int64(len(data))
 		}
 		stats.AverageStrength = totalStrength / float64(len(entries))
+		stats.StorageSize = storageSize
 	}
 
 	return stats, nil
@@ -353,13 +389,20 @@ func (h *MemoryHub) GetGlobalStats(ctx context.Context) (*MemoryStats, error) {
 	}
 
 	totalStrength := 0.0
+	storageSize := int64(0)
 	sessions := make(map[string]struct{})
 	for _, e := range entries {
 		totalStrength += e.Strength
 		sessions[e.SessionID] = struct{}{}
+		data, err := json.Marshal(e)
+		if err != nil {
+			return nil, fmt.Errorf("memory: marshal global stats entry: %w", err)
+		}
+		storageSize += int64(len(data))
 	}
 	stats.AverageStrength = totalStrength / float64(len(entries))
 	stats.SessionCount = len(sessions)
+	stats.StorageSize = storageSize
 
 	return stats, nil
 }
@@ -419,4 +462,32 @@ func (h *MemoryHub) processDecay(ctx context.Context) error {
 	}
 
 	return nil
+}
+
+func sortMemoryEntries(entries []*MemoryEntry, sortBy, order string) {
+	field := strings.ToLower(strings.TrimSpace(sortBy))
+	desc := strings.EqualFold(strings.TrimSpace(order), "desc")
+
+	switch field {
+	case "strength":
+		sort.SliceStable(entries, func(i, j int) bool {
+			if entries[i].Strength == entries[j].Strength {
+				if desc {
+					return entries[i].CreatedAt.After(entries[j].CreatedAt)
+				}
+				return entries[i].CreatedAt.Before(entries[j].CreatedAt)
+			}
+			if desc {
+				return entries[i].Strength > entries[j].Strength
+			}
+			return entries[i].Strength < entries[j].Strength
+		})
+	default:
+		sort.SliceStable(entries, func(i, j int) bool {
+			if desc {
+				return entries[i].CreatedAt.After(entries[j].CreatedAt)
+			}
+			return entries[i].CreatedAt.Before(entries[j].CreatedAt)
+		})
+	}
 }

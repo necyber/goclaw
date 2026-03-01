@@ -3,8 +3,10 @@ package handlers
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/goclaw/goclaw/pkg/api/response"
@@ -95,6 +97,7 @@ func (h *MemoryHandler) QueryMemory(w http.ResponseWriter, r *http.Request) {
 
 	queryText := r.URL.Query().Get("query")
 	mode := r.URL.Query().Get("mode")
+	vectorRaw := r.URL.Query().Get("vector")
 	topK := 10
 	if topKStr := r.URL.Query().Get("limit"); topKStr != "" {
 		if v, err := strconv.Atoi(topKStr); err == nil && v > 0 {
@@ -102,8 +105,9 @@ func (h *MemoryHandler) QueryMemory(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if queryText == "" {
-		response.Error(w, http.StatusBadRequest, response.ErrCodeValidationFailed, "Query parameter is required", getRequestID(ctx))
+	queryVector, err := parseVectorQueryParam(vectorRaw)
+	if err != nil {
+		response.Error(w, http.StatusBadRequest, response.ErrCodeValidationFailed, err.Error(), getRequestID(ctx))
 		return
 	}
 	if mode != "" {
@@ -114,11 +118,24 @@ func (h *MemoryHandler) QueryMemory(w http.ResponseWriter, r *http.Request) {
 		}
 		mode = normalizedMode
 	}
+	if queryText == "" && len(queryVector) == 0 {
+		response.Error(w, http.StatusBadRequest, response.ErrCodeValidationFailed, "Query text or vector parameter is required", getRequestID(ctx))
+		return
+	}
+	if mode == memory.ModeVectorOnly && len(queryVector) == 0 {
+		response.Error(w, http.StatusBadRequest, response.ErrCodeValidationFailed, "Vector parameter is required for vector-only mode", getRequestID(ctx))
+		return
+	}
+	if mode == memory.ModeBM25Only && queryText == "" {
+		response.Error(w, http.StatusBadRequest, response.ErrCodeValidationFailed, "Query parameter is required for bm25-only mode", getRequestID(ctx))
+		return
+	}
 
 	query := memory.Query{
-		Text: queryText,
-		Mode: mode,
-		TopK: topK,
+		Text:   queryText,
+		Vector: queryVector,
+		Mode:   mode,
+		TopK:   topK,
 	}
 
 	// Parse metadata filters from query params
@@ -189,6 +206,8 @@ func (h *MemoryHandler) ListMemory(w http.ResponseWriter, r *http.Request) {
 
 	limit := 20
 	offset := 0
+	sortBy := r.URL.Query().Get("sort")
+	order := r.URL.Query().Get("order")
 	if v := r.URL.Query().Get("limit"); v != "" {
 		if n, err := strconv.Atoi(v); err == nil && n > 0 {
 			limit = n
@@ -200,7 +219,7 @@ func (h *MemoryHandler) ListMemory(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	entries, total, err := h.hub.List(ctx, sessionID, limit, offset)
+	entries, total, err := h.hub.ListSorted(ctx, sessionID, limit, offset, sortBy, order)
 	if err != nil {
 		h.logger.Error("Failed to list memory", "session_id", sessionID, "error", err)
 		response.Error(w, http.StatusInternalServerError, response.ErrCodeInternalServer, "Failed to list memory", getRequestID(ctx))
@@ -294,4 +313,26 @@ func (h *MemoryHandler) DeleteWeakMemories(w http.ResponseWriter, r *http.Reques
 	}
 
 	response.JSON(w, http.StatusOK, deleteResponse{Deleted: count})
+}
+
+func parseVectorQueryParam(raw string) ([]float32, error) {
+	raw = strings.TrimSpace(raw)
+	if raw == "" {
+		return nil, nil
+	}
+
+	parts := strings.Split(raw, ",")
+	vector := make([]float32, 0, len(parts))
+	for i, part := range parts {
+		value := strings.TrimSpace(part)
+		if value == "" {
+			return nil, fmt.Errorf("invalid vector parameter: empty value at index %d", i)
+		}
+		parsed, err := strconv.ParseFloat(value, 32)
+		if err != nil {
+			return nil, fmt.Errorf("invalid vector parameter: invalid float at index %d", i)
+		}
+		vector = append(vector, float32(parsed))
+	}
+	return vector, nil
 }

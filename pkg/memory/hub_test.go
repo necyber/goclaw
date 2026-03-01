@@ -501,3 +501,126 @@ func TestHub_Start_RebuildsIndexesFromPersistedEntries(t *testing.T) {
 		t.Fatalf("expected rebuilt vector index to return 1 result, got %d", len(vectorResults))
 	}
 }
+
+func TestHub_StartStopRestart_NoPanic(t *testing.T) {
+	hub, cleanup := setupTestHub(t)
+	defer cleanup()
+
+	ctx := context.Background()
+
+	if err := hub.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := hub.Stop(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := hub.Stop(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := hub.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if err := hub.Stop(ctx); err != nil {
+		t.Fatal(err)
+	}
+}
+
+func TestHub_ForgetByThreshold_ConsecutiveCallsDoNotOverDecay(t *testing.T) {
+	hub, cleanup := setupTestHub(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	if err := hub.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	id, err := hub.Memorize(ctx, "s1", "stable memory", nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	entry, err := hub.storage.Get(ctx, id)
+	if err != nil {
+		t.Fatal(err)
+	}
+	entry.Stability = 1000
+	entry.LastReview = time.Now().Add(-time.Second)
+	if err := hub.storage.Store(ctx, entry); err != nil {
+		t.Fatal(err)
+	}
+
+	deleted, err := hub.ForgetByThreshold(ctx, "s1", 0.1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if deleted != 0 {
+		t.Fatalf("expected 0 deletions on first threshold pass, got %d", deleted)
+	}
+
+	deleted, err = hub.ForgetByThreshold(ctx, "s1", 0.1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if deleted != 0 {
+		t.Fatalf("expected 0 deletions on second threshold pass, got %d", deleted)
+	}
+
+	count, err := hub.Count(ctx, "s1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if count != 1 {
+		t.Fatalf("expected entry to remain after consecutive threshold checks, got count=%d", count)
+	}
+}
+
+func TestHub_ListSorted_ByStrengthDesc(t *testing.T) {
+	hub, cleanup := setupTestHub(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	if err := hub.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	id1, err := hub.Memorize(ctx, "s1", "entry 1", nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id2, err := hub.Memorize(ctx, "s1", "entry 2", nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id3, err := hub.Memorize(ctx, "s1", "entry 3", nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	strengthByID := map[string]float64{
+		id1: 0.2,
+		id2: 0.9,
+		id3: 0.5,
+	}
+	for id, strength := range strengthByID {
+		entry, err := hub.storage.Get(ctx, id)
+		if err != nil {
+			t.Fatal(err)
+		}
+		entry.Strength = strength
+		if err := hub.storage.Store(ctx, entry); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	entries, total, err := hub.ListSorted(ctx, "s1", 10, 0, "strength", "desc")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if total != 3 || len(entries) != 3 {
+		t.Fatalf("expected 3 sorted entries, got total=%d len=%d", total, len(entries))
+	}
+	if entries[0].ID != id2 || entries[1].ID != id3 || entries[2].ID != id1 {
+		t.Fatalf("unexpected strength order: got [%s %s %s], want [%s %s %s]",
+			entries[0].ID, entries[1].ID, entries[2].ID, id2, id3, id1)
+	}
+}

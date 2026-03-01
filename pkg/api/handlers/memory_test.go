@@ -8,6 +8,7 @@ import (
 	"net/http/httptest"
 	"os"
 	"testing"
+	"time"
 
 	dgbadger "github.com/dgraph-io/badger/v4"
 	"github.com/go-chi/chi/v5"
@@ -197,6 +198,52 @@ func TestMemoryHandler_QueryMemory_InvalidMode(t *testing.T) {
 	}
 }
 
+func TestMemoryHandler_QueryMemory_VectorOnlyMode(t *testing.T) {
+	h, cleanup := setupMemoryHandler(t)
+	defer cleanup()
+
+	body := `{"content":"vector item","vector":[1,0,0]}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/memory/session-1", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = withChiURLParam(req, "sessionID", "session-1")
+	w := httptest.NewRecorder()
+	h.StoreMemory(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("StoreMemory() status = %d, want %d, body: %s", w.Code, http.StatusCreated, w.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/memory/session-1?mode=vector-only&vector=1,0,0&limit=5", nil)
+	req = withChiURLParam(req, "sessionID", "session-1")
+	w = httptest.NewRecorder()
+	h.QueryMemory(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("QueryMemory() vector-only status = %d, want %d, body: %s", w.Code, http.StatusOK, w.Body.String())
+	}
+
+	var results []memory.RetrievalResult
+	if err := json.NewDecoder(w.Body).Decode(&results); err != nil {
+		t.Fatalf("failed to decode vector-only response: %v", err)
+	}
+	if len(results) == 0 {
+		t.Fatalf("expected at least one vector-only result")
+	}
+}
+
+func TestMemoryHandler_QueryMemory_InvalidVectorParam(t *testing.T) {
+	h, cleanup := setupMemoryHandler(t)
+	defer cleanup()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/memory/session-1?mode=vector-only&vector=abc", nil)
+	req = withChiURLParam(req, "sessionID", "session-1")
+	w := httptest.NewRecorder()
+	h.QueryMemory(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Fatalf("QueryMemory() invalid vector status = %d, want %d, body: %s", w.Code, http.StatusBadRequest, w.Body.String())
+	}
+}
+
 func TestMemoryHandler_DeleteMemory(t *testing.T) {
 	h, cleanup := setupMemoryHandler(t)
 	defer cleanup()
@@ -319,6 +366,53 @@ func TestMemoryHandler_ListMemory(t *testing.T) {
 	}
 }
 
+func TestMemoryHandler_ListMemory_SortByCreatedAtDesc(t *testing.T) {
+	h, cleanup := setupMemoryHandler(t)
+	defer cleanup()
+
+	ids := make([]string, 0, 3)
+	for i := 0; i < 3; i++ {
+		body := `{"content":"entry content"}`
+		req := httptest.NewRequest(http.MethodPost, "/api/v1/memory/session-1", bytes.NewBufferString(body))
+		req.Header.Set("Content-Type", "application/json")
+		req = withChiURLParam(req, "sessionID", "session-1")
+		w := httptest.NewRecorder()
+		h.StoreMemory(w, req)
+		if w.Code != http.StatusCreated {
+			t.Fatalf("store status = %d, want %d, body: %s", w.Code, http.StatusCreated, w.Body.String())
+		}
+		var resp memorizeResponse
+		_ = json.NewDecoder(w.Body).Decode(&resp)
+		ids = append(ids, resp.ID)
+		time.Sleep(5 * time.Millisecond)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/memory/session-1/list?sort=created_at&order=desc&limit=3&offset=0", nil)
+	req = withChiURLParam(req, "sessionID", "session-1")
+	w := httptest.NewRecorder()
+	h.ListMemory(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("ListMemory() status = %d, want %d, body: %s", w.Code, http.StatusOK, w.Body.String())
+	}
+
+	var resp map[string]interface{}
+	_ = json.NewDecoder(w.Body).Decode(&resp)
+	entries, ok := resp["entries"].([]interface{})
+	if !ok || len(entries) != 3 {
+		t.Fatalf("expected 3 entries, got %#v", resp["entries"])
+	}
+
+	first := entries[0].(map[string]interface{})
+	second := entries[1].(map[string]interface{})
+	third := entries[2].(map[string]interface{})
+
+	if first["id"] != ids[2] || second["id"] != ids[1] || third["id"] != ids[0] {
+		t.Fatalf("unexpected created_at-desc order: got [%v %v %v], want [%v %v %v]",
+			first["id"], second["id"], third["id"], ids[2], ids[1], ids[0])
+	}
+}
+
 func TestMemoryHandler_GetStats(t *testing.T) {
 	h, cleanup := setupMemoryHandler(t)
 	defer cleanup()
@@ -345,6 +439,42 @@ func TestMemoryHandler_GetStats(t *testing.T) {
 	_ = json.NewDecoder(w.Body).Decode(&stats)
 	if stats.TotalEntries != 1 {
 		t.Errorf("expected 1 entry, got %d", stats.TotalEntries)
+	}
+	if stats.StorageSize <= 0 {
+		t.Errorf("expected storage size > 0, got %d", stats.StorageSize)
+	}
+}
+
+func TestMemoryHandler_GetStats_IncludesStorageSizeField(t *testing.T) {
+	h, cleanup := setupMemoryHandler(t)
+	defer cleanup()
+
+	body := `{"content":"stats payload check"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/memory/session-1", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = withChiURLParam(req, "sessionID", "session-1")
+	w := httptest.NewRecorder()
+	h.StoreMemory(w, req)
+
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/memory/session-1/stats", nil)
+	req = withChiURLParam(req, "sessionID", "session-1")
+	w = httptest.NewRecorder()
+	h.GetStats(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("GetStats() status = %d, want %d", w.Code, http.StatusOK)
+	}
+
+	var payload map[string]interface{}
+	if err := json.NewDecoder(w.Body).Decode(&payload); err != nil {
+		t.Fatalf("decode stats payload: %v", err)
+	}
+	value, ok := payload["storage_size"]
+	if !ok {
+		t.Fatalf("expected storage_size field in stats payload")
+	}
+	if value.(float64) <= 0 {
+		t.Fatalf("expected storage_size > 0, got %v", value)
 	}
 }
 

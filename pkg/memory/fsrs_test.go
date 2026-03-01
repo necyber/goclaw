@@ -1,7 +1,9 @@
 package memory
 
 import (
+	"context"
 	"math"
+	"sync/atomic"
 	"testing"
 	"time"
 )
@@ -103,5 +105,52 @@ func TestDecayManager_HighStabilitySlowDecay(t *testing.T) {
 	// With stability 1000h and 24h elapsed: S' = e^(-24/1000) ≈ 0.976
 	if entry.Strength < 0.95 {
 		t.Errorf("expected slow decay with high stability, got %f", entry.Strength)
+	}
+}
+
+func TestDecayManager_StartStopRestart(t *testing.T) {
+	dm := NewDecayManager(0.1, 24.0, 5*time.Millisecond)
+	var calls atomic.Int64
+	process := func(ctx context.Context) error {
+		calls.Add(1)
+		return nil
+	}
+
+	ctx := context.Background()
+	dm.StartDecayLoop(ctx, process)
+	time.Sleep(15 * time.Millisecond)
+	dm.Stop()
+	dm.Stop() // idempotent stop
+
+	dm.StartDecayLoop(ctx, process)
+	time.Sleep(15 * time.Millisecond)
+	dm.Stop()
+
+	if calls.Load() == 0 {
+		t.Fatalf("expected decay process to run at least once")
+	}
+}
+
+func TestDecayManager_UpdateStrength_UsesNonOverlappingTimeWindows(t *testing.T) {
+	dm := NewDecayManager(0.1, 24.0, time.Hour)
+
+	entry := &MemoryEntry{
+		Strength:   1.0,
+		Stability:  24.0,
+		LastReview: time.Now().Add(-24 * time.Hour),
+	}
+
+	dm.UpdateStrength(entry)
+	firstStrength := entry.Strength
+	firstReview := entry.LastReview
+
+	dm.UpdateStrength(entry)
+	secondStrength := entry.Strength
+
+	if secondStrength < firstStrength*0.99 {
+		t.Fatalf("expected second decay update to avoid reapplying full prior interval: first=%f second=%f", firstStrength, secondStrength)
+	}
+	if entry.LastReview.Before(firstReview) {
+		t.Fatalf("expected last review timestamp to stay monotonic")
 	}
 }
