@@ -64,9 +64,17 @@ Supported patterns:
 - `interrupt`: graceful/forced task interruption.
 - `collect`: fan-in result collection.
 
+Collect behavior notes:
+
+- Collector fan-in is fairness-oriented: one slow task channel will not block already-ready task results.
+- Timeout returns partial results that were already received, plus a timeout/incomplete error.
+
 ## 5. Runtime Behavior and Fallback
 
 - If Redis init fails at startup, queue and signal automatically degrade to local mode.
+- Redis fallback is triggered by Redis connectivity/transport failures, not by normal lane-domain errors
+  such as duplicate/full/dropped submissions.
+- In Redis queue mode, tasks are counted as completed only after bound task execution logic succeeds.
 - Startup logs include effective runtime mode:
   - `queue_type=redis` or `memory(fallback)`
   - `signal_mode=redis` or `local(fallback)`
