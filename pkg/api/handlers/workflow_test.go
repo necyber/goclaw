@@ -7,11 +7,13 @@ import (
 	"github.com/goclaw/goclaw/pkg/storage/memory"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/goclaw/goclaw/config"
 	"github.com/goclaw/goclaw/pkg/api/models"
+	"github.com/goclaw/goclaw/pkg/api/response"
 	"github.com/goclaw/goclaw/pkg/engine"
 	"github.com/goclaw/goclaw/pkg/logger"
 )
@@ -92,6 +94,12 @@ func TestWorkflowHandler_SubmitWorkflow_Success(t *testing.T) {
 
 	if resp.ID == "" {
 		t.Error("Expected workflow ID in response")
+	}
+	if resp.WorkflowID == "" {
+		t.Error("Expected workflow_id in response")
+	}
+	if resp.WorkflowID != resp.ID {
+		t.Errorf("Response workflow_id = %v, want %v", resp.WorkflowID, resp.ID)
 	}
 	if resp.Name != reqBody.Name {
 		t.Errorf("Response name = %v, want %v", resp.Name, reqBody.Name)
@@ -253,6 +261,9 @@ func TestWorkflowHandler_GetWorkflow_Success(t *testing.T) {
 	if resp.ID != workflowID {
 		t.Errorf("Response ID = %v, want %v", resp.ID, workflowID)
 	}
+	if resp.WorkflowID != workflowID {
+		t.Errorf("Response workflow_id = %v, want %v", resp.WorkflowID, workflowID)
+	}
 }
 
 func TestWorkflowHandler_GetWorkflow_NotFound(t *testing.T) {
@@ -331,6 +342,9 @@ func TestWorkflowHandler_ListWorkflows_Empty(t *testing.T) {
 	if resp.Total != 0 {
 		t.Errorf("ListWorkflows() total = %v, want 0", resp.Total)
 	}
+	if resp.Limit != 50 {
+		t.Errorf("ListWorkflows() default limit = %v, want 50", resp.Limit)
+	}
 	if len(resp.Workflows) != 0 {
 		t.Errorf("ListWorkflows() workflows count = %v, want 0", len(resp.Workflows))
 	}
@@ -386,6 +400,14 @@ func TestWorkflowHandler_ListWorkflows_WithWorkflows(t *testing.T) {
 	}
 	if len(resp.Workflows) != 3 {
 		t.Errorf("ListWorkflows() workflows count = %v, want 3", len(resp.Workflows))
+	}
+	for _, wf := range resp.Workflows {
+		if wf.WorkflowID == "" {
+			t.Fatal("expected workflow_id in workflow summary")
+		}
+		if wf.WorkflowID != wf.ID {
+			t.Fatalf("workflow summary workflow_id=%s, id=%s", wf.WorkflowID, wf.ID)
+		}
 	}
 }
 
@@ -446,6 +468,65 @@ func TestWorkflowHandler_ListWorkflows_WithPagination(t *testing.T) {
 	}
 }
 
+func TestWorkflowHandler_ListWorkflows_InvalidPagination(t *testing.T) {
+	eng, cleanup := createTestEngine(t)
+	defer cleanup()
+
+	log := logger.New(&logger.Config{
+		Level:  logger.InfoLevel,
+		Format: "json",
+		Output: "stdout",
+	})
+	handler := NewWorkflowHandler(eng, log)
+
+	tests := []string{
+		"/api/v1/workflows?limit=abc",
+		"/api/v1/workflows?limit=-1",
+		"/api/v1/workflows?offset=abc",
+		"/api/v1/workflows?offset=-1",
+	}
+
+	for _, endpoint := range tests {
+		req := httptest.NewRequest(http.MethodGet, endpoint, nil)
+		w := httptest.NewRecorder()
+
+		handler.ListWorkflows(w, req)
+
+		if w.Code != http.StatusBadRequest {
+			t.Fatalf("ListWorkflows(%s) status = %v, want %v", endpoint, w.Code, http.StatusBadRequest)
+		}
+	}
+}
+
+func TestWorkflowHandler_ListWorkflows_LimitCap(t *testing.T) {
+	eng, cleanup := createTestEngine(t)
+	defer cleanup()
+
+	log := logger.New(&logger.Config{
+		Level:  logger.InfoLevel,
+		Format: "json",
+		Output: "stdout",
+	})
+	handler := NewWorkflowHandler(eng, log)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/workflows?limit=1000", nil)
+	w := httptest.NewRecorder()
+
+	handler.ListWorkflows(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("ListWorkflows() status = %v, want %v", w.Code, http.StatusOK)
+	}
+
+	var resp models.WorkflowListResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if resp.Limit != 100 {
+		t.Fatalf("ListWorkflows() effective limit = %v, want 100", resp.Limit)
+	}
+}
+
 func TestWorkflowHandler_CancelWorkflow_Success(t *testing.T) {
 	eng, cleanup := createTestEngine(t)
 	defer cleanup()
@@ -487,6 +568,17 @@ func TestWorkflowHandler_CancelWorkflow_Success(t *testing.T) {
 
 	if w.Code != http.StatusOK {
 		t.Errorf("CancelWorkflow() status = %v, want %v, body: %s", w.Code, http.StatusOK, w.Body.String())
+	}
+
+	var resp models.WorkflowResponse
+	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
+		t.Fatalf("Failed to decode response: %v", err)
+	}
+	if resp.WorkflowID != workflowID || resp.ID != workflowID {
+		t.Fatalf("cancel response IDs mismatch: id=%s workflow_id=%s want=%s", resp.ID, resp.WorkflowID, workflowID)
+	}
+	if resp.Status != "cancelled" {
+		t.Fatalf("cancel response status = %s, want cancelled", resp.Status)
 	}
 }
 
@@ -636,18 +728,74 @@ func TestWorkflowHandler_GetTaskResult_NonTerminalPending(t *testing.T) {
 
 	handler.GetTaskResult(w, req)
 
-	if w.Code != http.StatusOK {
-		t.Fatalf("GetTaskResult() status = %v, want %v, body: %s", w.Code, http.StatusOK, w.Body.String())
+	if w.Code != http.StatusConflict {
+		t.Fatalf("GetTaskResult() status = %v, want %v, body: %s", w.Code, http.StatusConflict, w.Body.String())
 	}
 
-	var resp models.TaskResultResponse
+	var resp response.ErrorResponse
 	if err := json.NewDecoder(w.Body).Decode(&resp); err != nil {
 		t.Fatalf("failed to decode response: %v", err)
 	}
-	if resp.Status != "pending" {
-		t.Fatalf("task status = %s, want pending", resp.Status)
+	if resp.Error.Code != response.ErrCodeConflict {
+		t.Fatalf("error code = %s, want %s", resp.Error.Code, response.ErrCodeConflict)
 	}
-	if resp.Result != nil {
-		t.Fatalf("expected nil result for non-terminal task, got %#v", resp.Result)
+	if strings.TrimSpace(resp.Error.RequestID) == "" {
+		t.Fatal("expected non-empty request_id")
+	}
+}
+
+func TestWorkflowHandler_SubmitWorkflow_AcceptsDependenciesField(t *testing.T) {
+	eng, cleanup := createTestEngine(t)
+	defer cleanup()
+
+	log := logger.New(&logger.Config{
+		Level:  logger.InfoLevel,
+		Format: "json",
+		Output: "stdout",
+	})
+	handler := NewWorkflowHandler(eng, log)
+
+	body := `{
+		"name":"deps-workflow",
+		"tasks":[
+			{"id":"task-1","name":"Task 1","type":"function"},
+			{"id":"task-2","name":"Task 2","type":"function","dependencies":["task-1"]}
+		]
+	}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/workflows", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	handler.SubmitWorkflow(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d, body=%s", w.Code, http.StatusCreated, w.Body.String())
+	}
+}
+
+func TestWorkflowHandler_SubmitWorkflow_AcceptsDependsOnAlias(t *testing.T) {
+	eng, cleanup := createTestEngine(t)
+	defer cleanup()
+
+	log := logger.New(&logger.Config{
+		Level:  logger.InfoLevel,
+		Format: "json",
+		Output: "stdout",
+	})
+	handler := NewWorkflowHandler(eng, log)
+
+	body := `{
+		"name":"depends-on-workflow",
+		"tasks":[
+			{"id":"task-1","name":"Task 1","type":"function"},
+			{"id":"task-2","name":"Task 2","type":"function","depends_on":["task-1"]}
+		]
+	}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/workflows", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+
+	handler.SubmitWorkflow(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("status = %d, want %d, body=%s", w.Code, http.StatusCreated, w.Body.String())
 	}
 }

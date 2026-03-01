@@ -7,9 +7,11 @@ import (
 	"errors"
 	"net/http"
 	"strconv"
+	"strings"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/go-playground/validator/v10"
+	apimiddleware "github.com/goclaw/goclaw/pkg/api/middleware"
 	"github.com/goclaw/goclaw/pkg/api/models"
 	"github.com/goclaw/goclaw/pkg/api/response"
 	"github.com/goclaw/goclaw/pkg/engine"
@@ -55,6 +57,8 @@ func (h *WorkflowHandler) SubmitWorkflow(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	normalizeWorkflowRequest(&req)
+
 	// Validate request
 	if err := h.validator.Struct(&req); err != nil {
 		h.logger.Error("Validation failed", "error", err)
@@ -83,11 +87,12 @@ func (h *WorkflowHandler) SubmitWorkflow(w http.ResponseWriter, r *http.Request)
 
 	// Return response
 	resp := models.WorkflowResponse{
-		ID:        statusResp.ID,
-		Name:      req.Name,
-		Status:    statusResp.Status,
-		CreatedAt: statusResp.CreatedAt,
-		Message:   "Workflow submitted successfully",
+		ID:         statusResp.ID,
+		WorkflowID: statusResp.ID,
+		Name:       req.Name,
+		Status:     statusResp.Status,
+		CreatedAt:  statusResp.CreatedAt,
+		Message:    "Workflow submitted successfully",
 	}
 
 	response.JSON(w, http.StatusCreated, resp)
@@ -129,9 +134,10 @@ func (h *WorkflowHandler) GetWorkflow(w http.ResponseWriter, r *http.Request) {
 // @Tags workflows
 // @Produce json
 // @Param status query string false "Filter by status"
-// @Param limit query int false "Maximum number of results" default(10)
+// @Param limit query int false "Maximum number of results" default(50)
 // @Param offset query int false "Offset for pagination" default(0)
 // @Success 200 {object} models.WorkflowListResponse "List of workflows"
+// @Failure 400 {object} response.ErrorResponse "Invalid pagination parameters"
 // @Failure 500 {object} response.ErrorResponse "Internal server error"
 // @Router /api/v1/workflows [get]
 func (h *WorkflowHandler) ListWorkflows(w http.ResponseWriter, r *http.Request) {
@@ -140,20 +146,29 @@ func (h *WorkflowHandler) ListWorkflows(w http.ResponseWriter, r *http.Request) 
 	// Parse query parameters
 	filter := models.WorkflowFilter{
 		Status: r.URL.Query().Get("status"),
-		Limit:  10,
+		Limit:  50,
 		Offset: 0,
 	}
 
 	if limitStr := r.URL.Query().Get("limit"); limitStr != "" {
-		if limit, err := strconv.Atoi(limitStr); err == nil {
-			filter.Limit = limit
+		limit, err := strconv.Atoi(limitStr)
+		if err != nil || limit < 0 {
+			response.Error(w, http.StatusBadRequest, response.ErrCodeBadRequest, "Invalid limit parameter", getRequestID(ctx))
+			return
 		}
+		if limit > 100 {
+			limit = 100
+		}
+		filter.Limit = limit
 	}
 
 	if offsetStr := r.URL.Query().Get("offset"); offsetStr != "" {
-		if offset, err := strconv.Atoi(offsetStr); err == nil {
-			filter.Offset = offset
+		offset, err := strconv.Atoi(offsetStr)
+		if err != nil || offset < 0 {
+			response.Error(w, http.StatusBadRequest, response.ErrCodeBadRequest, "Invalid offset parameter", getRequestID(ctx))
+			return
 		}
+		filter.Offset = offset
 	}
 
 	// Get workflows from engine
@@ -169,6 +184,7 @@ func (h *WorkflowHandler) ListWorkflows(w http.ResponseWriter, r *http.Request) 
 	for _, wf := range workflows {
 		summaries = append(summaries, models.WorkflowSummary{
 			ID:          wf.ID,
+			WorkflowID:  wf.ID,
 			Name:        wf.Name,
 			Status:      wf.Status,
 			CreatedAt:   wf.CreatedAt,
@@ -193,7 +209,7 @@ func (h *WorkflowHandler) ListWorkflows(w http.ResponseWriter, r *http.Request) 
 // @Tags workflows
 // @Produce json
 // @Param id path string true "Workflow ID"
-// @Success 200 {object} map[string]string "Workflow cancelled successfully"
+// @Success 200 {object} models.WorkflowResponse "Workflow cancelled successfully"
 // @Failure 400 {object} response.ErrorResponse "Invalid workflow ID"
 // @Failure 409 {object} response.ErrorResponse "Workflow cannot be cancelled"
 // @Router /api/v1/workflows/{id}/cancel [post]
@@ -218,8 +234,11 @@ func (h *WorkflowHandler) CancelWorkflow(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	response.JSON(w, http.StatusOK, map[string]string{
-		"message": "Workflow cancelled successfully",
+	response.JSON(w, http.StatusOK, models.WorkflowResponse{
+		ID:         workflowID,
+		WorkflowID: workflowID,
+		Status:     "cancelled",
+		Message:    "Workflow cancelled successfully",
 	})
 }
 
@@ -233,6 +252,7 @@ func (h *WorkflowHandler) CancelWorkflow(w http.ResponseWriter, r *http.Request)
 // @Success 200 {object} models.TaskResultResponse "Task result"
 // @Failure 400 {object} response.ErrorResponse "Invalid workflow ID or task ID"
 // @Failure 404 {object} response.ErrorResponse "Task result not found"
+// @Failure 409 {object} response.ErrorResponse "Task is not yet in terminal state"
 // @Router /api/v1/workflows/{id}/tasks/{tid}/result [get]
 func (h *WorkflowHandler) GetTaskResult(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -257,13 +277,36 @@ func (h *WorkflowHandler) GetTaskResult(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	if !isTerminalTaskStatus(result.Status) {
+		response.Error(w, http.StatusConflict, response.ErrCodeConflict, "Task result is not available until the task reaches a terminal state", getRequestID(ctx))
+		return
+	}
+
 	response.JSON(w, http.StatusOK, result)
 }
 
 // getRequestID extracts request ID from context
 func getRequestID(ctx context.Context) string {
-	if reqID, ok := ctx.Value("request_id").(string); ok {
+	if reqID := apimiddleware.GetRequestID(ctx); reqID != "" {
 		return reqID
 	}
 	return "unknown"
+}
+
+func isTerminalTaskStatus(status string) bool {
+	switch strings.ToLower(status) {
+	case "completed", "failed", "cancelled":
+		return true
+	default:
+		return false
+	}
+}
+
+func normalizeWorkflowRequest(req *models.WorkflowRequest) {
+	for i := range req.Tasks {
+		if len(req.Tasks[i].Dependencies) == 0 && len(req.Tasks[i].DependsOn) > 0 {
+			req.Tasks[i].Dependencies = append([]string(nil), req.Tasks[i].DependsOn...)
+		}
+		req.Tasks[i].DependsOn = append([]string(nil), req.Tasks[i].Dependencies...)
+	}
 }

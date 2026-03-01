@@ -117,6 +117,17 @@ func RegisterRoutes(r chi.Router, cfg *config.Config, log logger.Logger, handler
 	}
 
 	// Swagger documentation
+	r.Get("/docs/openapi.yaml", serveOpenAPISpec)
+	docsHandler := httpSwagger.Handler(httpSwagger.URL("/swagger/doc.json"))
+	r.Get("/docs", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/docs/index.html", http.StatusMovedPermanently)
+	})
+	r.Get("/docs/", func(w http.ResponseWriter, r *http.Request) {
+		http.Redirect(w, r, "/docs/index.html", http.StatusMovedPermanently)
+	})
+	r.Get("/docs/*", docsHandler)
+
+	// Backward-compatible swagger alias
 	r.Get("/swagger/*", httpSwagger.WrapHandler)
 
 	registerUIRoutes(r, cfg, log)

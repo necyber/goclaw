@@ -372,7 +372,8 @@ func main() {
 	}
 
 	// Graceful shutdown
-	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 30*time.Second)
+	shutdownTimeout := resolveHTTPShutdownTimeout(cfg.Server.HTTP.ShutdownTimeout)
+	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), shutdownTimeout)
 	defer shutdownCancel()
 
 	// Shutdown HTTP server first
@@ -535,6 +536,13 @@ func resolveTracingShutdownTimeout(timeout time.Duration) time.Duration {
 		return timeout
 	}
 	return 5 * time.Second
+}
+
+func resolveHTTPShutdownTimeout(timeout time.Duration) time.Duration {
+	if timeout > 0 {
+		return timeout
+	}
+	return 30 * time.Second
 }
 
 func logTracingStartup(log logger.Logger, cfg *config.Config, tracingCfg config.TracingConfig) {

@@ -636,3 +636,12 @@ func TestSummarizeTracingEndpoint(t *testing.T) {
 		})
 	}
 }
+
+func TestResolveHTTPShutdownTimeout(t *testing.T) {
+	if got := resolveHTTPShutdownTimeout(7 * time.Second); got != 7*time.Second {
+		t.Fatalf("resolveHTTPShutdownTimeout(explicit) = %v, want %v", got, 7*time.Second)
+	}
+	if got := resolveHTTPShutdownTimeout(0); got != 30*time.Second {
+		t.Fatalf("resolveHTTPShutdownTimeout(default) = %v, want %v", got, 30*time.Second)
+	}
+}

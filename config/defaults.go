@@ -34,10 +34,11 @@ func DefaultConfig() *Config {
 				},
 			},
 			HTTP: HTTPConfig{
-				ReadTimeout:    30 * time.Second,
-				WriteTimeout:   30 * time.Second,
-				IdleTimeout:    120 * time.Second,
-				MaxHeaderBytes: 1 << 20, // 1MB
+				ReadTimeout:     30 * time.Second,
+				WriteTimeout:    30 * time.Second,
+				IdleTimeout:     120 * time.Second,
+				ShutdownTimeout: 30 * time.Second,
+				MaxHeaderBytes:  1 << 20, // 1MB
 			},
 		},
 		UI: UIConfig{

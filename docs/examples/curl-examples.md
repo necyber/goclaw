@@ -12,7 +12,8 @@ curl http://localhost:8080/health
 Response:
 ```json
 {
-  "status": "ok"
+  "status": "healthy",
+  "timestamp": "2026-03-01T00:00:00Z"
 }
 ```
 
@@ -24,7 +25,16 @@ curl http://localhost:8080/ready
 Response:
 ```json
 {
-  "ready": true
+  "status": "ready",
+  "timestamp": "2026-03-01T00:00:00Z",
+  "checks": {
+    "engine": {
+      "status": "ready"
+    },
+    "storage": {
+      "status": "ready"
+    }
+  }
 }
 ```
 
@@ -36,8 +46,28 @@ curl http://localhost:8080/status
 Response:
 ```json
 {
-  "state": "running",
-  "uptime": 3600
+  "status": "ready",
+  "version": "1.0.0",
+  "uptime": "1h2m3s",
+  "timestamp": "2026-03-01T00:00:00Z",
+  "runtime": {
+    "state": "running",
+    "go_version": "go1.24",
+    "num_cpu": 8,
+    "goroutines": 42
+  },
+  "components": {
+    "engine": {
+      "status": "running"
+    },
+    "storage": {
+      "status": "ready"
+    }
+  },
+  "system": {
+    "memory_alloc_bytes": 1234567,
+    "memory_sys_bytes": 9876543
+  }
 }
 ```
 
@@ -62,14 +92,14 @@ curl -X POST http://localhost:8080/api/v1/workflows \
         "id": "task-2",
         "name": "Process data",
         "type": "script",
-        "depends_on": ["task-1"],
+        "dependencies": ["task-1"],
         "timeout": 600
       },
       {
         "id": "task-3",
         "name": "Generate report",
         "type": "function",
-        "depends_on": ["task-2"],
+        "dependencies": ["task-2"],
         "timeout": 300
       }
     ],
@@ -84,6 +114,7 @@ Response:
 ```json
 {
   "id": "wf-123e4567-e89b-12d3-a456-426614174000",
+  "workflow_id": "wf-123e4567-e89b-12d3-a456-426614174000",
   "name": "data-processing-workflow",
   "status": "pending",
   "created_at": "2026-02-25T10:00:00Z",
@@ -100,6 +131,7 @@ Response:
 ```json
 {
   "id": "wf-123e4567-e89b-12d3-a456-426614174000",
+  "workflow_id": "wf-123e4567-e89b-12d3-a456-426614174000",
   "name": "data-processing-workflow",
   "status": "running",
   "created_at": "2026-02-25T10:00:00Z",
@@ -137,7 +169,7 @@ Response:
 curl http://localhost:8080/api/v1/workflows
 
 # List with pagination
-curl "http://localhost:8080/api/v1/workflows?limit=10&offset=0"
+curl "http://localhost:8080/api/v1/workflows?limit=50&offset=0"
 
 # Filter by status
 curl "http://localhost:8080/api/v1/workflows?status=running"
@@ -149,6 +181,7 @@ Response:
   "workflows": [
     {
       "id": "wf-123e4567-e89b-12d3-a456-426614174000",
+      "workflow_id": "wf-123e4567-e89b-12d3-a456-426614174000",
       "name": "data-processing-workflow",
       "status": "running",
       "created_at": "2026-02-25T10:00:00Z",
@@ -156,7 +189,7 @@ Response:
     }
   ],
   "total": 1,
-  "limit": 10,
+  "limit": 50,
   "offset": 0
 }
 ```
@@ -169,6 +202,9 @@ curl -X POST http://localhost:8080/api/v1/workflows/wf-123e4567-e89b-12d3-a456-4
 Response:
 ```json
 {
+  "id": "wf-123e4567-e89b-12d3-a456-426614174000",
+  "workflow_id": "wf-123e4567-e89b-12d3-a456-426614174000",
+  "status": "cancelled",
   "message": "Workflow cancelled successfully"
 }
 ```
@@ -190,6 +226,8 @@ Response:
   "completed_at": "2026-02-25T10:00:05Z"
 }
 ```
+
+If the task is not in a terminal state (`pending`, `scheduled`, `running`), the endpoint returns `409 Conflict`.
 
 ## Error Responses
 
@@ -248,9 +286,14 @@ curl -X POST http://localhost:8080/api/v1/workflows \
   -d '{ ... }'
 ```
 
-## Swagger UI
+## API Documentation
 
 Access the interactive API documentation at:
+```
+http://localhost:8080/docs
+```
+
+Compatibility alias:
 ```
 http://localhost:8080/swagger/index.html
 ```

@@ -83,6 +83,40 @@ func ValidateWithDetails(cfg *Config) error {
 			},
 		}
 	}
+	if cfg != nil {
+		var details ValidationErrors
+		if cfg.Server.HTTP.ReadTimeout <= 0 {
+			details = append(details, ConfigError{
+				Field:   "Config.Server.HTTP.ReadTimeout",
+				Message: "must be greater than 0",
+				Value:   cfg.Server.HTTP.ReadTimeout,
+			})
+		}
+		if cfg.Server.HTTP.WriteTimeout <= 0 {
+			details = append(details, ConfigError{
+				Field:   "Config.Server.HTTP.WriteTimeout",
+				Message: "must be greater than 0",
+				Value:   cfg.Server.HTTP.WriteTimeout,
+			})
+		}
+		if cfg.Server.HTTP.IdleTimeout <= 0 {
+			details = append(details, ConfigError{
+				Field:   "Config.Server.HTTP.IdleTimeout",
+				Message: "must be greater than 0",
+				Value:   cfg.Server.HTTP.IdleTimeout,
+			})
+		}
+		if cfg.Server.HTTP.ShutdownTimeout <= 0 {
+			details = append(details, ConfigError{
+				Field:   "Config.Server.HTTP.ShutdownTimeout",
+				Message: "must be greater than 0",
+				Value:   cfg.Server.HTTP.ShutdownTimeout,
+			})
+		}
+		if len(details) > 0 {
+			return details
+		}
+	}
 	if cfg != nil && cfg.Saga.Enabled {
 		var details ValidationErrors
 		if cfg.Saga.WALRetention <= 0 {

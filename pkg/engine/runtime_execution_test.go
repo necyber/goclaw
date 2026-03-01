@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
@@ -253,4 +254,100 @@ func waitWorkflowStatus(eng *Engine, workflowID, want string, timeout time.Durat
 		time.Sleep(20 * time.Millisecond)
 	}
 	return context.DeadlineExceeded
+}
+
+func TestSubmitWorkflowRuntime_DependencyField_Dependencies(t *testing.T) {
+	cfg := minConfig()
+	store := memory.NewMemoryStorage()
+
+	eng, err := New(cfg, nil, store)
+	if err != nil {
+		t.Fatalf("failed to create engine: %v", err)
+	}
+	if err := eng.Start(context.Background()); err != nil {
+		t.Fatalf("failed to start engine: %v", err)
+	}
+	defer eng.Stop(context.Background())
+
+	done := make(chan struct{})
+	req := &models.WorkflowRequest{
+		Name: "deps-canonical",
+		Tasks: []models.TaskDefinition{
+			{ID: "t1", Name: "task-1", Type: "function"},
+			{ID: "t2", Name: "task-2", Type: "function", Dependencies: []string{"t1"}},
+		},
+	}
+
+	resp, err := eng.SubmitWorkflowRuntime(context.Background(), req, SubmitWorkflowOptions{
+		Mode: SubmissionModeSync,
+		TaskFns: map[string]func(context.Context) error{
+			"t1": func(context.Context) error {
+				time.Sleep(40 * time.Millisecond)
+				close(done)
+				return nil
+			},
+			"t2": func(context.Context) error {
+				select {
+				case <-done:
+					return nil
+				default:
+					return fmt.Errorf("task t2 started before dependency completed")
+				}
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("SubmitWorkflowRuntime() error = %v", err)
+	}
+	if resp.Status != workflowStatusCompleted {
+		t.Fatalf("workflow status = %s, want %s", resp.Status, workflowStatusCompleted)
+	}
+}
+
+func TestSubmitWorkflowRuntime_DependencyField_DependsOnAlias(t *testing.T) {
+	cfg := minConfig()
+	store := memory.NewMemoryStorage()
+
+	eng, err := New(cfg, nil, store)
+	if err != nil {
+		t.Fatalf("failed to create engine: %v", err)
+	}
+	if err := eng.Start(context.Background()); err != nil {
+		t.Fatalf("failed to start engine: %v", err)
+	}
+	defer eng.Stop(context.Background())
+
+	done := make(chan struct{})
+	req := &models.WorkflowRequest{
+		Name: "deps-alias",
+		Tasks: []models.TaskDefinition{
+			{ID: "t1", Name: "task-1", Type: "function"},
+			{ID: "t2", Name: "task-2", Type: "function", DependsOn: []string{"t1"}},
+		},
+	}
+
+	resp, err := eng.SubmitWorkflowRuntime(context.Background(), req, SubmitWorkflowOptions{
+		Mode: SubmissionModeSync,
+		TaskFns: map[string]func(context.Context) error{
+			"t1": func(context.Context) error {
+				time.Sleep(40 * time.Millisecond)
+				close(done)
+				return nil
+			},
+			"t2": func(context.Context) error {
+				select {
+				case <-done:
+					return nil
+				default:
+					return fmt.Errorf("task t2 started before dependency completed")
+				}
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("SubmitWorkflowRuntime() error = %v", err)
+	}
+	if resp.Status != workflowStatusCompleted {
+		t.Fatalf("workflow status = %s, want %s", resp.Status, workflowStatusCompleted)
+	}
 }

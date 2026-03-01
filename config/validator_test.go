@@ -4,6 +4,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 // Test structs for validating custom validators
@@ -158,5 +159,61 @@ func TestValidateWithDetails_UIBasePath(t *testing.T) {
 	err := ValidateWithDetails(cfg)
 	if err == nil {
 		t.Fatal("expected validation error for ui.base_path")
+	}
+}
+
+func TestValidateWithDetails_HTTPTimeouts(t *testing.T) {
+	tests := []struct {
+		name  string
+		apply func(cfg *Config)
+	}{
+		{
+			name: "read timeout non-positive",
+			apply: func(cfg *Config) {
+				cfg.Server.HTTP.ReadTimeout = 0
+			},
+		},
+		{
+			name: "write timeout non-positive",
+			apply: func(cfg *Config) {
+				cfg.Server.HTTP.WriteTimeout = 0
+			},
+		},
+		{
+			name: "idle timeout non-positive",
+			apply: func(cfg *Config) {
+				cfg.Server.HTTP.IdleTimeout = 0
+			},
+		},
+		{
+			name: "shutdown timeout non-positive",
+			apply: func(cfg *Config) {
+				cfg.Server.HTTP.ShutdownTimeout = 0
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := DefaultConfig()
+			tt.apply(cfg)
+
+			err := ValidateWithDetails(cfg)
+			if err == nil {
+				t.Fatal("expected validation error")
+			}
+		})
+	}
+}
+
+func TestValidateWithDetails_HTTPTimeouts_Valid(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Server.HTTP.ReadTimeout = 5 * time.Second
+	cfg.Server.HTTP.WriteTimeout = 5 * time.Second
+	cfg.Server.HTTP.IdleTimeout = 10 * time.Second
+	cfg.Server.HTTP.ShutdownTimeout = 3 * time.Second
+
+	if err := ValidateWithDetails(cfg); err != nil {
+		t.Fatalf("expected valid config, got error: %v", err)
 	}
 }

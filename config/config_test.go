@@ -173,6 +173,9 @@ func TestDurationParsing(t *testing.T) {
 	if cfg.Server.HTTP.ReadTimeout != 30*time.Second {
 		t.Errorf("expected read timeout 30s, got %v", cfg.Server.HTTP.ReadTimeout)
 	}
+	if cfg.Server.HTTP.ShutdownTimeout != 30*time.Second {
+		t.Errorf("expected shutdown timeout 30s, got %v", cfg.Server.HTTP.ShutdownTimeout)
+	}
 
 	if cfg.Orchestration.Scheduler.CheckInterval != 5*time.Second {
 		t.Errorf("expected check interval 5s, got %v", cfg.Orchestration.Scheduler.CheckInterval)

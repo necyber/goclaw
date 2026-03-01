@@ -98,8 +98,13 @@ func normalizeSubmissionMode(mode SubmissionMode) SubmissionMode {
 func newWorkflowState(req *models.WorkflowRequest) *storage.WorkflowState {
 	id := uuid.New().String()
 	now := time.Now().UTC()
+	tasks := make([]models.TaskDefinition, 0, len(req.Tasks))
 	taskStatus := make(map[string]*storage.TaskState, len(req.Tasks))
 	for _, task := range req.Tasks {
+		deps := task.NormalizedDependencies()
+		task.Dependencies = append([]string(nil), deps...)
+		task.DependsOn = append([]string(nil), deps...)
+		tasks = append(tasks, task)
 		taskStatus[task.ID] = &storage.TaskState{
 			ID:     task.ID,
 			Name:   task.Name,
@@ -112,7 +117,7 @@ func newWorkflowState(req *models.WorkflowRequest) *storage.WorkflowState {
 		Name:        req.Name,
 		Description: req.Description,
 		Status:      workflowStatusPending,
-		Tasks:       req.Tasks,
+		Tasks:       tasks,
 		TaskStatus:  taskStatus,
 		Metadata:    req.Metadata,
 		CreatedAt:   now,
@@ -249,11 +254,12 @@ func (e *Engine) runWorkflowExecution(ctx context.Context, exec *workflowExecuti
 func (e *Engine) workflowFromState(state *storage.WorkflowState, taskFns map[string]func(context.Context) error) *Workflow {
 	tasks := make([]*dag.Task, 0, len(state.Tasks))
 	for _, t := range state.Tasks {
+		deps := t.NormalizedDependencies()
 		task := &dag.Task{
 			ID:      t.ID,
 			Name:    t.Name,
 			Agent:   t.Type,
-			Deps:    append([]string(nil), t.DependsOn...),
+			Deps:    append([]string(nil), deps...),
 			Retries: t.Retries,
 		}
 		if task.Agent == "" {
@@ -466,6 +472,7 @@ func (e *Engine) GetWorkflowStatusResponse(ctx context.Context, id string) (*mod
 func (e *Engine) workflowStateToResponse(wfState *storage.WorkflowState) *models.WorkflowStatusResponse {
 	resp := &models.WorkflowStatusResponse{
 		ID:          wfState.ID,
+		WorkflowID:  wfState.ID,
 		Name:        wfState.Name,
 		Status:      wfState.Status,
 		CreatedAt:   wfState.CreatedAt,

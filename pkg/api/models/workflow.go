@@ -32,7 +32,10 @@ type TaskDefinition struct {
 	// Type is the task type (e.g., "http", "script", "function").
 	Type string `json:"type" validate:"required,oneof=http script function" example:"http"`
 
-	// DependsOn lists task IDs that must complete before this task.
+	// Dependencies lists task IDs that must complete before this task.
+	Dependencies []string `json:"dependencies,omitempty" example:"task-0"`
+
+	// DependsOn is a compatibility alias for clients using the old field name.
 	DependsOn []string `json:"depends_on,omitempty" example:"task-0"`
 
 	// Config holds task-specific configuration.
@@ -49,6 +52,9 @@ type TaskDefinition struct {
 type WorkflowResponse struct {
 	// ID is the unique workflow identifier.
 	ID string `json:"id"`
+
+	// WorkflowID is the canonical workflow identifier field.
+	WorkflowID string `json:"workflow_id"`
 
 	// Name is the workflow name.
 	Name string `json:"name"`
@@ -67,6 +73,9 @@ type WorkflowResponse struct {
 type WorkflowStatusResponse struct {
 	// ID is the workflow identifier.
 	ID string `json:"id"`
+
+	// WorkflowID is the canonical workflow identifier field.
+	WorkflowID string `json:"workflow_id"`
 
 	// Name is the workflow name.
 	Name string `json:"name"`
@@ -137,6 +146,9 @@ type WorkflowSummary struct {
 	// ID is the workflow identifier.
 	ID string `json:"id"`
 
+	// WorkflowID is the canonical workflow identifier field.
+	WorkflowID string `json:"workflow_id"`
+
 	// Name is the workflow name.
 	Name string `json:"name"`
 
@@ -184,4 +196,12 @@ type TaskResultResponse struct {
 
 	// CompletedAt is when the task completed.
 	CompletedAt *time.Time `json:"completed_at,omitempty"`
+}
+
+// NormalizedDependencies returns dependencies using canonical field priority.
+func (t TaskDefinition) NormalizedDependencies() []string {
+	if len(t.Dependencies) > 0 {
+		return append([]string(nil), t.Dependencies...)
+	}
+	return append([]string(nil), t.DependsOn...)
 }

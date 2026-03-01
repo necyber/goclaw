@@ -234,6 +234,53 @@ func TestRegisterRoutes_WorkflowEndpoints(t *testing.T) {
 	}
 }
 
+func TestRegisterRoutes_DocsEndpoints(t *testing.T) {
+	cfg := &config.Config{
+		Server: config.ServerConfig{
+			HTTP: config.HTTPConfig{
+				ReadTimeout: 30 * time.Second,
+			},
+			CORS: config.CORSConfig{
+				Enabled: false,
+			},
+		},
+	}
+
+	log := logger.New(&logger.Config{
+		Level:  logger.InfoLevel,
+		Format: "json",
+		Output: "stdout",
+	})
+
+	router := NewRouter(cfg, log, &Handlers{})
+
+	tests := []string{
+		"/docs",
+		"/docs/",
+		"/docs/openapi.yaml",
+		"/swagger/index.html",
+	}
+	for _, path := range tests {
+		req := httptest.NewRequest(http.MethodGet, path, nil)
+		w := httptest.NewRecorder()
+		router.ServeHTTP(w, req)
+
+		if w.Code == http.StatusNotFound {
+			t.Fatalf("%s unexpectedly returned 404", path)
+		}
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/docs/openapi.yaml", nil)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("/docs/openapi.yaml status = %d, want %d", w.Code, http.StatusOK)
+	}
+	if !strings.Contains(w.Body.String(), "openapi: 3.0.3") {
+		t.Fatalf("unexpected openapi spec body")
+	}
+}
+
 func TestRegisterRoutes_UIEnabled(t *testing.T) {
 	cfg := &config.Config{
 		Server: config.ServerConfig{
