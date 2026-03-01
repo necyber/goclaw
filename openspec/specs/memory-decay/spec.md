@@ -125,3 +125,23 @@ The system SHALL expose metrics for memory decay operations.
 - **WHEN** decay processing completes
 - **THEN** the system records decay_processing_duration_seconds metric
 
+### Requirement: Decay loop full-corpus coverage
+
+The system SHALL process persisted memory entries across all sessions on each decay interval.
+
+#### Scenario: Global decay sweep
+- **WHEN** a decay interval elapses
+- **THEN** the decay process scans and evaluates entries from every session
+
+#### Scenario: Empty corpus no-op
+- **WHEN** no persisted memory entries exist
+- **THEN** the decay process completes without updates or deletions
+
+### Requirement: Session-safe forgetting in decay
+
+The system SHALL delete only the decay-selected entries for each session.
+
+#### Scenario: Per-session forget set
+- **WHEN** decay computes forgotten IDs for session "A"
+- **THEN** only entries in that computed set are deleted for session "A"
+

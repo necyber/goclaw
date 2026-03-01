@@ -45,6 +45,14 @@ The system SHALL persist memory entries to Badger database with session-based ke
 - **WHEN** retrieving memories for a session
 - **THEN** the system scans Badger with prefix "memory:{sessionID}:"
 
+### Requirement: Global memory entry iteration
+
+The system SHALL support iterating all persisted memory entries across sessions.
+
+#### Scenario: Iterate all sessions
+- **WHEN** a maintenance flow requests a global scan
+- **THEN** the system returns entries from all sessions
+
 ### Requirement: L3 vector database integration
 
 The system SHALL support optional L3 vector database integration (Weaviate or Qdrant).
@@ -80,6 +88,18 @@ The system SHALL isolate memory entries by SessionID to prevent cross-session da
 #### Scenario: Delete within session
 - **WHEN** deleting memories for session "A"
 - **THEN** the system deletes only entries with SessionID "A"
+
+### Requirement: Session-scoped delete by entry ID
+
+The system SHALL support deleting entries by (sessionID, entryID) and enforce ownership.
+
+#### Scenario: Delete with matching session
+- **WHEN** delete is called with session "A" and entry "x" owned by "A"
+- **THEN** the system deletes entry "x"
+
+#### Scenario: Delete with mismatched session
+- **WHEN** delete is called with session "A" and entry "y" owned by "B"
+- **THEN** the system leaves entry "y" unchanged
 
 ### Requirement: Batch operations
 

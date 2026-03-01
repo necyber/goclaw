@@ -121,3 +121,23 @@ The system SHALL perform hybrid retrieval with latency less than 20ms for corpor
 - **WHEN** performing hybrid search in a corpus with 100K entries
 - **THEN** the search completes in less than 20ms
 
+### Requirement: Query mode alias normalization
+
+The system SHALL normalize supported query mode aliases to canonical modes before execution.
+
+#### Scenario: Normalize vector alias
+- **WHEN** mode is provided as "vector"
+- **THEN** the retriever treats it as "vector-only"
+
+#### Scenario: Normalize BM25 alias
+- **WHEN** mode is provided as "bm25"
+- **THEN** the retriever treats it as "bm25-only"
+
+### Requirement: Unknown mode error semantics
+
+The system SHALL return a validation error for unknown query mode values.
+
+#### Scenario: Reject unknown mode
+- **WHEN** mode is provided as an unsupported value
+- **THEN** the retriever returns an error and does not fallback to "hybrid"
+

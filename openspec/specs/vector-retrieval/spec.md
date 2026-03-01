@@ -109,3 +109,15 @@ The system SHALL perform vector search with sub-millisecond latency for indexes 
 - **WHEN** searching in an index with 100K vectors
 - **THEN** the search completes in less than 10ms
 
+### Requirement: Persistent bootstrap of vector index
+
+The system SHALL rebuild the in-memory vector index from persisted memory entries at startup.
+
+#### Scenario: Rebuild vectors on startup
+- **WHEN** startup runs with persisted entries containing vectors
+- **THEN** the vector index is repopulated with entry IDs, vectors, and session mappings
+
+#### Scenario: Skip entries without vectors
+- **WHEN** startup scans an entry without a vector payload
+- **THEN** the entry is skipped for vector indexing without failing bootstrap
+

@@ -129,3 +129,15 @@ The system SHALL perform BM25 search with sub-10ms latency for corpora up to 100
 - **WHEN** searching in a corpus with 100K documents
 - **THEN** the search completes in less than 10ms
 
+### Requirement: Persistent bootstrap of BM25 index
+
+The system SHALL rebuild the in-memory BM25 index from persisted memory entries at startup.
+
+#### Scenario: Rebuild BM25 corpus on startup
+- **WHEN** startup runs with persisted entries containing textual content
+- **THEN** BM25 indexes all eligible entries before serving search requests
+
+#### Scenario: Preserve corpus statistics on rebuild
+- **WHEN** bootstrap completes
+- **THEN** BM25 corpus statistics reflect rebuilt entries
+

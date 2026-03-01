@@ -17,6 +17,14 @@ The system SHALL provide an API endpoint to query memory entries for a session.
 - **WHEN** GET /api/v1/memory/{sessionID}?query=text&metadata.type=conversation is called
 - **THEN** the system returns only entries matching the metadata filter
 
+#### Scenario: Canonical mode query
+- **WHEN** GET /api/v1/memory/{sessionID}?query=x&mode=vector-only is called
+- **THEN** the request is accepted and processed in vector-only mode
+
+#### Scenario: Unsupported mode query
+- **WHEN** GET /api/v1/memory/{sessionID}?query=x&mode=foobar is called
+- **THEN** the API returns a validation error response
+
 ### Requirement: Store memory entry
 
 The system SHALL provide an API endpoint to store new memory entries.
@@ -35,7 +43,11 @@ The system SHALL provide an API endpoint to delete memory entries.
 
 #### Scenario: Delete by entry IDs
 - **WHEN** DELETE /api/v1/memory/{sessionID} is called with entry IDs in request body
-- **THEN** the system deletes the specified entries
+- **THEN** the system deletes only entries owned by {sessionID} and returns the actual deleted count
+
+#### Scenario: Delete with mixed ownership
+- **WHEN** DELETE /api/v1/memory/{sessionID} is called with IDs from multiple sessions
+- **THEN** the response deleted count includes only entries actually deleted for {sessionID}
 
 #### Scenario: Delete by strength threshold
 - **WHEN** DELETE /api/v1/memory/{sessionID}/weak?threshold=0.1 is called

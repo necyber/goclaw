@@ -37,6 +37,14 @@ The system SHALL provide a Retrieve operation to search memory entries.
 - **WHEN** Retrieve is called with metadata filters
 - **THEN** the system returns only entries matching the filters
 
+#### Scenario: Canonical query mode accepted
+- **WHEN** Retrieve is called with mode "vector-only"
+- **THEN** the system executes vector retrieval only
+
+#### Scenario: Unknown mode rejected
+- **WHEN** Retrieve is called with mode "foobar"
+- **THEN** the system returns a validation error and does not silently fallback to another mode
+
 ### Requirement: Forget operation
 
 The system SHALL provide a Forget operation to delete memory entries.
@@ -48,6 +56,14 @@ The system SHALL provide a Forget operation to delete memory entries.
 #### Scenario: Forget non-existent entry
 - **WHEN** Forget is called with a non-existent entry ID
 - **THEN** the system returns success without error
+
+#### Scenario: Forget own-session entry
+- **WHEN** Forget is called with session "A" and IDs containing entry "x" owned by session "A"
+- **THEN** the system deletes entry "x" from storage and retrieval indexes
+
+#### Scenario: Forget cross-session entry
+- **WHEN** Forget is called with session "A" and IDs containing entry "y" owned by session "B"
+- **THEN** the system does not delete entry "y"
 
 ### Requirement: ForgetByThreshold operation
 
@@ -118,7 +134,7 @@ The system SHALL provide statistics about memory usage per session.
 - **THEN** the system returns total entries, average strength, storage size
 
 #### Scenario: Get global stats
-- **WHEN** GetStats is called without sessionID
+- **WHEN** GetGlobalStats is called
 - **THEN** the system returns statistics across all sessions
 
 ### Requirement: Session management
@@ -160,4 +176,12 @@ The system SHALL support concurrent operations from multiple goroutines.
 #### Scenario: Concurrent retrieve
 - **WHEN** multiple goroutines call Retrieve simultaneously
 - **THEN** all operations return correct results without blocking each other
+
+### Requirement: Startup index bootstrap
+
+The system SHALL rebuild in-memory retrieval indexes from persisted entries during startup.
+
+#### Scenario: Rebuild after restart
+- **WHEN** persisted entries exist and the process restarts
+- **THEN** Start rebuilds vector and BM25 indexes before serving retrieval requests
 
