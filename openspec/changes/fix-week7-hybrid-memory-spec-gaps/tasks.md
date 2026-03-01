@@ -19,10 +19,10 @@
 
 ## 4. API Contract Alignment
 
-- [ ] 4.1 Update memory query handler to validate/propagate canonical mode contract and invalid-mode errors.
-- [ ] 4.2 Update delete-memory endpoint response to return actual deleted count from hub.
-- [ ] 4.3 Add `GET /api/v1/memory/stats` global statistics endpoint and route wiring.
-- [ ] 4.4 Add handler/router tests for global stats endpoint, invalid mode request, and accurate delete count.
+- [x] 4.1 Update memory query handler to validate/propagate canonical mode contract and invalid-mode errors.
+- [x] 4.2 Update delete-memory endpoint response to return actual deleted count from hub.
+- [x] 4.3 Add `GET /api/v1/memory/stats` global statistics endpoint and route wiring.
+- [x] 4.4 Add handler/router tests for global stats endpoint, invalid mode request, and accurate delete count.
 
 ## 5. Verification And Regression Safety
 

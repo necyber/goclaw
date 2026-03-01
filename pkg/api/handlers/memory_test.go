@@ -176,6 +176,27 @@ func TestMemoryHandler_QueryMemory_NoQuery(t *testing.T) {
 	}
 }
 
+func TestMemoryHandler_QueryMemory_InvalidMode(t *testing.T) {
+	h, cleanup := setupMemoryHandler(t)
+	defer cleanup()
+
+	body := `{"content":"mode validation"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/memory/session-1", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = withChiURLParam(req, "sessionID", "session-1")
+	w := httptest.NewRecorder()
+	h.StoreMemory(w, req)
+
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/memory/session-1?query=mode&mode=unsupported", nil)
+	req = withChiURLParam(req, "sessionID", "session-1")
+	w = httptest.NewRecorder()
+	h.QueryMemory(w, req)
+
+	if w.Code != http.StatusBadRequest {
+		t.Errorf("QueryMemory() with invalid mode status = %d, want %d, body: %s", w.Code, http.StatusBadRequest, w.Body.String())
+	}
+}
+
 func TestMemoryHandler_DeleteMemory(t *testing.T) {
 	h, cleanup := setupMemoryHandler(t)
 	defer cleanup()
@@ -207,6 +228,46 @@ func TestMemoryHandler_DeleteMemory(t *testing.T) {
 	_ = json.NewDecoder(w.Body).Decode(&delResp)
 	if delResp.Deleted != 1 {
 		t.Errorf("expected 1 deleted, got %d", delResp.Deleted)
+	}
+}
+
+func TestMemoryHandler_DeleteMemory_ReturnsActualDeletedCount(t *testing.T) {
+	h, cleanup := setupMemoryHandler(t)
+	defer cleanup()
+
+	body := `{"content":"session one"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/memory/session-1", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = withChiURLParam(req, "sessionID", "session-1")
+	w := httptest.NewRecorder()
+	h.StoreMemory(w, req)
+	var s1 memorizeResponse
+	_ = json.NewDecoder(w.Body).Decode(&s1)
+
+	body = `{"content":"session two"}`
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/memory/session-2", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = withChiURLParam(req, "sessionID", "session-2")
+	w = httptest.NewRecorder()
+	h.StoreMemory(w, req)
+	var s2 memorizeResponse
+	_ = json.NewDecoder(w.Body).Decode(&s2)
+
+	delBody, _ := json.Marshal(deleteRequest{IDs: []string{s1.ID, s2.ID}})
+	req = httptest.NewRequest(http.MethodDelete, "/api/v1/memory/session-1", bytes.NewBuffer(delBody))
+	req.Header.Set("Content-Type", "application/json")
+	req = withChiURLParam(req, "sessionID", "session-1")
+	w = httptest.NewRecorder()
+	h.DeleteMemory(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("DeleteMemory() status = %d, want %d, body: %s", w.Code, http.StatusOK, w.Body.String())
+	}
+
+	var delResp deleteResponse
+	_ = json.NewDecoder(w.Body).Decode(&delResp)
+	if delResp.Deleted != 1 {
+		t.Errorf("expected actual deleted count 1, got %d", delResp.Deleted)
 	}
 }
 
@@ -284,6 +345,42 @@ func TestMemoryHandler_GetStats(t *testing.T) {
 	_ = json.NewDecoder(w.Body).Decode(&stats)
 	if stats.TotalEntries != 1 {
 		t.Errorf("expected 1 entry, got %d", stats.TotalEntries)
+	}
+}
+
+func TestMemoryHandler_GetGlobalStats(t *testing.T) {
+	h, cleanup := setupMemoryHandler(t)
+	defer cleanup()
+
+	body := `{"content":"global stats s1"}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/memory/session-1", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = withChiURLParam(req, "sessionID", "session-1")
+	w := httptest.NewRecorder()
+	h.StoreMemory(w, req)
+
+	body = `{"content":"global stats s2"}`
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/memory/session-2", bytes.NewBufferString(body))
+	req.Header.Set("Content-Type", "application/json")
+	req = withChiURLParam(req, "sessionID", "session-2")
+	w = httptest.NewRecorder()
+	h.StoreMemory(w, req)
+
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/memory/stats", nil)
+	w = httptest.NewRecorder()
+	h.GetGlobalStats(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("GetGlobalStats() status = %d, want %d, body: %s", w.Code, http.StatusOK, w.Body.String())
+	}
+
+	var stats memory.MemoryStats
+	_ = json.NewDecoder(w.Body).Decode(&stats)
+	if stats.TotalEntries != 2 {
+		t.Errorf("expected 2 total entries, got %d", stats.TotalEntries)
+	}
+	if stats.SessionCount != 2 {
+		t.Errorf("expected 2 sessions, got %d", stats.SessionCount)
 	}
 }
 

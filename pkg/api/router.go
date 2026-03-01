@@ -81,6 +81,7 @@ func RegisterRoutes(r chi.Router, cfg *config.Config, log logger.Logger, handler
 
 		// Memory routes
 		if handlers.Memory != nil {
+			r.Get("/memory/stats", handlers.Memory.GetGlobalStats)
 			r.Route("/memory/{sessionID}", func(r chi.Router) {
 				r.Post("/", handlers.Memory.StoreMemory)
 				r.Get("/", handlers.Memory.QueryMemory)

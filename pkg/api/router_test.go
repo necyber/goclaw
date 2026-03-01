@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/go-chi/chi/v5"
 	"github.com/goclaw/goclaw/config"
 	"github.com/goclaw/goclaw/pkg/api/handlers"
 	"github.com/goclaw/goclaw/pkg/engine"
@@ -459,6 +460,43 @@ func TestRegisterRoutes_WebSocket(t *testing.T) {
 
 	if w.Code != http.StatusSwitchingProtocols {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusSwitchingProtocols)
+	}
+}
+
+func TestRegisterRoutes_MemoryGlobalStatsRoute(t *testing.T) {
+	cfg := &config.Config{
+		Server: config.ServerConfig{
+			HTTP: config.HTTPConfig{
+				ReadTimeout: 30 * time.Second,
+			},
+			CORS: config.CORSConfig{
+				Enabled: false,
+			},
+		},
+	}
+
+	log := logger.New(&logger.Config{
+		Level:  logger.InfoLevel,
+		Format: "json",
+		Output: "stdout",
+	})
+
+	router := NewRouter(cfg, log, &Handlers{
+		Memory: handlers.NewMemoryHandler(nil, nil),
+	})
+
+	found := false
+	err := chi.Walk(router, func(method string, route string, handler http.Handler, middlewares ...func(http.Handler) http.Handler) error {
+		if method == http.MethodGet && route == "/api/v1/memory/stats" {
+			found = true
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("failed to walk routes: %v", err)
+	}
+	if !found {
+		t.Fatalf("expected GET /api/v1/memory/stats route to be registered")
 	}
 }
 

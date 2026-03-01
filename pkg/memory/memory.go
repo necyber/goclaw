@@ -43,6 +43,9 @@ type Hub interface {
 	// GetStats returns memory statistics for a session.
 	GetStats(ctx context.Context, sessionID string) (*MemoryStats, error)
 
+	// GetGlobalStats returns memory statistics across all sessions.
+	GetGlobalStats(ctx context.Context) (*MemoryStats, error)
+
 	// DeleteSession removes all memory entries for a session.
 	DeleteSession(ctx context.Context, sessionID string) (int, error)
 

@@ -54,7 +54,8 @@ type Query struct {
 	Filters map[string]string `json:"filters,omitempty"`
 
 	// Mode selects the retrieval strategy.
-	// Valid values: "hybrid", "vector", "bm25". Default is "hybrid".
+	// Canonical values: "hybrid", "vector-only", "bm25-only".
+	// Backward-compatible aliases: "vector", "bm25".
 	Mode string `json:"mode,omitempty"`
 
 	// TopK limits the number of results returned.

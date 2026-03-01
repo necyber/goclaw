@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"encoding/json"
+	"errors"
 	"net/http"
 	"strconv"
 
@@ -105,6 +106,14 @@ func (h *MemoryHandler) QueryMemory(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, response.ErrCodeValidationFailed, "Query parameter is required", getRequestID(ctx))
 		return
 	}
+	if mode != "" {
+		normalizedMode, err := memory.NormalizeQueryMode(mode)
+		if err != nil {
+			response.Error(w, http.StatusBadRequest, response.ErrCodeValidationFailed, err.Error(), getRequestID(ctx))
+			return
+		}
+		mode = normalizedMode
+	}
 
 	query := memory.Query{
 		Text: queryText,
@@ -125,6 +134,10 @@ func (h *MemoryHandler) QueryMemory(w http.ResponseWriter, r *http.Request) {
 
 	results, err := h.hub.Retrieve(ctx, sessionID, query)
 	if err != nil {
+		if errors.Is(err, memory.ErrInvalidQuery) {
+			response.Error(w, http.StatusBadRequest, response.ErrCodeValidationFailed, err.Error(), getRequestID(ctx))
+			return
+		}
 		h.logger.Error("Failed to query memory", "session_id", sessionID, "error", err)
 		response.Error(w, http.StatusInternalServerError, response.ErrCodeInternalServer, "Failed to query memory", getRequestID(ctx))
 		return
@@ -154,13 +167,14 @@ func (h *MemoryHandler) DeleteMemory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if _, err := h.hub.Forget(ctx, sessionID, req.IDs); err != nil {
+	deleted, err := h.hub.Forget(ctx, sessionID, req.IDs)
+	if err != nil {
 		h.logger.Error("Failed to delete memory", "session_id", sessionID, "error", err)
 		response.Error(w, http.StatusInternalServerError, response.ErrCodeInternalServer, "Failed to delete memory", getRequestID(ctx))
 		return
 	}
 
-	response.JSON(w, http.StatusOK, deleteResponse{Deleted: len(req.IDs)})
+	response.JSON(w, http.StatusOK, deleteResponse{Deleted: deleted})
 }
 
 // ListMemory handles GET /api/v1/memory/{sessionID}/list
@@ -214,6 +228,20 @@ func (h *MemoryHandler) GetStats(w http.ResponseWriter, r *http.Request) {
 	stats, err := h.hub.GetStats(ctx, sessionID)
 	if err != nil {
 		h.logger.Error("Failed to get memory stats", "session_id", sessionID, "error", err)
+		response.Error(w, http.StatusInternalServerError, response.ErrCodeInternalServer, "Failed to get memory stats", getRequestID(ctx))
+		return
+	}
+
+	response.JSON(w, http.StatusOK, stats)
+}
+
+// GetGlobalStats handles GET /api/v1/memory/stats
+func (h *MemoryHandler) GetGlobalStats(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	stats, err := h.hub.GetGlobalStats(ctx)
+	if err != nil {
+		h.logger.Error("Failed to get global memory stats", "error", err)
 		response.Error(w, http.StatusInternalServerError, response.ErrCodeInternalServer, "Failed to get memory stats", getRequestID(ctx))
 		return
 	}

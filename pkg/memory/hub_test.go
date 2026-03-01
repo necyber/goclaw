@@ -262,6 +262,28 @@ func TestHub_GetStats(t *testing.T) {
 	}
 }
 
+func TestHub_GetGlobalStats(t *testing.T) {
+	hub, cleanup := setupTestHub(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	hub.Start(ctx)
+
+	hub.Memorize(ctx, "s1", "entry 1", nil, nil)
+	hub.Memorize(ctx, "s2", "entry 2", nil, nil)
+
+	stats, err := hub.GetGlobalStats(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if stats.TotalEntries != 2 {
+		t.Errorf("expected 2 entries, got %d", stats.TotalEntries)
+	}
+	if stats.SessionCount != 2 {
+		t.Errorf("expected 2 sessions, got %d", stats.SessionCount)
+	}
+}
+
 func TestHub_DeleteSession(t *testing.T) {
 	hub, cleanup := setupTestHub(t)
 	defer cleanup()

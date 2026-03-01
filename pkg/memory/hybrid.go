@@ -58,7 +58,7 @@ func (h *HybridRetriever) Retrieve(ctx context.Context, sessionID string, query 
 		}
 	}
 
-	normalizedMode, err := normalizeQueryMode(mode)
+	normalizedMode, err := NormalizeQueryMode(mode)
 	if err != nil {
 		return nil, err
 	}
@@ -87,7 +87,8 @@ func (h *HybridRetriever) Retrieve(ctx context.Context, sessionID string, query 
 	}
 }
 
-func normalizeQueryMode(mode string) (string, error) {
+// NormalizeQueryMode normalizes query modes and validates support.
+func NormalizeQueryMode(mode string) (string, error) {
 	switch strings.ToLower(strings.TrimSpace(mode)) {
 	case ModeHybrid:
 		return ModeHybrid, nil

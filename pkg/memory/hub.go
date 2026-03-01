@@ -338,6 +338,32 @@ func (h *MemoryHub) GetStats(ctx context.Context, sessionID string) (*MemoryStat
 	return stats, nil
 }
 
+// GetGlobalStats returns memory statistics across all sessions.
+func (h *MemoryHub) GetGlobalStats(ctx context.Context) (*MemoryStats, error) {
+	entries, err := h.storage.All(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("memory: get global stats failed: %w", err)
+	}
+
+	stats := &MemoryStats{
+		TotalEntries: len(entries),
+	}
+	if len(entries) == 0 {
+		return stats, nil
+	}
+
+	totalStrength := 0.0
+	sessions := make(map[string]struct{})
+	for _, e := range entries {
+		totalStrength += e.Strength
+		sessions[e.SessionID] = struct{}{}
+	}
+	stats.AverageStrength = totalStrength / float64(len(entries))
+	stats.SessionCount = len(sessions)
+
+	return stats, nil
+}
+
 // DeleteSession removes all memory entries for a session.
 func (h *MemoryHub) DeleteSession(ctx context.Context, sessionID string) (int, error) {
 	if sessionID == "" {
