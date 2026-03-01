@@ -3,9 +3,11 @@ package badger
 import (
 	"context"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
+	"github.com/dgraph-io/badger/v4"
 	"github.com/goclaw/goclaw/pkg/api/models"
 	"github.com/goclaw/goclaw/pkg/storage"
 )
@@ -441,4 +443,155 @@ func TestBadgerStorage_UpdateWorkflow(t *testing.T) {
 	if retrieved.StartedAt == nil {
 		t.Error("Expected StartedAt to be set")
 	}
+}
+
+func TestBadgerStorage_StatusIndexTransitionRemovesStaleEntries(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	wf := &storage.WorkflowState{
+		ID:        "wf-index-transition",
+		Name:      "index transition",
+		Status:    "pending",
+		CreatedAt: time.Now().UTC(),
+	}
+	if err := db.SaveWorkflow(ctx, wf); err != nil {
+		t.Fatalf("SaveWorkflow(pending) failed: %v", err)
+	}
+
+	wf.Status = "running"
+	if err := db.SaveWorkflow(ctx, wf); err != nil {
+		t.Fatalf("SaveWorkflow(running) failed: %v", err)
+	}
+
+	pending, pendingTotal, err := db.ListWorkflows(ctx, &storage.WorkflowFilter{
+		Status: []string{"pending"},
+	})
+	if err != nil {
+		t.Fatalf("ListWorkflows(pending) failed: %v", err)
+	}
+	if pendingTotal != 0 || len(pending) != 0 {
+		t.Fatalf("pending filter returned total=%d len=%d, want 0", pendingTotal, len(pending))
+	}
+
+	running, runningTotal, err := db.ListWorkflows(ctx, &storage.WorkflowFilter{
+		Status: []string{"running"},
+	})
+	if err != nil {
+		t.Fatalf("ListWorkflows(running) failed: %v", err)
+	}
+	if runningTotal != 1 || len(running) != 1 {
+		t.Fatalf("running filter returned total=%d len=%d, want 1", runningTotal, len(running))
+	}
+	if running[0].Status != "running" {
+		t.Fatalf("running workflow status=%s, want running", running[0].Status)
+	}
+}
+
+func TestBadgerStorage_ListWorkflowsIgnoresStaleStatusIndexesAndDedupes(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	wf := &storage.WorkflowState{
+		ID:        "wf-stale-index",
+		Name:      "stale index workflow",
+		Status:    "running",
+		CreatedAt: time.Now().UTC(),
+	}
+	if err := db.SaveWorkflow(ctx, wf); err != nil {
+		t.Fatalf("SaveWorkflow() failed: %v", err)
+	}
+
+	// Inject stale status index entry to emulate legacy data.
+	if err := db.db.Update(func(txn *badger.Txn) error {
+		return txn.Set(workflowIndexStatusKey("pending", wf.ID), []byte{})
+	}); err != nil {
+		t.Fatalf("inject stale index failed: %v", err)
+	}
+
+	workflows, total, err := db.ListWorkflows(ctx, &storage.WorkflowFilter{
+		Status: []string{"pending", "running"},
+	})
+	if err != nil {
+		t.Fatalf("ListWorkflows() failed: %v", err)
+	}
+	if total != 1 || len(workflows) != 1 {
+		t.Fatalf("filtered list total=%d len=%d, want 1", total, len(workflows))
+	}
+	if workflows[0].ID != wf.ID {
+		t.Fatalf("workflow id=%s, want %s", workflows[0].ID, wf.ID)
+	}
+
+	pendingOnly, pendingTotal, err := db.ListWorkflows(ctx, &storage.WorkflowFilter{
+		Status: []string{"pending"},
+	})
+	if err != nil {
+		t.Fatalf("ListWorkflows(pending) failed: %v", err)
+	}
+	if pendingTotal != 0 || len(pendingOnly) != 0 {
+		t.Fatalf("pending-only list total=%d len=%d, want 0", pendingTotal, len(pendingOnly))
+	}
+}
+
+func TestBadgerStorage_DeleteWorkflowRemovesIndexes(t *testing.T) {
+	db, cleanup := setupTestDB(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	wf := &storage.WorkflowState{
+		ID:        "wf-delete-index",
+		Name:      "delete index workflow",
+		Status:    "running",
+		CreatedAt: time.Now().UTC(),
+	}
+	if err := db.SaveWorkflow(ctx, wf); err != nil {
+		t.Fatalf("SaveWorkflow() failed: %v", err)
+	}
+	if err := db.DeleteWorkflow(ctx, wf.ID); err != nil {
+		t.Fatalf("DeleteWorkflow() failed: %v", err)
+	}
+
+	running, total, err := db.ListWorkflows(ctx, &storage.WorkflowFilter{
+		Status: []string{"running"},
+	})
+	if err != nil {
+		t.Fatalf("ListWorkflows(running) failed: %v", err)
+	}
+	if total != 0 || len(running) != 0 {
+		t.Fatalf("running list total=%d len=%d, want 0", total, len(running))
+	}
+
+	statusIndexCount := countIndexKeysForWorkflowID(t, db, []byte("workflow:index:status:"), wf.ID)
+	createdIndexCount := countIndexKeysForWorkflowID(t, db, []byte("workflow:index:created:"), wf.ID)
+	if statusIndexCount != 0 || createdIndexCount != 0 {
+		t.Fatalf("remaining indexes status=%d created=%d, want 0", statusIndexCount, createdIndexCount)
+	}
+}
+
+func countIndexKeysForWorkflowID(t *testing.T, db *BadgerStorage, prefix []byte, workflowID string) int {
+	t.Helper()
+
+	count := 0
+	err := db.db.View(func(txn *badger.Txn) error {
+		opts := badger.DefaultIteratorOptions
+		opts.Prefix = prefix
+		opts.PrefetchValues = false
+		it := txn.NewIterator(opts)
+		defer it.Close()
+
+		suffix := ":" + workflowID
+		for it.Rewind(); it.Valid(); it.Next() {
+			key := string(it.Item().Key())
+			if strings.HasSuffix(key, suffix) {
+				count++
+			}
+		}
+		return nil
+	})
+	if err != nil {
+		t.Fatalf("countIndexKeysForWorkflowID() view error: %v", err)
+	}
+	return count
 }

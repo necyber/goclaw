@@ -13,10 +13,10 @@
 
 ## 3. Badger Index Correctness
 
-- [ ] 3.1 Update Badger `SaveWorkflow` to remove stale status index keys during status transitions within the same transaction.
-- [ ] 3.2 Update Badger `DeleteWorkflow` to delete associated status/created index keys in addition to workflow/task records.
-- [ ] 3.3 Harden status-filtered `ListWorkflows` to verify current workflow status and deduplicate by workflow ID.
-- [ ] 3.4 Add Badger tests covering status churn, stale index keys, and duplicate prevention.
+- [x] 3.1 Update Badger `SaveWorkflow` to remove stale status index keys during status transitions within the same transaction.
+- [x] 3.2 Update Badger `DeleteWorkflow` to delete associated status/created index keys in addition to workflow/task records.
+- [x] 3.3 Harden status-filtered `ListWorkflows` to verify current workflow status and deduplicate by workflow ID.
+- [x] 3.4 Add Badger tests covering status churn, stale index keys, and duplicate prevention.
 
 ## 4. Memory Storage Isolation
 

@@ -4,6 +4,7 @@ package badger
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"time"
@@ -90,18 +91,24 @@ func (b *BadgerStorage) SaveWorkflow(ctx context.Context, wf *storage.WorkflowSt
 		return err
 	}
 
-	return b.db.Update(func(txn *badger.Txn) error {
+	return b.updateWithRetry(func(txn *badger.Txn) error {
 		// Save workflow data
 		if err := txn.Set(workflowKey(wf.ID), data); err != nil {
 			return err
 		}
 
-		// Update status index
-		if err := txn.Set(workflowIndexStatusKey(wf.Status, wf.ID), []byte{}); err != nil {
+		// Remove stale indexes before writing current entries.
+		if err := deleteWorkflowStatusIndexes(txn, wf.ID); err != nil {
+			return err
+		}
+		if err := deleteWorkflowCreatedIndexes(txn, wf.ID); err != nil {
 			return err
 		}
 
-		// Update created time index
+		// Write current indexes.
+		if err := txn.Set(workflowIndexStatusKey(wf.Status, wf.ID), []byte{}); err != nil {
+			return err
+		}
 		if err := txn.Set(workflowIndexCreatedKey(wf.CreatedAt, wf.ID), []byte{}); err != nil {
 			return err
 		}
@@ -145,6 +152,12 @@ func (b *BadgerStorage) ListWorkflows(ctx context.Context, filter *storage.Workf
 	err := b.db.View(func(txn *badger.Txn) error {
 		// If status filter is specified, use status index
 		if filter != nil && len(filter.Status) > 0 {
+			allowedStatus := make(map[string]struct{}, len(filter.Status))
+			for _, status := range filter.Status {
+				allowedStatus[status] = struct{}{}
+			}
+			seenWorkflowIDs := make(map[string]struct{})
+
 			for _, status := range filter.Status {
 				prefix := []byte(fmt.Sprintf("workflow:index:status:%s:", status))
 				opts := badger.DefaultIteratorOptions
@@ -161,10 +174,17 @@ func (b *BadgerStorage) ListWorkflows(ctx context.Context, filter *storage.Workf
 					parts := strings.Split(key, ":")
 					if len(parts) >= 5 {
 						workflowID := strings.Join(parts[4:], ":") // Handle IDs with colons
+						if _, exists := seenWorkflowIDs[workflowID]; exists {
+							continue
+						}
 						wf, err := b.getWorkflowInTxn(txn, workflowID)
 						if err != nil {
 							continue // Skip if workflow not found
 						}
+						if _, ok := allowedStatus[wf.Status]; !ok {
+							continue
+						}
+						seenWorkflowIDs[workflowID] = struct{}{}
 						workflows = append(workflows, wf)
 					}
 				}
@@ -254,7 +274,7 @@ func (b *BadgerStorage) getWorkflowInTxn(txn *badger.Txn, id string) (*storage.W
 
 // DeleteWorkflow deletes a workflow and all its tasks.
 func (b *BadgerStorage) DeleteWorkflow(ctx context.Context, id string) error {
-	return b.db.Update(func(txn *badger.Txn) error {
+	return b.updateWithRetry(func(txn *badger.Txn) error {
 		// Check if workflow exists
 		_, err := b.getWorkflowInTxn(txn, id)
 		if err != nil {
@@ -281,9 +301,13 @@ func (b *BadgerStorage) DeleteWorkflow(ctx context.Context, id string) error {
 			}
 		}
 
-		// Delete index entries (status and created)
-		// Note: We'd need to know the status and created time to delete specific index entries
-		// For simplicity, we'll leave orphaned index entries (they'll be ignored on read)
+		// Delete all index entries for this workflow.
+		if err := deleteWorkflowStatusIndexes(txn, id); err != nil {
+			return err
+		}
+		if err := deleteWorkflowCreatedIndexes(txn, id); err != nil {
+			return err
+		}
 
 		return nil
 	})
@@ -302,7 +326,7 @@ func (b *BadgerStorage) SaveTask(ctx context.Context, workflowID string, task *s
 		return err
 	}
 
-	return b.db.Update(func(txn *badger.Txn) error {
+	return b.updateWithRetry(func(txn *badger.Txn) error {
 		return txn.Set(taskKey(workflowID, task.ID), data)
 	})
 }
@@ -386,4 +410,51 @@ func (b *BadgerStorage) Close() error {
 	}
 
 	return b.db.Close()
+}
+
+func deleteWorkflowStatusIndexes(txn *badger.Txn, workflowID string) error {
+	return deleteWorkflowIndexesByPrefix(txn, []byte("workflow:index:status:"), workflowID)
+}
+
+func deleteWorkflowCreatedIndexes(txn *badger.Txn, workflowID string) error {
+	return deleteWorkflowIndexesByPrefix(txn, []byte("workflow:index:created:"), workflowID)
+}
+
+func deleteWorkflowIndexesByPrefix(txn *badger.Txn, prefix []byte, workflowID string) error {
+	opts := badger.DefaultIteratorOptions
+	opts.Prefix = prefix
+	opts.PrefetchValues = false
+
+	it := txn.NewIterator(opts)
+	defer it.Close()
+
+	suffix := ":" + workflowID
+	for it.Rewind(); it.Valid(); it.Next() {
+		keyBytes := it.Item().KeyCopy(nil)
+		key := string(keyBytes)
+		if !strings.HasSuffix(key, suffix) {
+			continue
+		}
+		if err := txn.Delete(keyBytes); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (b *BadgerStorage) updateWithRetry(fn func(txn *badger.Txn) error) error {
+	const maxRetries = 50
+	var err error
+	for attempt := 0; attempt < maxRetries; attempt++ {
+		err = b.db.Update(fn)
+		if err == nil {
+			return nil
+		}
+		if !errors.Is(err, badger.ErrConflict) {
+			return err
+		}
+		time.Sleep(time.Duration(attempt+1) * time.Millisecond)
+	}
+	return err
 }
