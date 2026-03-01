@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -133,4 +134,71 @@ func TestRedisBus_PublishValidation(t *testing.T) {
 	}); err == nil {
 		t.Fatal("expected empty task_id publish to fail")
 	}
+}
+
+func TestRedisBus_UnsubscribeWhilePublishing_NoPanic(t *testing.T) {
+	client := requireRedisBusClient(t)
+	bus := NewRedisBus(client, fmt.Sprintf("goclaw:test:signal:race-unsub:%d:", time.Now().UnixNano()), 8)
+	defer bus.Close()
+
+	taskID := "task-race-unsub"
+	if _, err := bus.Subscribe(context.Background(), taskID); err != nil {
+		t.Fatalf("subscribe failed: %v", err)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 200; i++ {
+			_ = bus.Publish(context.Background(), &Signal{
+				Type:    SignalSteer,
+				TaskID:  taskID,
+				Payload: json.RawMessage(`{"i":1}`),
+				SentAt:  time.Now(),
+			})
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		time.Sleep(20 * time.Millisecond)
+		_ = bus.Unsubscribe(taskID)
+	}()
+
+	wg.Wait()
+}
+
+func TestRedisBus_CloseWhilePublishing_NoPanic(t *testing.T) {
+	client := requireRedisBusClient(t)
+	bus := NewRedisBus(client, fmt.Sprintf("goclaw:test:signal:race-close:%d:", time.Now().UnixNano()), 8)
+
+	taskID := "task-race-close"
+	if _, err := bus.Subscribe(context.Background(), taskID); err != nil {
+		t.Fatalf("subscribe failed: %v", err)
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		for i := 0; i < 200; i++ {
+			_ = bus.Publish(context.Background(), &Signal{
+				Type:    SignalInterrupt,
+				TaskID:  taskID,
+				Payload: json.RawMessage(`{"graceful":true}`),
+				SentAt:  time.Now(),
+			})
+		}
+	}()
+
+	go func() {
+		defer wg.Done()
+		time.Sleep(20 * time.Millisecond)
+		_ = bus.Close()
+	}()
+
+	wg.Wait()
 }

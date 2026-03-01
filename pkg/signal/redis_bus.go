@@ -24,6 +24,7 @@ type redisSubscription struct {
 	pubsub *redis.PubSub
 	ch     chan *Signal
 	cancel context.CancelFunc
+	done   chan struct{}
 }
 
 // NewRedisBus creates a new Redis-backed Signal Bus.
@@ -103,21 +104,24 @@ func (b *RedisBus) Subscribe(ctx context.Context, taskID string) (<-chan *Signal
 		pubsub: pubsub,
 		ch:     ch,
 		cancel: cancel,
+		done:   make(chan struct{}),
 	}
 	b.subscribers[taskID] = sub
 
 	// Background goroutine to forward Redis messages to the channel.
-	go b.forwardMessages(subCtx, pubsub, ch)
+	go b.forwardMessages(subCtx, sub)
 
 	return ch, nil
 }
 
-func (b *RedisBus) forwardMessages(ctx context.Context, pubsub *redis.PubSub, ch chan *Signal) {
+func (b *RedisBus) forwardMessages(ctx context.Context, sub *redisSubscription) {
 	defer func() {
-		_ = pubsub.Close()
+		_ = sub.pubsub.Close()
+		close(sub.ch)
+		close(sub.done)
 	}()
 
-	redisCh := pubsub.Channel()
+	redisCh := sub.pubsub.Channel()
 	for {
 		select {
 		case <-ctx.Done():
@@ -132,16 +136,16 @@ func (b *RedisBus) forwardMessages(ctx context.Context, pubsub *redis.PubSub, ch
 				continue
 			}
 			select {
-			case ch <- &sig:
+			case sub.ch <- &sig:
 				metricsRecorder().RecordSignalReceived("redis", string(sig.Type))
 			default:
 				metricsRecorder().RecordSignalFailed("redis", string(sig.Type), "buffer_full_drop")
 				select {
-				case <-ch:
+				case <-sub.ch:
 				default:
 				}
 				select {
-				case ch <- &sig:
+				case sub.ch <- &sig:
 					metricsRecorder().RecordSignalReceived("redis", string(sig.Type))
 				default:
 					metricsRecorder().RecordSignalFailed("redis", string(sig.Type), "buffer_still_full")
@@ -154,33 +158,38 @@ func (b *RedisBus) forwardMessages(ctx context.Context, pubsub *redis.PubSub, ch
 // Unsubscribe removes the Redis subscription for the given task.
 func (b *RedisBus) Unsubscribe(taskID string) error {
 	b.mu.Lock()
-	defer b.mu.Unlock()
-
 	sub, ok := b.subscribers[taskID]
 	if !ok {
+		b.mu.Unlock()
 		return nil
 	}
+	delete(b.subscribers, taskID)
+	b.mu.Unlock()
 
 	sub.cancel()
-	close(sub.ch)
-	delete(b.subscribers, taskID)
+	<-sub.done
 	return nil
 }
 
 // Close shuts down all subscriptions and the bus.
 func (b *RedisBus) Close() error {
 	b.mu.Lock()
-	defer b.mu.Unlock()
-
 	if b.closed {
+		b.mu.Unlock()
 		return nil
 	}
 
 	b.closed = true
+	subs := make([]*redisSubscription, 0, len(b.subscribers))
 	for taskID, sub := range b.subscribers {
-		sub.cancel()
-		close(sub.ch)
+		subs = append(subs, sub)
 		delete(b.subscribers, taskID)
+	}
+	b.mu.Unlock()
+
+	for _, sub := range subs {
+		sub.cancel()
+		<-sub.done
 	}
 	return nil
 }
