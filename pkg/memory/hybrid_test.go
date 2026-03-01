@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"errors"
 	"testing"
 )
 
@@ -152,5 +153,58 @@ func TestHybridRetriever_MetadataFilter(t *testing.T) {
 	}
 	if len(results) != 1 || results[0].Entry.ID != "a" {
 		t.Errorf("expected only entry 'a' with type=chat, got %v", results)
+	}
+}
+
+func TestHybridRetriever_ModeAliasNormalization(t *testing.T) {
+	vi := NewVectorIndex(2)
+	bi := NewBM25Index(1.5, 0.75)
+	hr := NewHybridRetriever(vi, bi, 0.7, 0.3)
+
+	entries := map[string]*MemoryEntry{
+		"a": {ID: "a", SessionID: "s1", Content: "hello world"},
+	}
+	vi.AddVector("a", "s1", []float32{1, 0}) //nolint:errcheck
+	bi.IndexDocument("a", "s1", "hello world")
+	getEntry := func(id string) *MemoryEntry { return entries[id] }
+
+	vectorAliasResults, err := hr.Retrieve(context.Background(), "s1", Query{
+		Vector: []float32{1, 0},
+		Mode:   "vector",
+		TopK:   1,
+	}, getEntry)
+	if err != nil {
+		t.Fatalf("vector alias mode error = %v", err)
+	}
+	if len(vectorAliasResults) != 1 || vectorAliasResults[0].Entry.ID != "a" {
+		t.Fatalf("vector alias results = %v, want entry a", vectorAliasResults)
+	}
+
+	bm25AliasResults, err := hr.Retrieve(context.Background(), "s1", Query{
+		Text: "hello",
+		Mode: "bm25",
+		TopK: 1,
+	}, getEntry)
+	if err != nil {
+		t.Fatalf("bm25 alias mode error = %v", err)
+	}
+	if len(bm25AliasResults) != 1 || bm25AliasResults[0].Entry.ID != "a" {
+		t.Fatalf("bm25 alias results = %v, want entry a", bm25AliasResults)
+	}
+}
+
+func TestHybridRetriever_RejectsUnknownMode(t *testing.T) {
+	vi := NewVectorIndex(2)
+	bi := NewBM25Index(1.5, 0.75)
+	hr := NewHybridRetriever(vi, bi, 0.7, 0.3)
+
+	getEntry := func(id string) *MemoryEntry { return nil }
+	_, err := hr.Retrieve(context.Background(), "s1", Query{
+		Text: "hello",
+		Mode: "unsupported-mode",
+		TopK: 1,
+	}, getEntry)
+	if !errors.Is(err, ErrInvalidQuery) {
+		t.Fatalf("expected ErrInvalidQuery for unknown mode, got %v", err)
 	}
 }

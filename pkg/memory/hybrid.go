@@ -2,13 +2,19 @@ package memory
 
 import (
 	"context"
+	"fmt"
 	"sort"
+	"strings"
 	"sync"
 )
 
 // QueryMode defines the retrieval strategy.
 const (
-	ModeHybrid = "hybrid"
+	ModeHybrid     = "hybrid"
+	ModeVectorOnly = "vector-only"
+	ModeBM25Only   = "bm25-only"
+
+	// Deprecated aliases kept for compatibility.
 	ModeVector = "vector"
 	ModeBM25   = "bm25"
 )
@@ -44,13 +50,19 @@ func (h *HybridRetriever) Retrieve(ctx context.Context, sessionID string, query 
 		case hasText && hasVector:
 			mode = ModeHybrid
 		case hasVector:
-			mode = ModeVector
+			mode = ModeVectorOnly
 		case hasText:
-			mode = ModeBM25
+			mode = ModeBM25Only
 		default:
 			return nil, ErrInvalidQuery
 		}
 	}
+
+	normalizedMode, err := normalizeQueryMode(mode)
+	if err != nil {
+		return nil, err
+	}
+	mode = normalizedMode
 
 	topK := query.TopK
 	if topK <= 0 {
@@ -64,14 +76,27 @@ func (h *HybridRetriever) Retrieve(ctx context.Context, sessionID string, query 
 	}
 
 	switch mode {
-	case ModeVector:
+	case ModeVectorOnly:
 		return h.vectorOnly(ctx, sessionID, query, topK, getEntry)
-	case ModeBM25:
+	case ModeBM25Only:
 		return h.bm25Only(ctx, sessionID, query, topK, getEntry)
 	case ModeHybrid:
 		return h.hybrid(ctx, sessionID, query, topK, fetchK, getEntry)
 	default:
-		return h.hybrid(ctx, sessionID, query, topK, fetchK, getEntry)
+		return nil, ErrInvalidQuery
+	}
+}
+
+func normalizeQueryMode(mode string) (string, error) {
+	switch strings.ToLower(strings.TrimSpace(mode)) {
+	case ModeHybrid:
+		return ModeHybrid, nil
+	case ModeVectorOnly, ModeVector:
+		return ModeVectorOnly, nil
+	case ModeBM25Only, ModeBM25:
+		return ModeBM25Only, nil
+	default:
+		return "", fmt.Errorf("%w: unsupported mode %q", ErrInvalidQuery, mode)
 	}
 }
 

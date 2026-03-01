@@ -13,9 +13,9 @@
 
 ## 3. Retrieval Mode Contract
 
-- [ ] 3.1 Normalize mode aliases (`vector`/`bm25`) to canonical modes (`vector-only`/`bm25-only`).
-- [ ] 3.2 Reject unsupported mode values with validation errors (no silent fallback).
-- [ ] 3.3 Add hybrid retriever tests for alias normalization and unknown-mode rejection.
+- [x] 3.1 Normalize mode aliases (`vector`/`bm25`) to canonical modes (`vector-only`/`bm25-only`).
+- [x] 3.2 Reject unsupported mode values with validation errors (no silent fallback).
+- [x] 3.3 Add hybrid retriever tests for alias normalization and unknown-mode rejection.
 
 ## 4. API Contract Alignment
 
