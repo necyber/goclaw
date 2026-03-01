@@ -33,6 +33,7 @@ type appLogger interface {
 }
 
 const defaultLaneName = "default"
+const recoveryBatchSize = 100
 
 // engineState represents the lifecycle state of the engine.
 type engineState int32
@@ -449,30 +450,33 @@ func (e *Engine) Submit(ctx context.Context, wf *Workflow) (*WorkflowResult, err
 func (e *Engine) RecoverWorkflows(ctx context.Context) error {
 	e.logger.Info("starting workflow recovery")
 
-	// List workflows with pending or running status
-	filter := &storage.WorkflowFilter{
-		Status: []string{"pending", "running"},
-		Limit:  1000, // Reasonable batch size
-		Offset: 0,
-	}
-
-	workflows, total, err := e.storage.ListWorkflows(ctx, filter)
+	workflows, err := e.listRecoverableWorkflows(ctx, recoveryBatchSize)
 	if err != nil {
-		return fmt.Errorf("failed to list workflows for recovery: %w", err)
+		return err
 	}
 
-	if total == 0 {
+	if len(workflows) == 0 {
 		e.logger.Info("no workflows to recover")
 		return nil
 	}
 
-	e.logger.Info("found workflows to recover", "count", total)
+	e.logger.Info("found workflows to recover", "count", len(workflows))
 
 	var recoveryErrors []error
 	recovered := 0
 	skipped := 0
 
 	for _, wf := range workflows {
+		if err := ctx.Err(); err != nil {
+			recoveryErrors = append(recoveryErrors, err)
+			break
+		}
+		if _, active := e.getExecution(wf.ID); active {
+			e.logger.Warn("skipping recovery for workflow already executing", "workflow_id", wf.ID)
+			skipped++
+			continue
+		}
+
 		// Reset running tasks to pending for re-execution
 		for _, task := range wf.TaskStatus {
 			if task.Status == "running" {
@@ -499,20 +503,74 @@ func (e *Engine) RecoverWorkflows(ctx context.Context) error {
 			continue
 		}
 
-		e.logger.Info("recovered workflow", "workflow_id", wf.ID, "name", wf.Name)
+		if _, err := e.startWorkflowExecution(context.Background(), wf.ID, map[string]func(context.Context) error{}); err != nil {
+			e.logger.Error("failed to resubmit recovered workflow",
+				"workflow_id", wf.ID,
+				"error", err)
+			recoveryErrors = append(recoveryErrors, fmt.Errorf("workflow %s: %w", wf.ID, err))
+			skipped++
+			continue
+		}
+
+		e.logger.Info("recovered workflow", "workflow_id", wf.ID, "name", wf.Name, "status", wf.Status)
 		recovered++
 	}
 
 	e.logger.Info("workflow recovery completed",
 		"recovered", recovered,
 		"skipped", skipped,
-		"total", total)
+		"total", len(workflows))
 
 	if len(recoveryErrors) > 0 {
 		return fmt.Errorf("recovery completed with %d errors", len(recoveryErrors))
 	}
 
 	return nil
+}
+
+func (e *Engine) listRecoverableWorkflows(ctx context.Context, batchSize int) ([]*storage.WorkflowState, error) {
+	if batchSize <= 0 {
+		batchSize = recoveryBatchSize
+	}
+
+	filter := &storage.WorkflowFilter{
+		Status: []string{workflowStatusPending, workflowStatusRunning},
+		Limit:  batchSize,
+		Offset: 0,
+	}
+
+	workflows := make([]*storage.WorkflowState, 0, batchSize)
+	seen := make(map[string]struct{})
+	offset := 0
+	for {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+
+		filter.Offset = offset
+		page, total, err := e.storage.ListWorkflows(ctx, filter)
+		if err != nil {
+			return nil, fmt.Errorf("failed to list workflows for recovery (offset=%d): %w", offset, err)
+		}
+		if len(page) == 0 {
+			break
+		}
+
+		for _, wf := range page {
+			if _, exists := seen[wf.ID]; exists {
+				continue
+			}
+			seen[wf.ID] = struct{}{}
+			workflows = append(workflows, wf)
+		}
+
+		offset += len(page)
+		if offset >= total {
+			break
+		}
+	}
+
+	return workflows, nil
 }
 
 // State returns the current engine state as a string.
