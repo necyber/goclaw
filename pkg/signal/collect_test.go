@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 )
@@ -123,6 +124,40 @@ func TestCollectorStreamCollect(t *testing.T) {
 	}
 }
 
+func TestCollectorCollect_SlowChannelDoesNotBlockReadyResults(t *testing.T) {
+	for i := 0; i < 10; i++ {
+		bus := newStubCollectBus()
+		collector := NewCollector(bus, []string{"task-1", "task-2"}, 150*time.Millisecond)
+
+		go func() {
+			okResult, _ := json.Marshal(map[string]string{"status": "ok"})
+			payload, _ := json.Marshal(CollectPayload{Result: okResult})
+			deadline := time.Now().Add(100 * time.Millisecond)
+			for time.Now().Before(deadline) {
+				ch := bus.mustGet("collect:task-1")
+				if ch != nil {
+					ch <- &Signal{
+						Type:    SignalCollect,
+						TaskID:  "collect:task-1",
+						Payload: payload,
+						SentAt:  time.Now(),
+					}
+					return
+				}
+				time.Sleep(2 * time.Millisecond)
+			}
+		}()
+
+		results, err := collector.Collect(context.Background())
+		if !errors.Is(err, context.DeadlineExceeded) {
+			t.Fatalf("iteration %d: expected deadline exceeded, got %v", i, err)
+		}
+		if _, ok := results["task-1"]; !ok {
+			t.Fatalf("iteration %d: expected task-1 partial result, got %+v", i, results)
+		}
+	}
+}
+
 func TestCollectorCollect_SubscribeFailure(t *testing.T) {
 	bus := NewLocalBus(16)
 	defer bus.Close()
@@ -142,6 +177,7 @@ func TestCollectorCollect_SubscribeFailure(t *testing.T) {
 }
 
 type stubCollectBus struct {
+	mu   sync.RWMutex
 	subs map[string]chan *Signal
 }
 
@@ -157,11 +193,15 @@ func (b *stubCollectBus) Publish(context.Context, *Signal) error {
 
 func (b *stubCollectBus) Subscribe(_ context.Context, taskID string) (<-chan *Signal, error) {
 	ch := make(chan *Signal, 1)
+	b.mu.Lock()
 	b.subs[taskID] = ch
+	b.mu.Unlock()
 	return ch, nil
 }
 
 func (b *stubCollectBus) Unsubscribe(taskID string) error {
+	b.mu.Lock()
+	defer b.mu.Unlock()
 	if ch, ok := b.subs[taskID]; ok {
 		close(ch)
 		delete(b.subs, taskID)
@@ -170,7 +210,14 @@ func (b *stubCollectBus) Unsubscribe(taskID string) error {
 }
 
 func (b *stubCollectBus) Close() error {
+	b.mu.Lock()
+	keys := make([]string, 0, len(b.subs))
 	for taskID := range b.subs {
+		keys = append(keys, taskID)
+	}
+	b.mu.Unlock()
+
+	for _, taskID := range keys {
 		_ = b.Unsubscribe(taskID)
 	}
 	return nil
@@ -181,5 +228,7 @@ func (b *stubCollectBus) Healthy() bool {
 }
 
 func (b *stubCollectBus) mustGet(taskID string) chan *Signal {
+	b.mu.RLock()
+	defer b.mu.RUnlock()
 	return b.subs[taskID]
 }

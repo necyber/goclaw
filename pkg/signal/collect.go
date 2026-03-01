@@ -36,30 +36,22 @@ func (c *Collector) Collect(ctx context.Context) (map[string]*CollectPayload, er
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 	defer cancel()
 
-	// Subscribe to all tasks
-	channels := make(map[string]<-chan *Signal, len(c.taskIDs))
+	channels, cleanup, err := c.subscribeCollectChannels(ctx)
+	if err != nil {
+		metricsRecorder().RecordSignalPattern("collect", "failed", time.Since(start))
+		return nil, err
+	}
+	defer cleanup()
+
+	remaining := make(map[string]struct{}, len(c.taskIDs))
 	for _, taskID := range c.taskIDs {
-		ch, err := c.bus.Subscribe(ctx, "collect:"+taskID)
-		if err != nil {
-			// Clean up already subscribed
-			for id := range channels {
-				_ = c.bus.Unsubscribe("collect:" + id)
-			}
-			metricsRecorder().RecordSignalPattern("collect", "failed", time.Since(start))
-			return nil, fmt.Errorf("failed to subscribe to task %s: %w", taskID, err)
+		if !c.hasResult(taskID) {
+			remaining[taskID] = struct{}{}
 		}
-		channels[taskID] = ch
 	}
 
-	defer func() {
-		for _, taskID := range c.taskIDs {
-			_ = c.bus.Unsubscribe("collect:" + taskID)
-		}
-	}()
-
-	// Wait for results
-	remaining := len(c.taskIDs)
-	for remaining > 0 {
+	events := c.collectEvents(ctx, channels)
+	for len(remaining) > 0 {
 		select {
 		case <-ctx.Done():
 			status := "failed"
@@ -67,41 +59,31 @@ func (c *Collector) Collect(ctx context.Context) (map[string]*CollectPayload, er
 				status = "timeout"
 			}
 			metricsRecorder().RecordSignalPattern("collect", status, time.Since(start))
-			return c.results, ctx.Err()
-		default:
-			for taskID, ch := range channels {
-				if _, done := c.results[taskID]; done {
-					continue
-				}
-				select {
-				case sig, ok := <-ch:
-					if !ok {
-						continue
-					}
-					if sig.Type == SignalCollect {
-						payload, err := ParseCollectPayload(sig)
-						if err == nil {
-							c.mu.Lock()
-							c.results[taskID] = payload
-							c.mu.Unlock()
-							remaining--
-						}
-					}
-				case <-ctx.Done():
-					status := "failed"
-					if ctx.Err() == context.DeadlineExceeded {
-						status = "timeout"
-					}
-					metricsRecorder().RecordSignalPattern("collect", status, time.Since(start))
-					return c.results, ctx.Err()
-				}
+			return c.snapshotResults(), ctx.Err()
+		case event, ok := <-events:
+			if !ok {
+				continue
+			}
+			if _, pending := remaining[event.taskID]; !pending {
+				continue
+			}
+			if event.sig == nil || event.sig.Type != SignalCollect {
+				continue
+			}
+			payload, parseErr := ParseCollectPayload(event.sig)
+			if parseErr != nil {
+				continue
+			}
+			if c.storeResult(event.taskID, payload) {
+				delete(remaining, event.taskID)
 			}
 		}
 	}
 
-	allFailed := len(c.results) == len(c.taskIDs)
+	results := c.snapshotResults()
+	allFailed := len(results) == len(c.taskIDs)
 	if allFailed {
-		for _, payload := range c.results {
+		for _, payload := range results {
 			if payload == nil || payload.Error == "" {
 				allFailed = false
 				break
@@ -110,65 +92,59 @@ func (c *Collector) Collect(ctx context.Context) (map[string]*CollectPayload, er
 	}
 	if allFailed && len(c.taskIDs) > 0 {
 		metricsRecorder().RecordSignalPattern("collect", "failed", time.Since(start))
-		return c.results, fmt.Errorf("all tasks failed")
+		return results, fmt.Errorf("all tasks failed")
 	}
 
 	metricsRecorder().RecordSignalPattern("collect", "success", time.Since(start))
-	return c.results, nil
+	return results, nil
 }
 
 // StreamCollect returns a channel that emits results as they arrive.
 func (c *Collector) StreamCollect(ctx context.Context) (<-chan CollectResult, error) {
 	ctx, cancel := context.WithTimeout(ctx, c.timeout)
 
-	// Subscribe to all tasks
-	channels := make(map[string]<-chan *Signal, len(c.taskIDs))
-	for _, taskID := range c.taskIDs {
-		ch, err := c.bus.Subscribe(ctx, "collect:"+taskID)
-		if err != nil {
-			cancel()
-			for id := range channels {
-				_ = c.bus.Unsubscribe("collect:" + id)
-			}
-			return nil, fmt.Errorf("failed to subscribe to task %s: %w", taskID, err)
-		}
-		channels[taskID] = ch
+	channels, cleanup, err := c.subscribeCollectChannels(ctx)
+	if err != nil {
+		cancel()
+		return nil, err
 	}
 
 	out := make(chan CollectResult, len(c.taskIDs))
+	events := c.collectEvents(ctx, channels)
 
 	go func() {
 		defer cancel()
 		defer close(out)
-		defer func() {
-			for _, taskID := range c.taskIDs {
-				_ = c.bus.Unsubscribe("collect:" + taskID)
-			}
-		}()
+		defer cleanup()
 
-		remaining := len(c.taskIDs)
-		for remaining > 0 {
-			for taskID, ch := range channels {
-				if _, done := c.results[taskID]; done {
+		remaining := make(map[string]struct{}, len(c.taskIDs))
+		for _, taskID := range c.taskIDs {
+			if !c.hasResult(taskID) {
+				remaining[taskID] = struct{}{}
+			}
+		}
+
+		for len(remaining) > 0 {
+			select {
+			case <-ctx.Done():
+				return
+			case event, ok := <-events:
+				if !ok {
 					continue
 				}
-				select {
-				case sig, ok := <-ch:
-					if !ok {
-						continue
-					}
-					if sig.Type == SignalCollect {
-						payload, err := ParseCollectPayload(sig)
-						if err == nil {
-							c.mu.Lock()
-							c.results[taskID] = payload
-							c.mu.Unlock()
-							remaining--
-							out <- CollectResult{TaskID: taskID, Payload: payload}
-						}
-					}
-				case <-ctx.Done():
-					return
+				if _, pending := remaining[event.taskID]; !pending {
+					continue
+				}
+				if event.sig == nil || event.sig.Type != SignalCollect {
+					continue
+				}
+				payload, parseErr := ParseCollectPayload(event.sig)
+				if parseErr != nil {
+					continue
+				}
+				if c.storeResult(event.taskID, payload) {
+					delete(remaining, event.taskID)
+					out <- CollectResult{TaskID: event.taskID, Payload: payload}
 				}
 			}
 		}
@@ -219,4 +195,93 @@ func ParseCollectPayload(sig *Signal) (*CollectPayload, error) {
 		return nil, fmt.Errorf("failed to unmarshal collect payload: %w", err)
 	}
 	return &p, nil
+}
+
+type collectEvent struct {
+	taskID string
+	sig    *Signal
+}
+
+func (c *Collector) subscribeCollectChannels(ctx context.Context) (map[string]<-chan *Signal, func(), error) {
+	channels := make(map[string]<-chan *Signal, len(c.taskIDs))
+	for _, taskID := range c.taskIDs {
+		ch, err := c.bus.Subscribe(ctx, "collect:"+taskID)
+		if err != nil {
+			for id := range channels {
+				_ = c.bus.Unsubscribe("collect:" + id)
+			}
+			return nil, nil, fmt.Errorf("failed to subscribe to task %s: %w", taskID, err)
+		}
+		channels[taskID] = ch
+	}
+
+	cleanup := func() {
+		for _, taskID := range c.taskIDs {
+			_ = c.bus.Unsubscribe("collect:" + taskID)
+		}
+	}
+	return channels, cleanup, nil
+}
+
+func (c *Collector) collectEvents(ctx context.Context, channels map[string]<-chan *Signal) <-chan collectEvent {
+	out := make(chan collectEvent, len(channels))
+
+	var wg sync.WaitGroup
+	wg.Add(len(channels))
+	for taskID, ch := range channels {
+		taskID := taskID
+		ch := ch
+		go func() {
+			defer wg.Done()
+			for {
+				select {
+				case <-ctx.Done():
+					return
+				case sig, ok := <-ch:
+					if !ok {
+						return
+					}
+					select {
+					case out <- collectEvent{taskID: taskID, sig: sig}:
+					case <-ctx.Done():
+						return
+					}
+				}
+			}
+		}()
+	}
+
+	go func() {
+		wg.Wait()
+		close(out)
+	}()
+
+	return out
+}
+
+func (c *Collector) storeResult(taskID string, payload *CollectPayload) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if _, exists := c.results[taskID]; exists {
+		return false
+	}
+	c.results[taskID] = payload
+	return true
+}
+
+func (c *Collector) hasResult(taskID string) bool {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	_, exists := c.results[taskID]
+	return exists
+}
+
+func (c *Collector) snapshotResults() map[string]*CollectPayload {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	results := make(map[string]*CollectPayload, len(c.results))
+	for taskID, payload := range c.results {
+		results[taskID] = payload
+	}
+	return results
 }
