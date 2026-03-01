@@ -41,7 +41,7 @@ The system SHALL provide a local (in-memory) signal bus using Go channels.
 
 ### Requirement: Redis signal bus implementation
 
-The system SHALL provide a distributed signal bus using Redis Pub/Sub.
+The system SHALL provide a distributed signal bus using Redis Pub/Sub with lifecycle-safe subscription teardown.
 
 #### Scenario: Publish signal via Redis
 - **WHEN** a signal is published via Redis signal bus
@@ -58,6 +58,10 @@ The system SHALL provide a distributed signal bus using Redis Pub/Sub.
 #### Scenario: Redis Pub/Sub reconnection
 - **WHEN** Redis connection is lost during subscription
 - **THEN** the system automatically resubscribes after reconnection
+
+#### Scenario: Unsubscribe during in-flight forward
+- **WHEN** unsubscribe is called while a forwarding goroutine is concurrently delivering a signal
+- **THEN** the system MUST complete teardown without panic and without send-on-closed-channel failure
 
 ### Requirement: Signal bus mode selection
 
@@ -105,7 +109,7 @@ The system SHALL serialize signals to JSON for Redis Pub/Sub transport.
 
 ### Requirement: Concurrent signal operations
 
-The system SHALL support concurrent publish and subscribe operations without data races.
+The system SHALL support concurrent publish, subscribe, unsubscribe, and close operations without data races or panics.
 
 #### Scenario: Concurrent publishes
 - **WHEN** multiple goroutines publish signals simultaneously
@@ -114,6 +118,10 @@ The system SHALL support concurrent publish and subscribe operations without dat
 #### Scenario: Concurrent subscribe and publish
 - **WHEN** one goroutine subscribes while another publishes
 - **THEN** both operations complete without deadlock or data races
+
+#### Scenario: Concurrent unsubscribe and publish
+- **WHEN** unsubscribe races with publish/forward operations for the same task
+- **THEN** the system MUST remain race-safe and MUST NOT panic
 
 ### Requirement: Signal buffer configuration
 
@@ -129,11 +137,11 @@ The system SHALL support configurable signal channel buffer size.
 
 ### Requirement: Signal bus graceful shutdown
 
-The system SHALL gracefully shut down the signal bus on system shutdown.
+The system SHALL gracefully shut down the signal bus on system shutdown using race-safe channel ownership semantics.
 
 #### Scenario: Shutdown with active subscriptions
 - **WHEN** the signal bus is closed while subscriptions are active
-- **THEN** all subscription channels are closed and subscribers receive channel close notification
+- **THEN** all subscriptions are cancelled and subscriber channels are closed in a way that cannot panic concurrent forwarders
 
 #### Scenario: Publish after shutdown
 - **WHEN** `Publish` is called after the signal bus is closed

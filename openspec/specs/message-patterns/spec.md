@@ -49,7 +49,7 @@ The system SHALL support an interrupt message pattern that stops a running task.
 
 ### Requirement: Collect message pattern
 
-The system SHALL support a collect message pattern that aggregates outputs from multiple tasks.
+The system SHALL support a collect message pattern that aggregates outputs from multiple tasks with fair fan-in behavior and deterministic timeout partial results.
 
 #### Scenario: Collect all task results
 - **WHEN** a collector is created for tasks ["task-1", "task-2", "task-3"]
@@ -57,7 +57,7 @@ The system SHALL support a collect message pattern that aggregates outputs from 
 
 #### Scenario: Collect with timeout
 - **WHEN** a collector is created with a 30s timeout and not all tasks complete in time
-- **THEN** the collector returns partial results with a timeout error indicating which tasks are missing
+- **THEN** the collector returns available partial results and a timeout error that indicates collection was incomplete
 
 #### Scenario: Collect with streaming
 - **WHEN** a collector is created in streaming mode
@@ -70,6 +70,10 @@ The system SHALL support a collect message pattern that aggregates outputs from 
 #### Scenario: Collect with partial failure
 - **WHEN** some tasks succeed and some fail
 - **THEN** the collector returns successful results and errors for failed tasks
+
+#### Scenario: Slow channel does not block ready results
+- **WHEN** one task channel is idle or delayed while another task result is already available
+- **THEN** collector fan-in MUST continue processing ready results without being blocked by the idle channel
 
 ### Requirement: Signal context injection
 
@@ -134,4 +138,3 @@ The system SHALL integrate message patterns with the gRPC `SignalTask` RPC.
 #### Scenario: Send collect via gRPC
 - **WHEN** `SignalTask` RPC is called with type=COLLECT and multiple task IDs
 - **THEN** the system creates a collector and returns aggregated results
-
