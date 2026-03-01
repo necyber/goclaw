@@ -26,8 +26,8 @@
 
 ## 5. Configuration Wiring and Bootstrap
 
-- [ ] 5.1 Propagate `storage.badger.num_versions_to_keep` from config into `badgerstorage.Config` in `cmd/goclaw/main.go`.
-- [ ] 5.2 Add/adjust bootstrap tests validating all declared Badger config fields are wired into storage initialization.
+- [x] 5.1 Propagate `storage.badger.num_versions_to_keep` from config into `badgerstorage.Config` in `cmd/goclaw/main.go`.
+- [x] 5.2 Add/adjust bootstrap tests validating all declared Badger config fields are wired into storage initialization.
 
 ## 6. Verification and Regression Safety
 

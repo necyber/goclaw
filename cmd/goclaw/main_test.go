@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"syscall"
 	"testing"
 	"time"
@@ -22,6 +23,8 @@ import (
 	"github.com/goclaw/goclaw/pkg/logger"
 	signalpkg "github.com/goclaw/goclaw/pkg/signal"
 	"github.com/goclaw/goclaw/pkg/storage"
+	badgerstorage "github.com/goclaw/goclaw/pkg/storage/badger"
+	memstorage "github.com/goclaw/goclaw/pkg/storage/memory"
 )
 
 // mockStorage is a minimal mock implementation for testing
@@ -356,6 +359,70 @@ func TestBuildOverrides(t *testing.T) {
 	}
 	if overrides["app.debug"] != true {
 		t.Errorf("Expected app.debug=true, got %v", overrides["app.debug"])
+	}
+}
+
+func TestBuildBadgerStorageConfig_MapsAllFields(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Storage.Badger.Path = "D:/tmp/test-badger"
+	cfg.Storage.Badger.SyncWrites = false
+	cfg.Storage.Badger.ValueLogFileSize = 1 << 19
+	cfg.Storage.Badger.NumVersionsToKeep = 7
+
+	badgerCfg := buildBadgerStorageConfig(cfg)
+	if badgerCfg.Path != cfg.Storage.Badger.Path {
+		t.Fatalf("Path=%q, want %q", badgerCfg.Path, cfg.Storage.Badger.Path)
+	}
+	if badgerCfg.SyncWrites != cfg.Storage.Badger.SyncWrites {
+		t.Fatalf("SyncWrites=%v, want %v", badgerCfg.SyncWrites, cfg.Storage.Badger.SyncWrites)
+	}
+	if badgerCfg.ValueLogFileSize != cfg.Storage.Badger.ValueLogFileSize {
+		t.Fatalf("ValueLogFileSize=%d, want %d", badgerCfg.ValueLogFileSize, cfg.Storage.Badger.ValueLogFileSize)
+	}
+	if badgerCfg.NumVersionsToKeep != cfg.Storage.Badger.NumVersionsToKeep {
+		t.Fatalf("NumVersionsToKeep=%d, want %d", badgerCfg.NumVersionsToKeep, cfg.Storage.Badger.NumVersionsToKeep)
+	}
+}
+
+func TestInitializeStorage_BadgerAndFallback(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Storage.Type = "badger"
+	cfg.Storage.Badger.Path = filepath.Join(t.TempDir(), "badger")
+	cfg.Storage.Badger.SyncWrites = false
+	cfg.Storage.Badger.ValueLogFileSize = 1 << 20
+	cfg.Storage.Badger.NumVersionsToKeep = 5
+
+	store, err := initializeStorage(cfg, nil)
+	if err != nil {
+		t.Fatalf("initializeStorage(badger) error = %v", err)
+	}
+	if _, ok := store.(*badgerstorage.BadgerStorage); !ok {
+		t.Fatalf("badger storage type = %T, want *badgerstorage.BadgerStorage", store)
+	}
+	manifestPath := filepath.Join(cfg.Storage.Badger.Path, "MANIFEST")
+	if _, err := os.Stat(manifestPath); err != nil {
+		t.Fatalf("expected badger manifest at %s: %v", manifestPath, err)
+	}
+	if err := store.Close(); err != nil {
+		t.Fatalf("close badger store error = %v", err)
+	}
+
+	cfg.Storage.Type = "unknown-backend"
+	fallbackStore, err := initializeStorage(cfg, nil)
+	if err != nil {
+		t.Fatalf("initializeStorage(fallback) error = %v", err)
+	}
+	if _, ok := fallbackStore.(*memstorage.MemoryStorage); !ok {
+		t.Fatalf("fallback storage type = %T, want *memstorage.MemoryStorage", fallbackStore)
+	}
+	if err := fallbackStore.Close(); err != nil {
+		t.Fatalf("close fallback store error = %v", err)
+	}
+}
+
+func TestInitializeStorage_NilConfig(t *testing.T) {
+	if _, err := initializeStorage(nil, nil); err == nil {
+		t.Fatal("expected error for nil config")
 	}
 }
 

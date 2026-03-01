@@ -124,26 +124,10 @@ func main() {
 	defer stopShutdownSignals(sigChan)
 
 	// Initialize storage backend
-	var store storage.Storage
-	switch cfg.Storage.Type {
-	case "badger":
-		badgerCfg := &badgerstorage.Config{
-			Path:             cfg.Storage.Badger.Path,
-			SyncWrites:       cfg.Storage.Badger.SyncWrites,
-			ValueLogFileSize: cfg.Storage.Badger.ValueLogFileSize,
-		}
-		store, err = badgerstorage.NewBadgerStorage(badgerCfg)
-		if err != nil {
-			log.Error("Failed to create Badger storage", "error", err)
-			os.Exit(1)
-		}
-		log.Info("Initialized Badger storage", "path", badgerCfg.Path)
-	case "memory":
-		store = memstorage.NewMemoryStorage()
-		log.Info("Initialized memory storage")
-	default:
-		store = memstorage.NewMemoryStorage()
-		log.Warn("Unknown storage type, using memory storage", "type", cfg.Storage.Type)
+	store, err := initializeStorage(cfg, log)
+	if err != nil {
+		log.Error("Failed to initialize storage", "error", err)
+		os.Exit(1)
 	}
 	defer func() {
 		if err := store.Close(); err != nil {
@@ -461,6 +445,44 @@ func initializeRedisClient(ctx context.Context, cfg *config.Config) (*redis.Clie
 		return nil, err
 	}
 	return client, nil
+}
+
+func initializeStorage(cfg *config.Config, log logger.Logger) (storage.Storage, error) {
+	if cfg == nil {
+		return nil, fmt.Errorf("config cannot be nil")
+	}
+
+	switch cfg.Storage.Type {
+	case "badger":
+		badgerCfg := buildBadgerStorageConfig(cfg)
+		store, err := badgerstorage.NewBadgerStorage(badgerCfg)
+		if err != nil {
+			return nil, err
+		}
+		if log != nil {
+			log.Info("Initialized Badger storage", "path", badgerCfg.Path)
+		}
+		return store, nil
+	case "memory":
+		if log != nil {
+			log.Info("Initialized memory storage")
+		}
+		return memstorage.NewMemoryStorage(), nil
+	default:
+		if log != nil {
+			log.Warn("Unknown storage type, using memory storage", "type", cfg.Storage.Type)
+		}
+		return memstorage.NewMemoryStorage(), nil
+	}
+}
+
+func buildBadgerStorageConfig(cfg *config.Config) *badgerstorage.Config {
+	return &badgerstorage.Config{
+		Path:              cfg.Storage.Badger.Path,
+		SyncWrites:        cfg.Storage.Badger.SyncWrites,
+		ValueLogFileSize:  cfg.Storage.Badger.ValueLogFileSize,
+		NumVersionsToKeep: cfg.Storage.Badger.NumVersionsToKeep,
+	}
 }
 
 func initializeSignalBus(cfg *config.Config, redisClient redis.UniversalClient, log logger.Logger) (signalpkg.Bus, string) {
