@@ -73,6 +73,7 @@ type RedisLane struct {
 	// Worker management
 	taskHandler func(ctx context.Context, payload *RedisTaskPayload) error
 	workerWg    sync.WaitGroup
+	taskBindings sync.Map // taskID -> Task for same-process executable bindings
 
 	// For redirect strategy
 	manager *Manager
@@ -124,6 +125,12 @@ func (l *RedisLane) Submit(ctx context.Context, task Task) (err error) {
 		return fmt.Errorf("task cannot be nil")
 	}
 
+	boundTask := false
+	if _, ok := task.(interface{ Execute(context.Context) error }); ok {
+		l.taskBindings.Store(task.ID(), task)
+		boundTask = true
+	}
+
 	dedupAdded := false
 	// Check dedup
 	if l.config.EnableDedup {
@@ -146,18 +153,16 @@ func (l *RedisLane) Submit(ctx context.Context, task Task) (err error) {
 		if err != nil && dedupAdded {
 			_ = l.removeDedup(context.Background(), task.ID())
 		}
+		if err != nil && boundTask {
+			l.taskBindings.Delete(task.ID())
+		}
 	}()
 
-	// Check capacity and apply backpressure.
-	// Fast path uses local counters to avoid a Redis round-trip on every submit.
-	queueLen := int64(l.pending.Load())
-	if queueLen >= int64(l.config.Capacity) {
-		var err error
-		queueLen, err = l.queueLength(ctx)
-		if err != nil {
-			l.recordRejected()
-			return fmt.Errorf("failed to check queue length: %w", err)
-		}
+	// Use Redis queue length as authoritative admission boundary in distributed mode.
+	queueLen, qErr := l.queueLength(ctx)
+	if qErr != nil {
+		l.recordRejected()
+		return fmt.Errorf("failed to check queue length: %w", qErr)
 	}
 
 	if queueLen >= int64(l.config.Capacity) {
@@ -172,6 +177,10 @@ func (l *RedisLane) Submit(ctx context.Context, task Task) (err error) {
 				if rerr == nil {
 					_ = l.removeDedup(context.Background(), task.ID())
 					dedupAdded = false
+					if boundTask {
+						l.taskBindings.Delete(task.ID())
+						boundTask = false
+					}
 					if submitErr := redirectLane.Submit(ctx, task); submitErr == nil {
 						l.recordRedirected()
 						return nil
@@ -309,6 +318,11 @@ func (l *RedisLane) Close(ctx context.Context) error {
 		case <-ctx.Done():
 			err = ctx.Err()
 		}
+
+		l.taskBindings.Range(func(key, _ any) bool {
+			l.taskBindings.Delete(key)
+			return true
+		})
 	})
 	return err
 }
@@ -418,27 +432,31 @@ func (l *RedisLane) worker() {
 		}
 
 		start := time.Now()
+		processErr := error(nil)
+
 		if l.ownershipGuard != nil && payload.Fencing > 0 {
 			shardKey := payload.ShardKey
 			if shardKey == "" {
 				shardKey = l.config.Name
 			}
 			if ferr := l.ownershipGuard.ValidateFencing(ctx, shardKey, payload.Fencing); ferr != nil {
-				l.failed.Add(1)
-				l.running.Add(-1)
-				continue
+				processErr = ferr
 			}
 		}
-		if l.taskHandler != nil {
-			if herr := l.taskHandler(ctx, payload); herr != nil {
-				l.failed.Add(1)
+		if processErr == nil {
+			if l.taskHandler != nil {
+				processErr = l.taskHandler(ctx, payload)
 			} else {
-				l.completed.Add(1)
+				processErr = l.executeBoundTask(ctx, payload.ID)
 			}
+		}
+		if processErr != nil {
+			l.failed.Add(1)
 		} else {
 			l.completed.Add(1)
 		}
 		_ = l.removeDedup(context.Background(), payload.ID)
+		l.taskBindings.Delete(payload.ID)
 
 		l.running.Add(-1)
 		l.metrics.RecordWaitDuration(l.config.Name, time.Since(payload.EnqueuedAt))
@@ -500,4 +518,26 @@ func (l *RedisLane) removeDedup(ctx context.Context, taskID string) error {
 		return nil
 	}
 	return l.client.SRem(ctx, l.dedupKey, taskID).Err()
+}
+
+func (l *RedisLane) executeBoundTask(ctx context.Context, taskID string) error {
+	if taskID == "" {
+		return fmt.Errorf("task id cannot be empty")
+	}
+
+	raw, ok := l.taskBindings.Load(taskID)
+	if !ok {
+		return fmt.Errorf("task %s execution binding not found", taskID)
+	}
+
+	task, ok := raw.(Task)
+	if !ok {
+		return fmt.Errorf("task %s execution binding type invalid", taskID)
+	}
+
+	executable, ok := task.(interface{ Execute(context.Context) error })
+	if !ok {
+		return fmt.Errorf("task %s is not executable", taskID)
+	}
+	return executable.Execute(ctx)
 }

@@ -2,8 +2,12 @@ package lane
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"io"
 	"log/slog"
+	"net"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -258,13 +262,44 @@ func (fl *FallbackLane) isRedisError(err error) bool {
 	if err == nil {
 		return false
 	}
-	// Lane-level errors are not Redis errors
-	if IsLaneClosedError(err) || IsTaskDroppedError(err) || IsLaneFullError(err) {
+	// Lane-level and validation errors are not Redis connectivity errors.
+	if IsLaneClosedError(err) || IsTaskDroppedError(err) || IsLaneFullError(err) ||
+		IsTaskDuplicateError(err) || IsLaneNotFoundError(err) {
 		return false
 	}
-	// Context errors are not Redis errors
-	if err == context.Canceled || err == context.DeadlineExceeded {
+	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
 		return false
 	}
-	return true
+	if errors.Is(err, io.EOF) {
+		return true
+	}
+	var netErr net.Error
+	if errors.As(err, &netErr) {
+		return true
+	}
+
+	msg := strings.ToLower(err.Error())
+	if strings.Contains(msg, "task cannot be nil") ||
+		strings.Contains(msg, "duplicate") {
+		return false
+	}
+
+	redisConnectivityHints := []string{
+		"redis",
+		"redis panic",
+		"connection refused",
+		"connection reset",
+		"broken pipe",
+		"i/o timeout",
+		"dial tcp",
+		"no such host",
+		"network is unreachable",
+		"timeout",
+	}
+	for _, hint := range redisConnectivityHints {
+		if strings.Contains(msg, hint) {
+			return true
+		}
+	}
+	return false
 }

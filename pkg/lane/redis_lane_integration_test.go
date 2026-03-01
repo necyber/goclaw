@@ -28,7 +28,9 @@ func TestRedisLane_Integration_SubmitAndConsume(t *testing.T) {
 
 	total := 20
 	for i := 0; i < total; i++ {
-		task := NewTaskFunc(fmt.Sprintf("int-%d-%d", time.Now().UnixNano(), i), "integration-io", i, nil)
+		task := NewTaskFunc(fmt.Sprintf("int-%d-%d", time.Now().UnixNano(), i), "integration-io", i, func(context.Context) error {
+			return nil
+		})
 		if err := l.Submit(context.Background(), task); err != nil {
 			t.Fatalf("submit failed: %v", err)
 		}
@@ -90,7 +92,9 @@ func TestManager_Integration_MixedLaneMode(t *testing.T) {
 		})); err != nil {
 			t.Fatalf("submit memory failed: %v", err)
 		}
-		if err := manager.Submit(context.Background(), NewTaskFunc(fmt.Sprintf("io-%d-%d", time.Now().UnixNano(), i), "io-int", i, nil)); err != nil {
+		if err := manager.Submit(context.Background(), NewTaskFunc(fmt.Sprintf("io-%d-%d", time.Now().UnixNano(), i), "io-int", i, func(context.Context) error {
+			return nil
+		})); err != nil {
 			t.Fatalf("submit redis failed: %v", err)
 		}
 	}

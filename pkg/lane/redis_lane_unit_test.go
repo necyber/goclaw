@@ -2,6 +2,7 @@ package lane
 
 import (
 	"context"
+	"fmt"
 	"sync/atomic"
 	"testing"
 	"time"
@@ -67,7 +68,9 @@ func TestRedisLane_Unit_RunAndExecute(t *testing.T) {
 
 	total := 6
 	for i := 0; i < total; i++ {
-		task := NewTaskFunc("job-"+time.Now().Add(time.Duration(i)).Format("150405.000000"), "unit-worker", i, nil)
+		task := NewTaskFunc("job-"+time.Now().Add(time.Duration(i)).Format("150405.000000"), "unit-worker", i, func(context.Context) error {
+			return nil
+		})
 		if err := l.Submit(context.Background(), task); err != nil {
 			t.Fatalf("submit failed: %v", err)
 		}
@@ -144,10 +147,11 @@ func TestRedisLane_Unit_DedupDuplicateAndResubmit(t *testing.T) {
 		_ = l.Close(context.Background())
 	})
 
-	if err := l.Submit(context.Background(), NewTaskFunc("task-1", "dedup", 1, nil)); err != nil {
+	okTask := NewTaskFunc("task-1", "dedup", 1, func(context.Context) error { return nil })
+	if err := l.Submit(context.Background(), okTask); err != nil {
 		t.Fatalf("first submit failed: %v", err)
 	}
-	if err := l.Submit(context.Background(), NewTaskFunc("task-1", "dedup", 1, nil)); !IsTaskDuplicateError(err) {
+	if err := l.Submit(context.Background(), okTask); !IsTaskDuplicateError(err) {
 		t.Fatalf("expected TaskDuplicateError, got: %v", err)
 	}
 
@@ -163,7 +167,7 @@ func TestRedisLane_Unit_DedupDuplicateAndResubmit(t *testing.T) {
 		t.Fatalf("expected first task to complete, got stats: %+v", l.Stats())
 	}
 
-	if err := l.Submit(context.Background(), NewTaskFunc("task-1", "dedup", 1, nil)); err != nil {
+	if err := l.Submit(context.Background(), okTask); err != nil {
 		t.Fatalf("resubmit after completion should succeed, got: %v", err)
 	}
 	deadline = time.Now().Add(time.Second)
@@ -344,4 +348,148 @@ func TestRedisLane_Unit_BackpressureBlock(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("blocked submit did not resume")
 	}
+}
+
+func TestRedisLane_Unit_MissingExecutionBindingCountsAsFailure(t *testing.T) {
+	client := newMockRedisClient(t)
+
+	cfg := DefaultRedisConfig("missing-binding")
+	cfg.KeyPrefix = uniqueKeyPrefix("missing-binding")
+	cfg.Capacity = 8
+	cfg.MaxConcurrency = 1
+	cfg.BlockTimeout = 20 * time.Millisecond
+
+	l, err := NewRedisLane(client, cfg)
+	if err != nil {
+		t.Fatalf("NewRedisLane failed: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = l.Close(context.Background())
+	})
+	l.Run()
+
+	task := &nonExecutableRedisTask{id: "no-exec", lane: cfg.Name, priority: 1}
+	if err := l.Submit(context.Background(), task); err != nil {
+		t.Fatalf("submit failed: %v", err)
+	}
+
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		stats := l.Stats()
+		if stats.Failed >= 1 {
+			if stats.Completed != 0 {
+				t.Fatalf("expected completed=0 for missing binding, got %d", stats.Completed)
+			}
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+
+	t.Fatalf("expected failed count to increase, stats=%+v", l.Stats())
+}
+
+func TestRedisLane_Unit_FencingFailureReleasesDedup(t *testing.T) {
+	client := newMockRedisClient(t)
+
+	cfg := DefaultRedisConfig("fencing-dedup")
+	cfg.KeyPrefix = uniqueKeyPrefix("fencing-dedup")
+	cfg.EnableDedup = true
+	cfg.Capacity = 8
+	cfg.MaxConcurrency = 1
+	cfg.BlockTimeout = 20 * time.Millisecond
+
+	l, err := NewRedisLane(client, cfg)
+	if err != nil {
+		t.Fatalf("NewRedisLane failed: %v", err)
+	}
+	t.Cleanup(func() {
+		_ = l.Close(context.Background())
+	})
+
+	l.SetOwnershipGuard(&alwaysFailFencingGuard{})
+	l.Run()
+
+	taskID := "fencing-task"
+	task := &distributedNoopTask{
+		id:      taskID,
+		lane:    cfg.Name,
+		priority: 1,
+		shard:   "s1",
+		fencing: 7,
+	}
+	if err := l.Submit(context.Background(), task); err != nil {
+		t.Fatalf("first submit failed: %v", err)
+	}
+
+	deadline := time.Now().Add(time.Second)
+	for time.Now().Before(deadline) {
+		if l.Stats().Failed >= 1 {
+			break
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	if l.Stats().Failed < 1 {
+		t.Fatalf("expected first task failure from fencing, got stats=%+v", l.Stats())
+	}
+
+	if err := l.Submit(context.Background(), task); err != nil {
+		t.Fatalf("expected second submit with same task id to pass dedup after fencing cleanup, got %v", err)
+	}
+}
+
+func TestRedisLane_Unit_BackpressureUsesAuthoritativeQueueLength(t *testing.T) {
+	client := newMockRedisClient(t)
+
+	cfg := DefaultRedisConfig("authoritative")
+	cfg.KeyPrefix = uniqueKeyPrefix("authoritative")
+	cfg.Capacity = 1
+	cfg.Backpressure = Drop
+
+	l, err := NewRedisLane(client, cfg)
+	if err != nil {
+		t.Fatalf("NewRedisLane failed: %v", err)
+	}
+
+	// Simulate another producer filling Redis queue directly.
+	if err := client.LPush(context.Background(), l.queueKey, `{"id":"preloaded","lane":"authoritative"}`).Err(); err != nil {
+		t.Fatalf("preload queue failed: %v", err)
+	}
+
+	err = l.Submit(context.Background(), NewTaskFunc("new-task", cfg.Name, 1, func(context.Context) error { return nil }))
+	if !IsTaskDroppedError(err) {
+		t.Fatalf("expected TaskDroppedError from authoritative queue length, got %v", err)
+	}
+}
+
+type nonExecutableRedisTask struct {
+	id       string
+	lane     string
+	priority int
+}
+
+func (t *nonExecutableRedisTask) ID() string       { return t.id }
+func (t *nonExecutableRedisTask) Priority() int    { return t.priority }
+func (t *nonExecutableRedisTask) Lane() string     { return t.lane }
+
+type distributedNoopTask struct {
+	id       string
+	lane     string
+	priority int
+	shard    string
+	fencing  uint64
+}
+
+func (t *distributedNoopTask) ID() string       { return t.id }
+func (t *distributedNoopTask) Priority() int    { return t.priority }
+func (t *distributedNoopTask) Lane() string     { return t.lane }
+func (t *distributedNoopTask) Execute(context.Context) error { return nil }
+func (t *distributedNoopTask) ShardKey() string              { return t.shard }
+func (t *distributedNoopTask) FencingToken() uint64          { return t.fencing }
+
+type alwaysFailFencingGuard struct{}
+
+func (g *alwaysFailFencingGuard) CanConsume(context.Context, string) (bool, error) { return true, nil }
+
+func (g *alwaysFailFencingGuard) ValidateFencing(context.Context, string, uint64) error {
+	return fmt.Errorf("fencing rejected")
 }

@@ -159,6 +159,8 @@ func TestFallbackLane_IsRedisError(t *testing.T) {
 		{"lane closed", &LaneClosedError{LaneName: "test"}, false},
 		{"task dropped", &TaskDroppedError{LaneName: "test", TaskID: "t1"}, false},
 		{"lane full", &LaneFullError{LaneName: "test", Capacity: 10}, false},
+		{"task duplicate", &TaskDuplicateError{LaneName: "test", TaskID: "t1"}, false},
+		{"validation", fmt.Errorf("task cannot be nil"), false},
 		{"context canceled", context.Canceled, false},
 		{"context deadline", context.DeadlineExceeded, false},
 		{"redis error", fmt.Errorf("connection refused"), true},
