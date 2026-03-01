@@ -172,6 +172,44 @@ func TestTieredStorage_Delete(t *testing.T) {
 	}
 }
 
+func TestTieredStorage_DeleteInSession_CrossSessionBlocked(t *testing.T) {
+	ts, _, cleanup := setupTestStorage(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	entry := &MemoryEntry{ID: "e1", SessionID: "s1", Content: "hello"}
+	if err := ts.Store(ctx, entry); err != nil {
+		t.Fatal(err)
+	}
+
+	deleted, err := ts.DeleteInSession(ctx, "s2", "e1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if deleted {
+		t.Fatal("expected cross-session delete to be blocked")
+	}
+
+	got, err := ts.Get(ctx, "e1")
+	if err != nil {
+		t.Fatalf("expected entry to remain after blocked delete: %v", err)
+	}
+	if got.SessionID != "s1" {
+		t.Fatalf("entry session = %s, want s1", got.SessionID)
+	}
+
+	deleted, err = ts.DeleteInSession(ctx, "s1", "e1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !deleted {
+		t.Fatal("expected same-session delete to succeed")
+	}
+	if _, err := ts.Get(ctx, "e1"); err == nil {
+		t.Fatal("expected deleted entry to be missing")
+	}
+}
+
 func TestTieredStorage_ListBySession(t *testing.T) {
 	ts, _, cleanup := setupTestStorage(t)
 	defer cleanup()
@@ -213,5 +251,34 @@ func TestTieredStorage_DeleteBySession(t *testing.T) {
 	remaining, _ := ts.CountBySession(ctx, "s2")
 	if remaining != 1 {
 		t.Errorf("expected 1 remaining in s2, got %d", remaining)
+	}
+}
+
+func TestTieredStorage_All_ReturnsAcrossSessions(t *testing.T) {
+	ts, _, cleanup := setupTestStorage(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	ts.Store(ctx, &MemoryEntry{ID: "e1", SessionID: "s1", Content: "a"}) //nolint:errcheck
+	ts.Store(ctx, &MemoryEntry{ID: "e2", SessionID: "s1", Content: "b"}) //nolint:errcheck
+	ts.Store(ctx, &MemoryEntry{ID: "e3", SessionID: "s2", Content: "c"}) //nolint:errcheck
+
+	entries, err := ts.All(ctx)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(entries) != 3 {
+		t.Fatalf("expected 3 entries, got %d", len(entries))
+	}
+
+	sessionCounts := map[string]int{}
+	for _, e := range entries {
+		sessionCounts[e.SessionID]++
+	}
+	if sessionCounts["s1"] != 2 {
+		t.Fatalf("expected 2 entries for s1, got %d", sessionCounts["s1"])
+	}
+	if sessionCounts["s2"] != 1 {
+		t.Fatalf("expected 1 entry for s2, got %d", sessionCounts["s2"])
 	}
 }

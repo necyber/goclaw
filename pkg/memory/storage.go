@@ -15,11 +15,15 @@ import (
 type MemoryStorage interface {
 	Store(ctx context.Context, entry *MemoryEntry) error
 	Get(ctx context.Context, id string) (*MemoryEntry, error)
+	// Delete is an ID-only delete path kept for internal compatibility.
+	// Callers should prefer DeleteInSession to enforce session ownership.
 	Delete(ctx context.Context, id string) error
+	DeleteInSession(ctx context.Context, sessionID, id string) (bool, error)
 	ListBySession(ctx context.Context, sessionID string, limit, offset int) ([]*MemoryEntry, int, error)
 	CountBySession(ctx context.Context, sessionID string) (int, error)
 	DeleteBySession(ctx context.Context, sessionID string) (int, error)
 	AllBySession(ctx context.Context, sessionID string) ([]*MemoryEntry, error)
+	All(ctx context.Context) ([]*MemoryEntry, error)
 	Close() error
 }
 
@@ -142,6 +146,10 @@ func sessionPrefix(sessionID string) []byte {
 	return []byte(fmt.Sprintf("%s%s:", memoryKeyPrefix, sessionID))
 }
 
+func allPrefix() []byte {
+	return []byte(memoryKeyPrefix)
+}
+
 // Store persists a memory entry to Badger.
 func (s *L2Badger) Store(ctx context.Context, entry *MemoryEntry) error {
 	data, err := json.Marshal(entry)
@@ -183,6 +191,7 @@ func (s *L2Badger) Get(ctx context.Context, id string) (*MemoryEntry, error) {
 }
 
 // Delete removes a memory entry from Badger.
+// This is an ID-only delete path and should be treated as internal-only behavior.
 func (s *L2Badger) Delete(ctx context.Context, id string) error {
 	return s.db.Update(func(txn *badger.Txn) error {
 		// Scan to find the full key
@@ -201,6 +210,31 @@ func (s *L2Badger) Delete(ctx context.Context, id string) error {
 		}
 		return nil // Not found is not an error for delete
 	})
+}
+
+// DeleteInSession removes an entry only if it belongs to the provided session.
+func (s *L2Badger) DeleteInSession(ctx context.Context, sessionID, id string) (bool, error) {
+	if sessionID == "" || id == "" {
+		return false, nil
+	}
+
+	deleted := false
+	err := s.db.Update(func(txn *badger.Txn) error {
+		key := sessionKey(sessionID, id)
+		_, err := txn.Get(key)
+		if err == badger.ErrKeyNotFound {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		if err := txn.Delete(key); err != nil {
+			return err
+		}
+		deleted = true
+		return nil
+	})
+	return deleted, err
 }
 
 // ListBySession returns paginated entries for a session.
@@ -265,10 +299,19 @@ func (s *L2Badger) DeleteBySession(ctx context.Context, sessionID string) (int, 
 
 // AllBySession returns all entries for a session.
 func (s *L2Badger) AllBySession(ctx context.Context, sessionID string) ([]*MemoryEntry, error) {
+	return s.scanEntries(ctx, sessionPrefix(sessionID))
+}
+
+// All returns all entries across all sessions.
+func (s *L2Badger) All(ctx context.Context) ([]*MemoryEntry, error) {
+	return s.scanEntries(ctx, allPrefix())
+}
+
+func (s *L2Badger) scanEntries(ctx context.Context, prefix []byte) ([]*MemoryEntry, error) {
 	var entries []*MemoryEntry
 	err := s.db.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
-		opts.Prefix = sessionPrefix(sessionID)
+		opts.Prefix = prefix
 		it := txn.NewIterator(opts)
 		defer it.Close()
 
@@ -336,6 +379,16 @@ func (t *TieredStorage) Delete(ctx context.Context, id string) error {
 	return t.l2.Delete(ctx, id)
 }
 
+// DeleteInSession removes an entry only when session ownership matches.
+func (t *TieredStorage) DeleteInSession(ctx context.Context, sessionID, id string) (bool, error) {
+	deleted, err := t.l2.DeleteInSession(ctx, sessionID, id)
+	if !deleted || err != nil {
+		return deleted, err
+	}
+	t.l1.Delete(id)
+	return true, nil
+}
+
 // ListBySession delegates to L2 (L1 is a subset).
 func (t *TieredStorage) ListBySession(ctx context.Context, sessionID string, limit, offset int) ([]*MemoryEntry, int, error) {
 	return t.l2.ListBySession(ctx, sessionID, limit, offset)
@@ -362,6 +415,11 @@ func (t *TieredStorage) DeleteBySession(ctx context.Context, sessionID string) (
 // AllBySession delegates to L2.
 func (t *TieredStorage) AllBySession(ctx context.Context, sessionID string) ([]*MemoryEntry, error) {
 	return t.l2.AllBySession(ctx, sessionID)
+}
+
+// All returns all entries across all sessions.
+func (t *TieredStorage) All(ctx context.Context) ([]*MemoryEntry, error) {
+	return t.l2.All(ctx)
 }
 
 // Close delegates to L2.
