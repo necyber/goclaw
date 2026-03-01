@@ -196,6 +196,43 @@ func TestRecoverWorkflows_AggregatesErrorsAndContinues(t *testing.T) {
 	}
 }
 
+func TestRecoverWorkflows_RecoversAllRecoverableWorkflowsAcrossPages(t *testing.T) {
+	ctx := context.Background()
+	store := &orderedListStorage{Storage: memory.NewMemoryStorage()}
+
+	recoverable := 125
+	for i := 0; i < recoverable; i++ {
+		id := fmt.Sprintf("wf-batch-%03d", i)
+		status := workflowStatusPending
+		if i%2 == 0 {
+			status = workflowStatusRunning
+		}
+		wf := testWorkflowState(id, status)
+		if err := store.SaveWorkflow(ctx, wf); err != nil {
+			t.Fatalf("seed workflow %s failed: %v", id, err)
+		}
+	}
+	for i := 0; i < 8; i++ {
+		id := fmt.Sprintf("wf-terminal-%03d", i)
+		if err := store.SaveWorkflow(ctx, testWorkflowState(id, workflowStatusCompleted)); err != nil {
+			t.Fatalf("seed terminal workflow %s failed: %v", id, err)
+		}
+	}
+
+	eng, err := New(minConfig(), nil, store)
+	if err != nil {
+		t.Fatalf("failed to create engine: %v", err)
+	}
+	if err := eng.Start(ctx); err != nil {
+		t.Fatalf("failed to start engine: %v", err)
+	}
+	defer eng.Stop(context.Background())
+
+	waitForWorkflowCountByStatus(t, store, workflowStatusCompleted, recoverable+8, 6*time.Second)
+	waitForWorkflowCountByStatus(t, store, workflowStatusPending, 0, 3*time.Second)
+	waitForWorkflowCountByStatus(t, store, workflowStatusRunning, 0, 3*time.Second)
+}
+
 func TestPersistRecoveredWorkflowState_SynchronizesTaskRecords(t *testing.T) {
 	ctx := context.Background()
 	store := memory.NewMemoryStorage()
@@ -257,6 +294,58 @@ func TestPersistRecoveredWorkflowState_SynchronizesTaskRecords(t *testing.T) {
 	}
 }
 
+func TestGetTaskResultResponse_AfterRecoveryNormalization(t *testing.T) {
+	ctx := context.Background()
+	store := memory.NewMemoryStorage()
+	eng, err := New(minConfig(), nil, store)
+	if err != nil {
+		t.Fatalf("failed to create engine: %v", err)
+	}
+
+	runningStarted := time.Now().Add(-time.Minute).UTC()
+	wf := testWorkflowState("wf-normalized-result", workflowStatusRunning)
+	wf.StartedAt = timePtr(runningStarted)
+	task := wf.TaskStatus["task-1"]
+	task.Status = taskStatusRunning
+	task.StartedAt = timePtr(runningStarted)
+	task.CompletedAt = timePtr(time.Now().UTC())
+	task.Error = "stale runtime error"
+	task.Result = map[string]any{"stale": "value"}
+
+	if err := store.SaveWorkflow(ctx, wf); err != nil {
+		t.Fatalf("SaveWorkflow() error = %v", err)
+	}
+	if err := store.SaveTask(ctx, wf.ID, task); err != nil {
+		t.Fatalf("SaveTask() error = %v", err)
+	}
+
+	loaded, err := store.GetWorkflow(ctx, wf.ID)
+	if err != nil {
+		t.Fatalf("GetWorkflow() error = %v", err)
+	}
+	eng.normalizeWorkflowForRecovery(loaded)
+	if err := eng.persistRecoveredWorkflowState(ctx, loaded); err != nil {
+		t.Fatalf("persistRecoveredWorkflowState() error = %v", err)
+	}
+
+	resp, err := eng.GetTaskResultResponse(ctx, wf.ID, task.ID)
+	if err != nil {
+		t.Fatalf("GetTaskResultResponse() error = %v", err)
+	}
+	if resp.Status != taskStatusPending {
+		t.Fatalf("task status = %s, want %s", resp.Status, taskStatusPending)
+	}
+	if resp.Result != nil {
+		t.Fatalf("task result = %v, want nil", resp.Result)
+	}
+	if resp.Error != "" {
+		t.Fatalf("task error = %q, want empty", resp.Error)
+	}
+	if resp.CompletedAt != nil {
+		t.Fatalf("task completed_at = %v, want nil", resp.CompletedAt)
+	}
+}
+
 func testWorkflowState(id, status string) *storage.WorkflowState {
 	now := time.Now().UTC()
 	task := &storage.TaskState{
@@ -280,6 +369,32 @@ func testWorkflowState(id, status string) *storage.WorkflowState {
 		},
 		CreatedAt: now,
 	}
+}
+
+func waitForWorkflowCountByStatus(t *testing.T, store storage.Storage, status string, want int, timeout time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		workflows, _, err := store.ListWorkflows(context.Background(), &storage.WorkflowFilter{
+			Status: []string{status},
+			Limit:  0,
+			Offset: 0,
+		})
+		if err == nil && len(workflows) == want {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	workflows, _, err := store.ListWorkflows(context.Background(), &storage.WorkflowFilter{
+		Status: []string{status},
+		Limit:  0,
+		Offset: 0,
+	})
+	if err != nil {
+		t.Fatalf("ListWorkflows(status=%s) error: %v", status, err)
+	}
+	t.Fatalf("workflows with status %s = %d, want %d", status, len(workflows), want)
 }
 
 func waitForWorkflowStatus(t *testing.T, store storage.Storage, workflowID, want string, timeout time.Duration) {

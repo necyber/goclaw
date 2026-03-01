@@ -31,6 +31,6 @@
 
 ## 6. Verification and Regression Safety
 
-- [ ] 6.1 Extend engine tests for recovery resubmission and full-batch recovery coverage (>1 page of recoverable workflows).
-- [ ] 6.2 Extend API/runtime tests to confirm task-result reads are consistent with normalized post-recovery task records.
-- [ ] 6.3 Run `go test ./pkg/storage/... ./pkg/engine/... ./cmd/goclaw/...` and resolve new regressions introduced by this change.
+- [x] 6.1 Extend engine tests for recovery resubmission and full-batch recovery coverage (>1 page of recoverable workflows).
+- [x] 6.2 Extend API/runtime tests to confirm task-result reads are consistent with normalized post-recovery task records.
+- [x] 6.3 Run `go test ./pkg/storage/... ./pkg/engine/... ./cmd/goclaw/...` and resolve new regressions introduced by this change.
