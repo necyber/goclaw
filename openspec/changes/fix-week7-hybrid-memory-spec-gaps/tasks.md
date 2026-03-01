@@ -6,10 +6,10 @@
 
 ## 2. Memory Hub Correctness
 
-- [ ] 2.1 Update `MemoryHub.Forget` to enforce session ownership and return actual delete outcomes.
-- [ ] 2.2 Update decay processing to use global entry enumeration and perform per-session safe forget.
-- [ ] 2.3 Add startup bootstrap to rebuild vector and BM25 indexes from persisted entries before retrieval.
-- [ ] 2.4 Add hub tests for cross-session forget safety, full-corpus decay coverage, and restart index rebuild.
+- [x] 2.1 Update `MemoryHub.Forget` to enforce session ownership and return actual delete outcomes.
+- [x] 2.2 Update decay processing to use global entry enumeration and perform per-session safe forget.
+- [x] 2.3 Add startup bootstrap to rebuild vector and BM25 indexes from persisted entries before retrieval.
+- [x] 2.4 Add hub tests for cross-session forget safety, full-corpus decay coverage, and restart index rebuild.
 
 ## 3. Retrieval Mode Contract
 

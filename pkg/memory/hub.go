@@ -2,6 +2,7 @@ package memory
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -77,11 +78,49 @@ func (h *MemoryHub) Start(ctx context.Context) error {
 		"decay_interval", h.cfg.DecayInterval,
 	)
 
+	if err := h.rebuildIndexes(ctx); err != nil {
+		return err
+	}
+
 	// Start the decay loop
 	h.decay.StartDecayLoop(ctx, h.processDecay)
 	h.started = true
 
 	h.logger.Info("memory hub started")
+	return nil
+}
+
+func (h *MemoryHub) rebuildIndexes(ctx context.Context) error {
+	entries, err := h.storage.All(ctx)
+	if err != nil {
+		return fmt.Errorf("memory: rebuild indexes failed: %w", err)
+	}
+
+	h.vector = NewVectorIndex(h.cfg.VectorDimension)
+	h.bm25 = NewBM25Index(h.cfg.BM25.K1, h.cfg.BM25.B)
+	h.hybrid = NewHybridRetriever(h.vector, h.bm25, h.cfg.VectorWeight, h.cfg.BM25Weight)
+
+	reindexedVector := 0
+	reindexedBM25 := 0
+	for _, entry := range entries {
+		if len(entry.Vector) > 0 {
+			if err := h.vector.AddVector(entry.ID, entry.SessionID, entry.Vector); err != nil {
+				h.logger.Warn("failed to rebuild vector index entry", "entry_id", entry.ID, "error", err)
+			} else {
+				reindexedVector++
+			}
+		}
+		if entry.Content != "" {
+			h.bm25.IndexDocument(entry.ID, entry.SessionID, entry.Content)
+			reindexedBM25++
+		}
+	}
+
+	h.logger.Info("memory indexes rebuilt",
+		"entries", len(entries),
+		"vector_indexed", reindexedVector,
+		"bm25_indexed", reindexedBM25,
+	)
 	return nil
 }
 
@@ -194,19 +233,32 @@ func (h *MemoryHub) Retrieve(ctx context.Context, sessionID string, query Query)
 }
 
 // Forget deletes specific memory entries by ID.
-func (h *MemoryHub) Forget(ctx context.Context, sessionID string, ids []string) error {
+func (h *MemoryHub) Forget(ctx context.Context, sessionID string, ids []string) (int, error) {
 	if sessionID == "" {
-		return ErrInvalidSessionID
+		return 0, ErrInvalidSessionID
 	}
 
+	deletedCount := 0
+	var deleteErrs []error
 	for _, id := range ids {
+		deleted, err := h.storage.DeleteInSession(ctx, sessionID, id)
+		if err != nil {
+			h.logger.Warn("failed to delete entry", "entry_id", id, "error", err)
+			deleteErrs = append(deleteErrs, err)
+			continue
+		}
+		if !deleted {
+			continue
+		}
 		h.vector.DeleteVector(id)
 		h.bm25.RemoveDocument(id)
-		if err := h.storage.Delete(ctx, id); err != nil {
-			h.logger.Warn("failed to delete entry", "entry_id", id, "error", err)
-		}
+		deletedCount++
 	}
-	return nil
+
+	if len(deleteErrs) > 0 {
+		return deletedCount, fmt.Errorf("memory: forget failed: %w", errors.Join(deleteErrs...))
+	}
+	return deletedCount, nil
 }
 
 // ForgetByThreshold deletes entries with strength below the threshold.
@@ -225,12 +277,16 @@ func (h *MemoryHub) ForgetByThreshold(ctx context.Context, sessionID string, thr
 		// Recalculate strength before checking
 		h.decay.UpdateStrength(entry)
 		if entry.Strength < threshold {
-			h.vector.DeleteVector(entry.ID)
-			h.bm25.RemoveDocument(entry.ID)
-			if err := h.storage.Delete(ctx, entry.ID); err != nil {
+			deleted, err := h.storage.DeleteInSession(ctx, sessionID, entry.ID)
+			if err != nil {
 				h.logger.Warn("failed to delete weak entry", "entry_id", entry.ID, "error", err)
 				continue
 			}
+			if !deleted {
+				continue
+			}
+			h.vector.DeleteVector(entry.ID)
+			h.bm25.RemoveDocument(entry.ID)
 			count++
 		}
 	}
@@ -302,10 +358,9 @@ func (h *MemoryHub) processDecay(ctx context.Context) error {
 	// We need to iterate all sessions. Since we don't track sessions explicitly,
 	// we scan all entries via Badger prefix scan.
 	// For now, we process all entries in the L2 store.
-	entries, err := h.storage.l2.AllBySession(ctx, "")
+	entries, err := h.storage.All(ctx)
 	if err != nil {
-		// If empty session returns nothing, that's fine
-		return nil
+		return err
 	}
 
 	// Group by session for isolation
@@ -326,12 +381,13 @@ func (h *MemoryHub) processDecay(ctx context.Context) error {
 
 		// Delete forgotten entries
 		if len(forgotten) > 0 {
-			if err := h.Forget(ctx, sessionID, forgotten); err != nil {
+			deletedCount, err := h.Forget(ctx, sessionID, forgotten)
+			if err != nil {
 				h.logger.Warn("failed to forget entries", "session_id", sessionID, "error", err)
 			}
 			h.logger.Info("memory decay: forgotten entries",
 				"session_id", sessionID,
-				"count", len(forgotten),
+				"count", deletedCount,
 			)
 		}
 	}

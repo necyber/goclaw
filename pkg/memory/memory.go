@@ -27,7 +27,8 @@ type Hub interface {
 	Retrieve(ctx context.Context, sessionID string, query Query) ([]*RetrievalResult, error)
 
 	// Forget deletes specific memory entries by ID.
-	Forget(ctx context.Context, sessionID string, ids []string) error
+	// Returns the number of successfully deleted entries.
+	Forget(ctx context.Context, sessionID string, ids []string) (int, error)
 
 	// ForgetByThreshold deletes entries with strength below the threshold.
 	// Returns the number of deleted entries.

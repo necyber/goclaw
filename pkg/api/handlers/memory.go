@@ -154,7 +154,7 @@ func (h *MemoryHandler) DeleteMemory(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := h.hub.Forget(ctx, sessionID, req.IDs); err != nil {
+	if _, err := h.hub.Forget(ctx, sessionID, req.IDs); err != nil {
 		h.logger.Error("Failed to delete memory", "session_id", sessionID, "error", err)
 		response.Error(w, http.StatusInternalServerError, response.ErrCodeInternalServer, "Failed to delete memory", getRequestID(ctx))
 		return

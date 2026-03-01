@@ -113,14 +113,65 @@ func TestHub_Forget(t *testing.T) {
 	hub.Start(ctx)
 
 	id, _ := hub.Memorize(ctx, "s1", "to be forgotten", nil, nil)
-	err := hub.Forget(ctx, "s1", []string{id})
+	deleted, err := hub.Forget(ctx, "s1", []string{id})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if deleted != 1 {
+		t.Fatalf("expected 1 deleted entry, got %d", deleted)
 	}
 
 	count, _ := hub.Count(ctx, "s1")
 	if count != 0 {
 		t.Errorf("expected 0 entries, got %d", count)
+	}
+}
+
+func TestHub_Forget_CrossSessionBlocked(t *testing.T) {
+	hub, cleanup := setupTestHub(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	hub.Start(ctx)
+
+	idS1, err := hub.Memorize(ctx, "s1", "session one", nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	idS2, err := hub.Memorize(ctx, "s2", "session two", nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	deleted, err := hub.Forget(ctx, "s1", []string{idS2})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if deleted != 0 {
+		t.Fatalf("expected cross-session delete count 0, got %d", deleted)
+	}
+
+	c1, err := hub.Count(ctx, "s1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c1 != 1 {
+		t.Fatalf("expected s1 count 1, got %d", c1)
+	}
+	c2, err := hub.Count(ctx, "s2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c2 != 1 {
+		t.Fatalf("expected s2 count 1, got %d", c2)
+	}
+
+	deleted, err = hub.Forget(ctx, "s1", []string{idS1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if deleted != 1 {
+		t.Fatalf("expected same-session delete count 1, got %d", deleted)
 	}
 }
 
@@ -311,5 +362,120 @@ func TestHub_InvalidQuery(t *testing.T) {
 	_, err := hub.Retrieve(ctx, "s1", Query{})
 	if err != ErrInvalidQuery {
 		t.Errorf("expected ErrInvalidQuery, got %v", err)
+	}
+}
+
+func TestHub_ProcessDecay_FullCorpusCoverage(t *testing.T) {
+	hub, cleanup := setupTestHub(t)
+	defer cleanup()
+
+	ctx := context.Background()
+	if err := hub.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	id1, err := hub.Memorize(ctx, "s1", "decay s1", nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	id2, err := hub.Memorize(ctx, "s2", "decay s2", nil, nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	e1, err := hub.storage.Get(ctx, id1)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e1.Strength = 0.01
+	if err := hub.storage.Store(ctx, e1); err != nil {
+		t.Fatal(err)
+	}
+	e2, err := hub.storage.Get(ctx, id2)
+	if err != nil {
+		t.Fatal(err)
+	}
+	e2.Strength = 0.01
+	if err := hub.storage.Store(ctx, e2); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := hub.processDecay(ctx); err != nil {
+		t.Fatalf("processDecay() error = %v", err)
+	}
+
+	c1, err := hub.Count(ctx, "s1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	c2, err := hub.Count(ctx, "s2")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if c1 != 0 || c2 != 0 {
+		t.Fatalf("expected decay to remove weak entries across sessions, got s1=%d s2=%d", c1, c2)
+	}
+}
+
+func TestHub_Start_RebuildsIndexesFromPersistedEntries(t *testing.T) {
+	dir, err := os.MkdirTemp("", "goclaw-memory-rebuild-*")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer os.RemoveAll(dir) //nolint:errcheck
+
+	opts := dgbadger.DefaultOptions(dir)
+	opts.Logger = nil
+	db, err := dgbadger.Open(opts)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close() //nolint:errcheck
+
+	cfg := &config.MemoryConfig{
+		Enabled:          true,
+		VectorDimension:  3,
+		VectorWeight:     0.7,
+		BM25Weight:       0.3,
+		L1CacheSize:      100,
+		ForgetThreshold:  0.1,
+		DecayInterval:    time.Hour,
+		DefaultStability: 24.0,
+		BM25:             config.BM25Config{K1: 1.5, B: 0.75},
+	}
+
+	ctx := context.Background()
+
+	hub1 := NewMemoryHub(cfg, NewTieredStorage(NewL1Cache(100), NewL2Badger(db)), nil)
+	if err := hub1.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	if _, err := hub1.Memorize(ctx, "s1", "restart sensitive content", []float32{1, 0, 0}, nil); err != nil {
+		t.Fatal(err)
+	}
+	if err := hub1.Stop(ctx); err != nil {
+		t.Fatal(err)
+	}
+
+	hub2 := NewMemoryHub(cfg, NewTieredStorage(NewL1Cache(100), NewL2Badger(db)), nil)
+	if err := hub2.Start(ctx); err != nil {
+		t.Fatal(err)
+	}
+	defer hub2.Stop(ctx) //nolint:errcheck
+
+	textResults, err := hub2.Retrieve(ctx, "s1", Query{Text: "restart sensitive", TopK: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(textResults) != 1 {
+		t.Fatalf("expected rebuilt BM25 index to return 1 result, got %d", len(textResults))
+	}
+
+	vectorResults, err := hub2.Retrieve(ctx, "s1", Query{Vector: []float32{1, 0, 0}, Mode: ModeVector, TopK: 1})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(vectorResults) != 1 {
+		t.Fatalf("expected rebuilt vector index to return 1 result, got %d", len(vectorResults))
 	}
 }
