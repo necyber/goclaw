@@ -196,6 +196,67 @@ func TestRecoverWorkflows_AggregatesErrorsAndContinues(t *testing.T) {
 	}
 }
 
+func TestPersistRecoveredWorkflowState_SynchronizesTaskRecords(t *testing.T) {
+	ctx := context.Background()
+	store := memory.NewMemoryStorage()
+	eng, err := New(minConfig(), nil, store)
+	if err != nil {
+		t.Fatalf("failed to create engine: %v", err)
+	}
+
+	runningStarted := time.Now().Add(-time.Minute).UTC()
+	wf := testWorkflowState("wf-sync", workflowStatusRunning)
+	wf.StartedAt = timePtr(runningStarted)
+	wf.CompletedAt = timePtr(time.Now().UTC())
+	wf.Error = "stale workflow error"
+	wf.TaskStatus["task-1"].Status = taskStatusRunning
+	wf.TaskStatus["task-1"].StartedAt = timePtr(runningStarted)
+	wf.TaskStatus["task-1"].CompletedAt = timePtr(time.Now().UTC())
+	wf.TaskStatus["task-1"].Error = "stale task error"
+	wf.TaskStatus["task-1"].Result = map[string]any{"stale": true}
+
+	if err := store.SaveWorkflow(ctx, wf); err != nil {
+		t.Fatalf("SaveWorkflow() error = %v", err)
+	}
+	if err := store.SaveTask(ctx, wf.ID, wf.TaskStatus["task-1"]); err != nil {
+		t.Fatalf("SaveTask() error = %v", err)
+	}
+
+	loaded, err := store.GetWorkflow(ctx, wf.ID)
+	if err != nil {
+		t.Fatalf("GetWorkflow() error = %v", err)
+	}
+	eng.normalizeWorkflowForRecovery(loaded)
+	if err := eng.persistRecoveredWorkflowState(ctx, loaded); err != nil {
+		t.Fatalf("persistRecoveredWorkflowState() error = %v", err)
+	}
+
+	persistedWorkflow, err := store.GetWorkflow(ctx, wf.ID)
+	if err != nil {
+		t.Fatalf("GetWorkflow() error = %v", err)
+	}
+	if persistedWorkflow.Status != workflowStatusPending {
+		t.Fatalf("workflow status = %s, want %s", persistedWorkflow.Status, workflowStatusPending)
+	}
+	if persistedWorkflow.StartedAt != nil || persistedWorkflow.CompletedAt != nil || persistedWorkflow.Error != "" {
+		t.Fatalf("workflow runtime fields not cleared: %+v", persistedWorkflow)
+	}
+
+	persistedTask, err := store.GetTask(ctx, wf.ID, "task-1")
+	if err != nil {
+		t.Fatalf("GetTask() error = %v", err)
+	}
+	if persistedTask.Status != taskStatusPending {
+		t.Fatalf("task status = %s, want %s", persistedTask.Status, taskStatusPending)
+	}
+	if persistedTask.StartedAt != nil || persistedTask.CompletedAt != nil || persistedTask.Error != "" {
+		t.Fatalf("task runtime fields not cleared: %+v", persistedTask)
+	}
+	if persistedTask.Result != nil {
+		t.Fatalf("task result = %v, want nil", persistedTask.Result)
+	}
+}
+
 func testWorkflowState(id, status string) *storage.WorkflowState {
 	now := time.Now().UTC()
 	task := &storage.TaskState{

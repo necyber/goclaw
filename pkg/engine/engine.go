@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"path/filepath"
+	"sort"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -477,24 +478,8 @@ func (e *Engine) RecoverWorkflows(ctx context.Context) error {
 			continue
 		}
 
-		// Reset running tasks to pending for re-execution
-		for _, task := range wf.TaskStatus {
-			if task.Status == "running" {
-				task.Status = "pending"
-				task.StartedAt = nil
-				task.CompletedAt = nil
-				task.Error = ""
-			}
-		}
-
-		// Reset workflow status to pending
-		wf.Status = "pending"
-		wf.StartedAt = nil
-		wf.CompletedAt = nil
-		wf.Error = ""
-
-		// Save updated workflow state
-		if err := e.storage.SaveWorkflow(ctx, wf); err != nil {
+		e.normalizeWorkflowForRecovery(wf)
+		if err := e.persistRecoveredWorkflowState(ctx, wf); err != nil {
 			e.logger.Error("failed to reset workflow for recovery",
 				"workflow_id", wf.ID,
 				"error", err)
@@ -571,6 +556,45 @@ func (e *Engine) listRecoverableWorkflows(ctx context.Context, batchSize int) ([
 	}
 
 	return workflows, nil
+}
+
+func (e *Engine) normalizeWorkflowForRecovery(wf *storage.WorkflowState) {
+	for _, task := range wf.TaskStatus {
+		if task.Status != taskStatusRunning {
+			continue
+		}
+		task.Status = taskStatusPending
+		task.StartedAt = nil
+		task.CompletedAt = nil
+		task.Error = ""
+		task.Result = nil
+	}
+
+	wf.Status = workflowStatusPending
+	wf.StartedAt = nil
+	wf.CompletedAt = nil
+	wf.Error = ""
+}
+
+func (e *Engine) persistRecoveredWorkflowState(ctx context.Context, wf *storage.WorkflowState) error {
+	if err := e.storage.SaveWorkflow(ctx, wf); err != nil {
+		return err
+	}
+
+	taskIDs := make([]string, 0, len(wf.TaskStatus))
+	for taskID := range wf.TaskStatus {
+		taskIDs = append(taskIDs, taskID)
+	}
+	sort.Strings(taskIDs)
+
+	for _, taskID := range taskIDs {
+		taskState := wf.TaskStatus[taskID]
+		if err := e.storage.SaveTask(ctx, wf.ID, taskState); err != nil {
+			return fmt.Errorf("persist task %s: %w", taskID, err)
+		}
+	}
+
+	return nil
 }
 
 // State returns the current engine state as a string.

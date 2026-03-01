@@ -7,9 +7,9 @@
 
 ## 2. Workflow/Task Persistence Consistency
 
-- [ ] 2.1 Update recovery normalization to persist task-level state updates via storage task APIs alongside workflow snapshot updates.
-- [ ] 2.2 Ensure task runtime fields (started/completed/error) are cleared consistently when resetting running tasks to pending.
-- [ ] 2.3 Add regression coverage for workflow/task consistency after simulated restart and recovery.
+- [x] 2.1 Update recovery normalization to persist task-level state updates via storage task APIs alongside workflow snapshot updates.
+- [x] 2.2 Ensure task runtime fields (started/completed/error) are cleared consistently when resetting running tasks to pending.
+- [x] 2.3 Add regression coverage for workflow/task consistency after simulated restart and recovery.
 
 ## 3. Badger Index Correctness
 
