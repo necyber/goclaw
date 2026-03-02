@@ -186,6 +186,37 @@ func TestChannelLane_WaitDurationRecordedForStandardTask(t *testing.T) {
 	t.Fatal("expected wait duration to be recorded for standard submission")
 }
 
+func TestChannelLane_WaitDurationRecordedForRedirectFastPathTask(t *testing.T) {
+	l, err := New(&Config{
+		Name:           "redirect-wait",
+		Capacity:       4,
+		MaxConcurrency: 1,
+		Backpressure:   Redirect,
+		RedirectLane:   "unused",
+	})
+	if err != nil {
+		t.Fatalf("create lane failed: %v", err)
+	}
+	defer l.Close(context.Background())
+	l.Run()
+
+	metrics := newOutcomeMetricsStub()
+	l.SetMetrics(metrics)
+
+	if err := l.Submit(context.Background(), NewTaskFunc("r1", "redirect-wait", 1, nil)); err != nil {
+		t.Fatalf("submit failed: %v", err)
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for time.Now().Before(deadline) {
+		if metrics.waitCount() > 0 {
+			return
+		}
+		time.Sleep(10 * time.Millisecond)
+	}
+	t.Fatal("expected wait duration to be recorded for redirect fast-path submission")
+}
+
 func TestChannelLane_RedirectFailureIsNotClassifiedAsRedirected(t *testing.T) {
 	target, err := New(&Config{
 		Name:           "redirect-fail-target",

@@ -646,6 +646,27 @@ func TestValidation_InvalidPort(t *testing.T) {
 	}
 }
 
+func TestValidation_InvalidMetricsPath(t *testing.T) {
+	tests := []struct {
+		name string
+		path string
+	}{
+		{name: "empty path", path: ""},
+		{name: "missing leading slash", path: "metrics"},
+		{name: "spaces only", path: "   "},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := DefaultConfig()
+			cfg.Metrics.Path = tt.path
+			if err := cfg.Validate(); err == nil {
+				t.Fatalf("expected validation error for metrics.path=%q", tt.path)
+			}
+		})
+	}
+}
+
 // TestCustomValidators tests the custom validator functions directly
 func TestCustomValidators(t *testing.T) {
 	t.Run("validateEnvironment", func(t *testing.T) {

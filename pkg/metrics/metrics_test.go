@@ -328,6 +328,60 @@ func TestLaneSubmissionOutcomeMetricsRegistered(t *testing.T) {
 	}
 }
 
+func TestTaskTypeMetricsLabelsAndFallback(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Enabled = true
+	m := NewManager(cfg)
+
+	m.RecordTaskExecution("completed", "function")
+	m.RecordTaskDuration("function", 20*time.Millisecond)
+	m.RecordTaskRetry("function")
+	m.RecordTaskExecution("failed", "")
+
+	req := httptest.NewRequest("GET", "/metrics", nil)
+	w := httptest.NewRecorder()
+	m.Handler().ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	if !contains(body, `task_type="function"`) {
+		t.Fatalf("expected task_type=function label in output")
+	}
+	if !contains(body, `task_type="unknown"`) {
+		t.Fatalf("expected deterministic unknown fallback task_type label in output")
+	}
+}
+
+func TestLabelCardinalityGuardDropsExcessValues(t *testing.T) {
+	cfg := DefaultConfig()
+	cfg.Enabled = true
+	m := NewManager(cfg)
+
+	for i := 0; i < defaultLabelCardinalityLimit+5; i++ {
+		path := "/api/v1/workflows/token-" + time.Unix(int64(i), 0).UTC().Format("20060102150405")
+		m.RecordHTTPRequest("GET", path, "2xx", time.Millisecond)
+	}
+
+	req := httptest.NewRequest("GET", "/metrics", nil)
+	w := httptest.NewRecorder()
+	m.Handler().ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("expected status 200, got %d", w.Code)
+	}
+
+	body := w.Body.String()
+	if !contains(body, "metrics_label_values_dropped_total") {
+		t.Fatalf("expected dropped-label counter metric in output")
+	}
+	if !contains(body, `metric="http_requests_total"`) || !contains(body, `label="path"`) {
+		t.Fatalf("expected dropped-label counter labels for http path")
+	}
+}
+
 func TestSagaMetricsRegistered(t *testing.T) {
 	cfg := DefaultConfig()
 	cfg.Enabled = true

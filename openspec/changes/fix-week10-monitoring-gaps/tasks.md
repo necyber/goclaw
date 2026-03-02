@@ -22,12 +22,12 @@
 
 ## 4. Tests and Conformance Coverage
 
-- [ ] 4.1 Add lane tests proving redirect fast-path submissions still produce wait duration metrics.
-- [ ] 4.2 Add task metrics tests proving `task_type` labels are emitted and bounded fallback is deterministic.
-- [ ] 4.3 Add workflow metrics tests for pending/running gauge increments and decrements across terminal branches.
-- [ ] 4.4 Add HTTP middleware tests for status-class normalization and extended dynamic-path normalization.
-- [ ] 4.5 Add metrics manager tests for cardinality-limit behavior, warning/drop behavior, and dropped-label counters.
-- [ ] 4.6 Add config validation tests for invalid metrics path values.
+- [x] 4.1 Add lane tests proving redirect fast-path submissions still produce wait duration metrics.
+- [x] 4.2 Add task metrics tests proving `task_type` labels are emitted and bounded fallback is deterministic.
+- [x] 4.3 Add workflow metrics tests for pending/running gauge increments and decrements across terminal branches.
+- [x] 4.4 Add HTTP middleware tests for status-class normalization and extended dynamic-path normalization.
+- [x] 4.5 Add metrics manager tests for cardinality-limit behavior, warning/drop behavior, and dropped-label counters.
+- [x] 4.6 Add config validation tests for invalid metrics path values.
 
 ## 5. Documentation and Compatibility Notes
 

@@ -16,6 +16,9 @@ type captureMetrics struct {
 	mu                 sync.Mutex
 	workflowSubmission map[string]int
 	taskExecution      map[string]int
+	taskTypes          map[string]int
+	activeInc          map[string]int
+	activeDec          map[string]int
 	taskRetryCount     int
 }
 
@@ -23,6 +26,9 @@ func newCaptureMetrics() *captureMetrics {
 	return &captureMetrics{
 		workflowSubmission: make(map[string]int),
 		taskExecution:      make(map[string]int),
+		taskTypes:          make(map[string]int),
+		activeInc:          make(map[string]int),
+		activeDec:          make(map[string]int),
 	}
 }
 
@@ -36,13 +42,21 @@ func (m *captureMetrics) RecordWorkflowDuration(status string, duration time.Dur
 	_ = status
 	_ = duration
 }
-func (m *captureMetrics) IncActiveWorkflows(status string) { _ = status }
-func (m *captureMetrics) DecActiveWorkflows(status string) { _ = status }
+func (m *captureMetrics) IncActiveWorkflows(status string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.activeInc[status]++
+}
+func (m *captureMetrics) DecActiveWorkflows(status string) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.activeDec[status]++
+}
 func (m *captureMetrics) RecordTaskExecution(status string, taskType string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	_ = taskType
 	m.taskExecution[status]++
+	m.taskTypes[taskType]++
 }
 func (m *captureMetrics) RecordTaskDuration(taskType string, duration time.Duration) {
 	_ = taskType
@@ -70,6 +84,16 @@ func (m *captureMetrics) taskCount(status string) int {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	return m.taskExecution[status]
+}
+func (m *captureMetrics) activeNet(status string) int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.activeInc[status] - m.activeDec[status]
+}
+func (m *captureMetrics) taskTypeCount(taskType string) int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.taskTypes[taskType]
 }
 
 type verifyingBroadcaster struct {
@@ -199,13 +223,23 @@ func TestSubmitWorkflowRuntime_PersistsAndEmitsTransitions(t *testing.T) {
 	if metrics.taskCount("completed") != 1 {
 		t.Fatalf("expected one completed task metric, got %d", metrics.taskCount("completed"))
 	}
+	if metrics.taskTypeCount("function") != 1 {
+		t.Fatalf("expected task_type=function metric, got %d", metrics.taskTypeCount("function"))
+	}
+	if metrics.activeNet("pending") != 0 {
+		t.Fatalf("expected pending active gauge to balance to 0, got %d", metrics.activeNet("pending"))
+	}
+	if metrics.activeNet("running") != 0 {
+		t.Fatalf("expected running active gauge to balance to 0, got %d", metrics.activeNet("running"))
+	}
 }
 
 func TestSubmitWorkflowRuntime_CancelPrecedence(t *testing.T) {
 	cfg := minConfig()
 	store := memory.NewMemoryStorage()
+	metrics := newCaptureMetrics()
 
-	eng, err := New(cfg, nil, store)
+	eng, err := New(cfg, nil, store, WithMetrics(metrics))
 	if err != nil {
 		t.Fatalf("failed to create engine: %v", err)
 	}
@@ -250,6 +284,12 @@ func TestSubmitWorkflowRuntime_CancelPrecedence(t *testing.T) {
 	}
 	if taskResp.Status != taskStatusCancelled {
 		t.Fatalf("task status = %s, want %s", taskResp.Status, taskStatusCancelled)
+	}
+	if metrics.activeNet("pending") != 0 {
+		t.Fatalf("expected pending active gauge to balance to 0 after cancel, got %d", metrics.activeNet("pending"))
+	}
+	if metrics.activeNet("running") != 0 {
+		t.Fatalf("expected running active gauge to balance to 0 after cancel, got %d", metrics.activeNet("running"))
 	}
 }
 
