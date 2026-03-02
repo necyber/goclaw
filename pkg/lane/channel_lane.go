@@ -195,8 +195,9 @@ func (l *ChannelLane) submitDrop(task Task) error {
 
 // submitRedirect redirects to another lane if full.
 func (l *ChannelLane) submitRedirect(ctx context.Context, task Task) error {
+	qt := newQueuedTask(task)
 	select {
-	case l.taskCh <- task:
+	case l.taskCh <- qt:
 		l.pending.Add(1)
 		l.recordAccepted()
 		l.metrics.IncQueueDepth(l.config.Name)

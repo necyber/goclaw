@@ -7,11 +7,11 @@
 
 ## 2. Lane and Engine Lifecycle Instrumentation Fixes
 
-- [ ] 2.1 Update `ChannelLane` redirect acceptance path to use the same enqueue wrapper contract as other accepted paths.
-- [ ] 2.2 Add/adjust lane metrics recording to ensure wait duration is emitted for redirect fast-path accepted tasks.
-- [ ] 2.3 Update workflow lifecycle instrumentation to track `workflow_active_count{status="pending"}` transitions.
-- [ ] 2.4 Ensure pending/running active gauges remain balanced for success, failure, cancellation, and pre-run failure paths.
-- [ ] 2.5 Resolve task type from runtime task metadata and pass normalized `task_type` to task metrics calls.
+- [x] 2.1 Update `ChannelLane` redirect acceptance path to use the same enqueue wrapper contract as other accepted paths.
+- [x] 2.2 Add/adjust lane metrics recording to ensure wait duration is emitted for redirect fast-path accepted tasks.
+- [x] 2.3 Update workflow lifecycle instrumentation to track `workflow_active_count{status="pending"}` transitions.
+- [x] 2.4 Ensure pending/running active gauges remain balanced for success, failure, cancellation, and pre-run failure paths.
+- [x] 2.5 Resolve task type from runtime task metadata and pass normalized `task_type` to task metrics calls.
 
 ## 3. HTTP Metrics Normalization and Safety
 

@@ -47,6 +47,7 @@ func (e *Engine) SubmitWorkflowRuntime(ctx context.Context, req *models.Workflow
 		}
 	}
 	e.metrics.RecordWorkflowSubmission(workflowStatusPending)
+	e.metrics.IncActiveWorkflows(workflowStatusPending)
 	e.emitWorkflowStateChanged(wfState.ID, wfState.Name, "", wfState.Status)
 
 	e.logger.Info("workflow submitted", "id", wfState.ID, "name", wfState.Name, "tasks", len(wfState.Tasks))
@@ -318,6 +319,9 @@ func (e *Engine) transitionWorkflow(exec *workflowExecution, newStatus, errMsg s
 	e.emitWorkflowStateChanged(exec.wfState.ID, exec.wfState.Name, oldStatus, newStatus)
 
 	if newStatus == workflowStatusRunning {
+		if isPendingLikeWorkflowStatus(oldStatus) {
+			e.metrics.DecActiveWorkflows(workflowStatusPending)
+		}
 		e.metrics.IncActiveWorkflows(workflowStatusRunning)
 	}
 	if oldStatus == workflowStatusRunning && isTerminalWorkflowStatus(newStatus) {
@@ -328,6 +332,9 @@ func (e *Engine) transitionWorkflow(exec *workflowExecution, newStatus, errMsg s
 		}
 		e.metrics.RecordWorkflowDuration(workflowMetricLabel(newStatus, errMsg), now.Sub(started))
 		e.metrics.RecordWorkflowSubmission(workflowMetricLabel(newStatus, errMsg))
+	}
+	if isPendingLikeWorkflowStatus(oldStatus) && isTerminalWorkflowStatus(newStatus) {
+		e.metrics.DecActiveWorkflows(workflowStatusPending)
 	}
 
 	return nil
@@ -371,6 +378,7 @@ func (e *Engine) transitionTask(exec *workflowExecution, taskID string, oldState
 	}
 
 	now := time.Now().UTC()
+	taskType := resolveTaskType(exec.wfState, taskID)
 	taskState.Status = newStatus
 	if newStatus == taskStatusRunning {
 		started := now
@@ -381,7 +389,7 @@ func (e *Engine) transitionTask(exec *workflowExecution, taskID string, oldState
 		taskState.Error = ""
 	}
 	if newStatus == taskStatusScheduled && oldStatus == taskStatusRunning {
-		e.metrics.RecordTaskRetry("unknown")
+		e.metrics.RecordTaskRetry(taskType)
 	}
 	if isTerminalTaskStatus(newStatus) {
 		completed := now
@@ -397,9 +405,9 @@ func (e *Engine) transitionTask(exec *workflowExecution, taskID string, oldState
 			taskState.Error = ""
 		}
 		if taskState.StartedAt != nil {
-			e.metrics.RecordTaskDuration("unknown", completed.Sub(*taskState.StartedAt))
+			e.metrics.RecordTaskDuration(taskType, completed.Sub(*taskState.StartedAt))
 		}
-		e.metrics.RecordTaskExecution(taskMetricLabel(newStatus, taskState.Error), "unknown")
+		e.metrics.RecordTaskExecution(taskMetricLabel(newStatus, taskState.Error), taskType)
 	}
 
 	if err := e.storage.SaveTask(context.Background(), exec.workflowID, taskState); err != nil {
@@ -456,6 +464,7 @@ func (e *Engine) markWorkflowFailedFromPending(ctx context.Context, workflowID s
 		return err
 	}
 	e.emitWorkflowStateChanged(wfState.ID, wfState.Name, workflowStatusPending, workflowStatusFailed)
+	e.metrics.DecActiveWorkflows(workflowStatusPending)
 	e.metrics.RecordWorkflowSubmission(workflowMetricLabel(workflowStatusFailed, cause.Error()))
 	return nil
 }
@@ -580,6 +589,9 @@ func (e *Engine) CancelWorkflowRequest(ctx context.Context, id string) error {
 		return err
 	}
 	e.emitWorkflowStateChanged(wfState.ID, wfState.Name, oldStatus, wfState.Status)
+	if oldStatus == workflowStatusPending {
+		e.metrics.DecActiveWorkflows(workflowStatusPending)
+	}
 	e.metrics.RecordWorkflowSubmission(workflowStatusCancelled)
 
 	e.logger.Info("workflow cancelled", "id", id)
@@ -654,4 +666,24 @@ func (e *Engine) GetStatus() *EngineStatus {
 // SubmitWorkflow executes a runtime workflow request for adapter callers.
 func (e *Engine) SubmitWorkflow(ctx context.Context, req *models.WorkflowRequest, opts SubmitWorkflowOptions) (*models.WorkflowStatusResponse, error) {
 	return e.SubmitWorkflowRuntime(ctx, req, opts)
+}
+
+func resolveTaskType(wfState *storage.WorkflowState, taskID string) string {
+	if wfState == nil {
+		return "unknown"
+	}
+	for _, task := range wfState.Tasks {
+		if task.ID != taskID {
+			continue
+		}
+		if task.Type == "" {
+			return "unknown"
+		}
+		return task.Type
+	}
+	return "unknown"
+}
+
+func isPendingLikeWorkflowStatus(status string) bool {
+	return status == workflowStatusPending || status == workflowStatusScheduled
 }

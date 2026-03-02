@@ -346,8 +346,15 @@ func (e *Engine) Submit(ctx context.Context, wf *Workflow) (*WorkflowResult, err
 
 	// Record workflow submission
 	e.metrics.RecordWorkflowSubmission("pending")
-	e.metrics.IncActiveWorkflows("running")
-	defer e.metrics.DecActiveWorkflows("running")
+	e.metrics.IncActiveWorkflows("pending")
+	runningGaugeActive := false
+	defer func() {
+		if runningGaugeActive {
+			e.metrics.DecActiveWorkflows("running")
+			return
+		}
+		e.metrics.DecActiveWorkflows("pending")
+	}()
 
 	start := time.Now()
 
@@ -405,6 +412,9 @@ func (e *Engine) Submit(ctx context.Context, wf *Workflow) (*WorkflowResult, err
 	}
 
 	// Execute.
+	e.metrics.DecActiveWorkflows("pending")
+	e.metrics.IncActiveWorkflows("running")
+	runningGaugeActive = true
 	schedErr := sched.Schedule(ctx, plan, taskFns)
 
 	status := WorkflowStatusSuccess
