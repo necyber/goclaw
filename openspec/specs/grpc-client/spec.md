@@ -33,7 +33,11 @@ The system SHALL manage connection pooling for efficient resource usage.
 
 #### Scenario: Connection health check
 - **WHEN** connection becomes unhealthy
-- **THEN** client MUST automatically reconnect
+- **THEN** client MUST detect health failure using service-scoped health checks and automatically reconnect when transport state is recoverable
+
+#### Scenario: Service health status alignment
+- **WHEN** client checks health for a specific gRPC service
+- **THEN** client MUST receive `SERVING` when server has registered serving status for that service
 
 #### Scenario: Graceful close
 - **WHEN** client is closed

@@ -62,6 +62,10 @@ The system SHALL manage stream lifecycle including subscription, updates, and cl
 - **WHEN** no updates occur within keepalive interval
 - **THEN** server MUST send keepalive message to prevent connection timeout
 
+#### Scenario: Stale subscriber cleanup
+- **WHEN** stale slow-consumer subscribers are cleaned up
+- **THEN** cleanup MUST complete without deadlock and MUST leave registry state consistent
+
 ### Requirement: Bidirectional streaming for log streaming
 The system SHALL provide bidirectional streaming for real-time log delivery.
 
@@ -71,7 +75,7 @@ The system SHALL provide bidirectional streaming for real-time log delivery.
 
 #### Scenario: Dynamic filter updates
 - **WHEN** client sends filter update message
-- **THEN** server MUST apply new filter to subsequent log entries
+- **THEN** server MUST apply new filter to subsequent log entries using concurrency-safe state synchronization
 
 #### Scenario: Log buffering
 - **WHEN** logs are generated faster than client can consume

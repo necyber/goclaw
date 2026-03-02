@@ -16,6 +16,10 @@ The system SHALL initialize a gRPC server on the configured port with proper lif
 - **WHEN** shutdown signal is received
 - **THEN** gRPC server MUST call GracefulStop() to drain in-flight requests before terminating
 
+#### Scenario: Forced shutdown timeout
+- **WHEN** graceful shutdown times out and server falls back to Stop()
+- **THEN** server runtime state MUST transition to stopped before returning
+
 #### Scenario: Concurrent operation with HTTP
 - **WHEN** both HTTP and gRPC servers are enabled
 - **THEN** both servers MUST run concurrently without port conflicts
@@ -59,11 +63,15 @@ The system SHALL apply interceptors for cross-cutting concerns in the correct or
 
 #### Scenario: Unary interceptor chain
 - **WHEN** processing unary RPCs
-- **THEN** interceptors MUST execute in order: recovery 鈫?auth 鈫?logging 鈫?metrics 鈫?handler
+- **THEN** interceptors MUST execute in order: recovery -> request_id -> auth -> authorization -> rate_limit -> validation -> logging -> metrics -> tracing -> handler
 
 #### Scenario: Stream interceptor chain
 - **WHEN** processing streaming RPCs
-- **THEN** stream interceptors MUST execute in order: recovery 鈫?auth 鈫?logging 鈫?metrics 鈫?handler
+- **THEN** stream interceptors MUST execute in order: recovery -> request_id -> auth -> authorization -> rate_limit -> validation -> logging -> metrics -> tracing -> handler
+
+#### Scenario: Tracing disabled still enforces base chain
+- **WHEN** tracing is disabled by configuration
+- **THEN** all non-tracing interceptors in the default chain MUST still be active
 
 ### Requirement: Server reflection
 The system SHALL enable gRPC server reflection for debugging and tooling support.
@@ -85,7 +93,7 @@ The system SHALL implement the gRPC health check protocol.
 
 #### Scenario: Service-specific health
 - **WHEN** client requests health of specific service
-- **THEN** server MUST return per-service health status
+- **THEN** server MUST return per-service health status for registered gRPC services
 
 #### Scenario: Watch health changes
 - **WHEN** client calls Watch RPC
@@ -95,8 +103,8 @@ The system SHALL implement the gRPC health check protocol.
 The system SHALL handle connection lifecycle and resource cleanup.
 
 #### Scenario: Connection limits
-- **WHEN** max connections configured
-- **THEN** server MUST reject new connections beyond the limit
+- **WHEN** max connections is configured
+- **THEN** server MUST enforce the configured limit semantics explicitly and consistently in runtime behavior
 
 #### Scenario: Idle timeout
 - **WHEN** connection is idle beyond configured timeout

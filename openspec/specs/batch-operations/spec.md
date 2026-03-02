@@ -152,3 +152,11 @@ The system SHALL support pagination for large batch responses.
 - **WHEN** client specifies page size
 - **THEN** server MUST respect page size up to maximum limit
 
+#### Scenario: Invalid continuation token
+- **WHEN** client provides a non-numeric or negative continuation token
+- **THEN** server MUST return `InvalidArgument` with token validation details
+
+#### Scenario: Continuation token beyond range
+- **WHEN** client provides a continuation token offset greater than available input items
+- **THEN** server MUST return `InvalidArgument` and MUST NOT panic
+
