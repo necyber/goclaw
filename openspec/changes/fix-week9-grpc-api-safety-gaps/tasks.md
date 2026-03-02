@@ -19,9 +19,9 @@
 
 ## 4. Streaming Concurrency Safety
 
-- [ ] 4.1 Refactor `StreamLogs` in `pkg/grpc/handlers/streaming.go` to synchronize dynamic filter updates between recv/send goroutines.
-- [ ] 4.2 Refactor `CleanupStaleSubscribers` in `pkg/grpc/streaming/registry.go` to avoid lock re-entry and deadlock risk.
-- [ ] 4.3 Add streaming and registry tests that cover dynamic filter updates and stale-subscriber cleanup under concurrent activity.
+- [x] 4.1 Refactor `StreamLogs` in `pkg/grpc/handlers/streaming.go` to synchronize dynamic filter updates between recv/send goroutines.
+- [x] 4.2 Refactor `CleanupStaleSubscribers` in `pkg/grpc/streaming/registry.go` to avoid lock re-entry and deadlock risk.
+- [x] 4.3 Add streaming and registry tests that cover dynamic filter updates and stale-subscriber cleanup under concurrent activity.
 
 ## 5. Client Health Alignment And Validation
 

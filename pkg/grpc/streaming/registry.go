@@ -3,6 +3,7 @@ package streaming
 import (
 	"fmt"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/goclaw/goclaw/pkg/engine"
@@ -63,6 +64,10 @@ func (r *SubscriberRegistry) Subscribe(workflowID string, bufferSize int) *Subsc
 func (r *SubscriberRegistry) Unsubscribe(subscriberID string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
+	r.removeSubscriberLocked(subscriberID)
+}
+
+func (r *SubscriberRegistry) removeSubscriberLocked(subscriberID string) {
 
 	sub, exists := r.subscribers[subscriberID]
 	if !exists {
@@ -125,17 +130,45 @@ func (r *SubscriberRegistry) Broadcast(workflowID string, event interface{}) {
 	subs := r.GetWorkflowSubscribers(workflowID)
 
 	for _, sub := range subs {
-		select {
-		case sub.EventChan <- &SequencedEvent{
+		sent, closed := trySendEvent(sub.EventChan, &SequencedEvent{
 			Sequence: seq,
 			Event:    event,
-		}:
-			// Event sent successfully
-		default:
+		})
+		if sent || closed {
+			continue
+		}
+
+		{
 			// Channel full - mark as slow consumer
-			sub.SlowConsumer = true
+			r.markSlowConsumer(sub.ID)
 		}
 	}
+}
+
+func trySendEvent(ch chan interface{}, evt *SequencedEvent) (sent bool, closed bool) {
+	defer func() {
+		if recover() != nil {
+			closed = true
+		}
+	}()
+
+	select {
+	case ch <- evt:
+		return true, false
+	default:
+		return false, false
+	}
+}
+
+func (r *SubscriberRegistry) markSlowConsumer(subscriberID string) {
+	r.mu.Lock()
+	defer r.mu.Unlock()
+
+	sub, exists := r.subscribers[subscriberID]
+	if !exists {
+		return
+	}
+	sub.SlowConsumer = true
 }
 
 // SequencedEvent wraps an event with a sequence number
@@ -184,8 +217,8 @@ func (r *SubscriberRegistry) CleanupStaleSubscribers(maxAge time.Duration) int {
 
 	for id, sub := range r.subscribers {
 		if now.Sub(sub.CreatedAt) > maxAge && sub.SlowConsumer {
-			// Remove stale slow consumer
-			r.Unsubscribe(id)
+			// Remove stale slow consumer without lock re-entry.
+			r.removeSubscriberLocked(id)
 			removed++
 		}
 	}
@@ -196,6 +229,6 @@ func (r *SubscriberRegistry) CleanupStaleSubscribers(maxAge time.Duration) int {
 var subscriberIDCounter int64
 
 func generateSubscriberID() string {
-	subscriberIDCounter++
-	return fmt.Sprintf("%s-%d", time.Now().Format("20060102150405"), subscriberIDCounter)
+	next := atomic.AddInt64(&subscriberIDCounter, 1)
+	return fmt.Sprintf("%s-%d", time.Now().Format("20060102150405"), next)
 }

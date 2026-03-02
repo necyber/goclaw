@@ -52,18 +52,18 @@ func (b *EventBusBridge) Start(bus *eventbus.MemoryBus) error {
 	b.cancel = cancel
 	b.wg.Add(1)
 
-	go b.loop(ctx)
+	go b.loop(ctx, sub)
 	return nil
 }
 
-func (b *EventBusBridge) loop(ctx context.Context) {
+func (b *EventBusBridge) loop(ctx context.Context, sub *eventbus.Subscription) {
 	defer b.wg.Done()
 
 	for {
 		select {
 		case <-ctx.Done():
 			return
-		case msg, ok := <-b.sub.C():
+		case msg, ok := <-sub.C():
 			if !ok {
 				return
 			}

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"fmt"
+	"sync"
 	"time"
 
 	"github.com/goclaw/goclaw/pkg/engine"
@@ -208,15 +209,9 @@ func (s *StreamingServiceServer) StreamLogs(stream pb.StreamingService_StreamLog
 	sub := s.registry.Subscribe(req.WorkflowId, bufferSize)
 	defer s.registry.Unsubscribe(sub.ID)
 
-	// Create task filter map
-	taskFilter := make(map[string]bool)
-	if len(req.TaskIds) > 0 {
-		for _, taskID := range req.TaskIds {
-			taskFilter[taskID] = true
-		}
-	}
-
+	taskFilter := buildTaskFilter(req.TaskIds)
 	minLevel := req.MinLevel
+	var filterMu sync.RWMutex
 
 	// Handle bidirectional streaming
 	errChan := make(chan error, 1)
@@ -231,15 +226,14 @@ func (s *StreamingServiceServer) StreamLogs(stream pb.StreamingService_StreamLog
 			}
 
 			// Update filters
+			filterMu.Lock()
 			if len(req.TaskIds) > 0 {
-				taskFilter = make(map[string]bool)
-				for _, taskID := range req.TaskIds {
-					taskFilter[taskID] = true
-				}
+				taskFilter = buildTaskFilter(req.TaskIds)
 			}
 			if req.MinLevel != pb.LogLevel_LOG_LEVEL_UNSPECIFIED {
 				minLevel = req.MinLevel
 			}
+			filterMu.Unlock()
 		}
 	}()
 
@@ -266,7 +260,12 @@ func (s *StreamingServiceServer) StreamLogs(stream pb.StreamingService_StreamLog
 				continue
 			}
 
-			logEntries := s.convertToLogEntries(seqEvent, taskFilter, minLevel)
+			filterMu.RLock()
+			taskFilterSnapshot := cloneTaskFilter(taskFilter)
+			minLevelSnapshot := minLevel
+			filterMu.RUnlock()
+
+			logEntries := s.convertToLogEntries(seqEvent, taskFilterSnapshot, minLevelSnapshot)
 			if len(logEntries) == 0 {
 				continue
 			}
@@ -410,4 +409,20 @@ func isTerminalTaskEvent(eventType engine.TaskEventType) bool {
 	return eventType == engine.TaskEventCompleted ||
 		eventType == engine.TaskEventFailed ||
 		eventType == engine.TaskEventCancelled
+}
+
+func buildTaskFilter(taskIDs []string) map[string]bool {
+	filter := make(map[string]bool, len(taskIDs))
+	for _, taskID := range taskIDs {
+		filter[taskID] = true
+	}
+	return filter
+}
+
+func cloneTaskFilter(src map[string]bool) map[string]bool {
+	cp := make(map[string]bool, len(src))
+	for taskID, enabled := range src {
+		cp[taskID] = enabled
+	}
+	return cp
 }

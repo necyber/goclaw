@@ -88,8 +88,8 @@ func (m *mockStreamLogsStream) Recv() (*pb.LogStreamRequest, error) {
 		return nil, m.recvErr
 	}
 	if m.recvIdx >= len(m.requests) {
-		// Block forever after initial request to simulate client waiting
-		select {}
+		<-m.ctx.Done()
+		return nil, m.ctx.Err()
 	}
 	req := m.requests[m.recvIdx]
 	m.recvIdx++
@@ -539,6 +539,73 @@ func TestStreamLogs(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestStreamLogs_DynamicFilterUpdatesAreRaceSafe(t *testing.T) {
+	registry := streaming.NewSubscriberRegistry()
+	server := NewStreamingServiceServer(registry)
+
+	ctx, cancel := context.WithTimeout(context.Background(), 300*time.Millisecond)
+	defer cancel()
+
+	stream := &mockStreamLogsStream{
+		ctx: ctx,
+		requests: []*pb.LogStreamRequest{
+			{
+				WorkflowId: "wf-123",
+				TaskIds:    []string{"task-1"},
+				MinLevel:   pb.LogLevel_LOG_LEVEL_INFO,
+			},
+			{
+				WorkflowId: "wf-123",
+				TaskIds:    []string{"task-2"},
+				MinLevel:   pb.LogLevel_LOG_LEVEL_ERROR,
+			},
+		},
+		responses: make([]*pb.LogStreamResponse, 0),
+	}
+
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- server.StreamLogs(stream)
+	}()
+
+	time.Sleep(20 * time.Millisecond)
+	server.observer.OnTaskEvent(engine.TaskEvent{
+		WorkflowID: "wf-123",
+		TaskID:     "task-1",
+		EventType:  engine.TaskEventCompleted,
+		Status:     "COMPLETED",
+		Message:    "task-1 completed",
+		Timestamp:  time.Now().Unix(),
+	})
+	server.observer.OnTaskEvent(engine.TaskEvent{
+		WorkflowID: "wf-123",
+		TaskID:     "task-2",
+		EventType:  engine.TaskEventFailed,
+		Status:     "FAILED",
+		Message:    "task-2 failed",
+		Timestamp:  time.Now().Unix(),
+	})
+
+	err := <-errChan
+	if err != nil {
+		st, ok := status.FromError(err)
+		if ok {
+			assert.Contains(t, []codes.Code{codes.Canceled, codes.Internal}, st.Code())
+		}
+	}
+
+	require.GreaterOrEqual(t, len(stream.responses), 1)
+	foundTask2 := false
+	for _, resp := range stream.responses {
+		for _, entry := range resp.Entries {
+			if entry.TaskId == "task-2" && entry.Level >= pb.LogLevel_LOG_LEVEL_ERROR {
+				foundTask2 = true
+			}
+		}
+	}
+	assert.True(t, foundTask2, "expected at least one task-2 error log entry after filter update")
 }
 
 func TestConvertWorkflowEventTypeToStatus(t *testing.T) {
