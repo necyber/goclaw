@@ -53,7 +53,7 @@ The system SHALL manage Saga lifecycle through a state machine: Created → Runn
 
 ### Requirement: Forward execution
 
-The system SHALL execute Saga steps in dependency order (topological order of the step DAG).
+The system SHALL execute Saga steps in dependency order (topological order of the step DAG) while enforcing per-definition step concurrency limits.
 
 #### Scenario: Execute steps sequentially
 - **WHEN** steps A → B → C are defined with linear dependencies
@@ -62,6 +62,10 @@ The system SHALL execute Saga steps in dependency order (topological order of th
 #### Scenario: Execute steps in parallel
 - **WHEN** steps B and C both depend only on A
 - **THEN** the system executes B and C in parallel after A completes
+
+#### Scenario: Respect per-definition max concurrency
+- **WHEN** a Saga definition sets `MaxConcurrent=2` and one layer has four runnable steps
+- **THEN** the orchestrator runs at most two steps from that Saga concurrently until the layer completes
 
 #### Scenario: Step execution with context
 - **WHEN** a step is executed
@@ -105,11 +109,15 @@ The system SHALL support configurable timeout per step.
 
 ### Requirement: Saga instance management
 
-The system SHALL create and track Saga instances with unique IDs.
+The system SHALL create and track Saga instances with unique IDs and maintain durable linkage to their executable definition snapshots.
 
 #### Scenario: Create Saga instance
 - **WHEN** a Saga definition is submitted for execution
 - **THEN** the system creates a Saga instance with a unique ID and initial state Created
+
+#### Scenario: Persist definition linkage
+- **WHEN** a Saga instance is created
+- **THEN** the system stores or references a durable definition snapshot retrievable by Saga ID for later recovery and manual lifecycle operations
 
 #### Scenario: Query Saga instance
 - **WHEN** a Saga instance ID is queried
@@ -146,4 +154,3 @@ The system SHALL expose Prometheus metrics for Saga operations.
 #### Scenario: Track active Sagas
 - **WHEN** Sagas are running
 - **THEN** the system updates `saga_active_count` gauge
-
