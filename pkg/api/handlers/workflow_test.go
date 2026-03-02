@@ -9,6 +9,7 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/goclaw/goclaw/config"
@@ -28,6 +29,10 @@ func createTestEngine(t *testing.T) (*engine.Engine, func()) {
 			MaxAgents: 10,
 		},
 	}
+	return createTestEngineWithConfig(t, cfg)
+}
+
+func createTestEngineWithConfig(t *testing.T, cfg *config.Config) (*engine.Engine, func()) {
 	log := logger.New(&logger.Config{
 		Level:  logger.InfoLevel,
 		Format: "json",
@@ -49,6 +54,19 @@ func createTestEngine(t *testing.T) (*engine.Engine, func()) {
 	}
 
 	return eng, cleanup
+}
+
+func waitForWorkflowStatus(t *testing.T, eng *engine.Engine, workflowID, want string, timeout time.Duration) {
+	t.Helper()
+	deadline := time.Now().Add(timeout)
+	for time.Now().Before(deadline) {
+		status, err := eng.GetWorkflowStatusResponse(context.Background(), workflowID)
+		if err == nil && status.Status == want {
+			return
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+	t.Fatalf("workflow %s did not reach %s within %v", workflowID, want, timeout)
 }
 
 func TestWorkflowHandler_SubmitWorkflow_Success(t *testing.T) {
@@ -579,6 +597,97 @@ func TestWorkflowHandler_CancelWorkflow_Success(t *testing.T) {
 	}
 	if resp.Status != "cancelled" {
 		t.Fatalf("cancel response status = %s, want cancelled", resp.Status)
+	}
+}
+
+func TestWorkflowHandler_CancelWorkflow_TimeoutContractAlignsWithTaskResult(t *testing.T) {
+	cfg := &config.Config{
+		App: config.AppConfig{
+			Name:        "test",
+			Environment: "development",
+		},
+		Orchestration: config.OrchestrationConfig{
+			MaxAgents:           10,
+			CancellationTimeout: 50 * time.Millisecond,
+		},
+	}
+	eng, cleanup := createTestEngineWithConfig(t, cfg)
+	defer cleanup()
+
+	log := logger.New(&logger.Config{
+		Level:  logger.InfoLevel,
+		Format: "json",
+		Output: "stdout",
+	})
+	handler := NewWorkflowHandler(eng, log)
+
+	reqBody := &models.WorkflowRequest{
+		Name: "cancel-timeout-contract",
+		Tasks: []models.TaskDefinition{
+			{
+				ID:   "task-1",
+				Name: "First task",
+				Type: "function",
+			},
+		},
+	}
+
+	statusResp, err := eng.SubmitWorkflowRuntime(context.Background(), reqBody, engine.SubmitWorkflowOptions{
+		Mode: engine.SubmissionModeAsync,
+		TaskFns: map[string]func(context.Context) error{
+			"task-1": func(context.Context) error {
+				// Ignore cancellation to force graceful timeout expiration.
+				time.Sleep(200 * time.Millisecond)
+				return nil
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("SubmitWorkflowRuntime() error = %v", err)
+	}
+	workflowID := statusResp.ID
+	waitForWorkflowStatus(t, eng, workflowID, "running", 2*time.Second)
+
+	cancelReq := httptest.NewRequest(http.MethodPost, "/api/v1/workflows/"+workflowID+"/cancel", nil)
+	rctx := chi.NewRouteContext()
+	rctx.URLParams.Add("id", workflowID)
+	cancelReq = cancelReq.WithContext(context.WithValue(cancelReq.Context(), chi.RouteCtxKey, rctx))
+	cancelResp := httptest.NewRecorder()
+
+	handler.CancelWorkflow(cancelResp, cancelReq)
+	if cancelResp.Code != http.StatusOK {
+		t.Fatalf("CancelWorkflow() status = %v, want %v, body: %s", cancelResp.Code, http.StatusOK, cancelResp.Body.String())
+	}
+
+	var wfResp models.WorkflowResponse
+	if err := json.NewDecoder(cancelResp.Body).Decode(&wfResp); err != nil {
+		t.Fatalf("failed to decode cancel response: %v", err)
+	}
+	if wfResp.Status != "failed" {
+		t.Fatalf("cancel response status = %s, want failed", wfResp.Status)
+	}
+
+	taskReq := httptest.NewRequest(http.MethodGet, "/api/v1/workflows/"+workflowID+"/tasks/task-1/result", nil)
+	taskCtx := chi.NewRouteContext()
+	taskCtx.URLParams.Add("id", workflowID)
+	taskCtx.URLParams.Add("tid", "task-1")
+	taskReq = taskReq.WithContext(context.WithValue(taskReq.Context(), chi.RouteCtxKey, taskCtx))
+	taskResp := httptest.NewRecorder()
+
+	handler.GetTaskResult(taskResp, taskReq)
+	if taskResp.Code != http.StatusOK {
+		t.Fatalf("GetTaskResult() status = %v, want %v, body: %s", taskResp.Code, http.StatusOK, taskResp.Body.String())
+	}
+
+	var resultResp models.TaskResultResponse
+	if err := json.NewDecoder(taskResp.Body).Decode(&resultResp); err != nil {
+		t.Fatalf("failed to decode task result response: %v", err)
+	}
+	if resultResp.Status != "failed" {
+		t.Fatalf("task result status = %s, want failed", resultResp.Status)
+	}
+	if !strings.Contains(strings.ToLower(resultResp.Error), "deadline") {
+		t.Fatalf("task result error = %q, expected deadline-derived error", resultResp.Error)
 	}
 }
 

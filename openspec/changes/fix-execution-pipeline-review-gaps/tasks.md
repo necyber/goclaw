@@ -24,6 +24,6 @@
 
 ## 5. Regression and Documentation Hygiene
 
-- [ ] 5.1 Add cross-module regression tests for HTTP task-result endpoint and workflow cancel contract alignment
-- [ ] 5.2 Update runtime/streaming/metrics docs to reflect new conformance semantics and labels
-- [ ] 5.3 Run focused test suites (`engine`, `api handlers`, `grpc handlers`, `grpc streaming`, `metrics`) and fix regressions
+- [x] 5.1 Add cross-module regression tests for HTTP task-result endpoint and workflow cancel contract alignment
+- [x] 5.2 Update runtime/streaming/metrics docs to reflect new conformance semantics and labels
+- [x] 5.3 Run focused test suites (`engine`, `api handlers`, `grpc handlers`, `grpc streaming`, `metrics`) and fix regressions

@@ -103,6 +103,10 @@ grpcurl -plaintext -d '{
 }' localhost:9090 goclaw.v1.StreamingService/WatchWorkflow
 ```
 
+Notes:
+- The first workflow status update is sourced from persisted workflow state at subscribe time (not a synthetic fixed `pending` value).
+- Under subscriber backpressure, terminal lifecycle visibility is prioritized; if terminal delivery cannot be completed, stream ends with explicit resource/backpressure error semantics.
+
 Resume from sequence number:
 
 ```bash

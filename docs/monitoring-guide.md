@@ -41,6 +41,10 @@ Histogram buckets: 0.1, 0.5, 1, 2, 5, 10, 30, 60, 120, 300 seconds
 | `task_duration_seconds` | Histogram | `task_type` | Task execution duration by task type |
 | `task_retries_total` | Counter | `task_type` | Total task retry attempts by task type |
 
+Terminal status label semantics for `task_executions_total`:
+- `cancelled`: user/request cancellation-derived terminal outcome
+- `failed_timeout`: timeout-derived terminal outcome (distinguishable from user cancellation in queries)
+
 Histogram buckets: 0.01, 0.05, 0.1, 0.5, 1, 5, 10, 30 seconds
 
 ### Lane Queue Metrics

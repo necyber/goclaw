@@ -234,11 +234,18 @@ func (h *WorkflowHandler) CancelWorkflow(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
+	statusResp, err := h.engine.GetWorkflowStatusResponse(ctx, workflowID)
+	if err != nil {
+		h.logger.Error("Failed to get workflow status after cancel", "id", workflowID, "error", err)
+		response.Error(w, http.StatusInternalServerError, response.ErrCodeInternalServer, "Failed to retrieve workflow status", getRequestID(ctx))
+		return
+	}
+
 	response.JSON(w, http.StatusOK, models.WorkflowResponse{
 		ID:         workflowID,
 		WorkflowID: workflowID,
-		Status:     "cancelled",
-		Message:    "Workflow cancelled successfully",
+		Status:     statusResp.Status,
+		Message:    "Workflow cancellation processed",
 	})
 }
 
