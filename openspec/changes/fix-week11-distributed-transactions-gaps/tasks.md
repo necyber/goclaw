@@ -8,11 +8,11 @@
 
 ## 2. Orchestrator and Checkpoint Correctness
 
-- [ ] 2.1 Introduce a centralized checkpoint persistence helper for lifecycle transitions in `pkg/saga/orchestrator.go`.
-- [ ] 2.2 Persist checkpoints on transitions to `pending-compensation`, `compensating`, and terminal states.
-- [ ] 2.3 Ensure failure metadata updates are reflected in persisted checkpoints before returning errors.
-- [ ] 2.4 Enforce `SagaDefinition.MaxConcurrent` with per-execution step concurrency control in execute/resume paths.
-- [ ] 2.5 Add integration tests proving resumed execution uses updated checkpoint state and respects `MaxConcurrent`.
+- [x] 2.1 Introduce a centralized checkpoint persistence helper for lifecycle transitions in `pkg/saga/orchestrator.go`.
+- [x] 2.2 Persist checkpoints on transitions to `pending-compensation`, `compensating`, and terminal states.
+- [x] 2.3 Ensure failure metadata updates are reflected in persisted checkpoints before returning errors.
+- [x] 2.4 Enforce `SagaDefinition.MaxConcurrent` with per-execution step concurrency control in execute/resume paths.
+- [x] 2.5 Add integration tests proving resumed execution uses updated checkpoint state and respects `MaxConcurrent`.
 
 ## 3. Compensation Concurrency Safety
 

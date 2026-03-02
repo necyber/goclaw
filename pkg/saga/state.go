@@ -28,6 +28,7 @@ var validTransitions = map[SagaState]map[SagaState]struct{}{
 		SagaStateCompleted:           {},
 		SagaStateCompensating:        {},
 		SagaStatePendingCompensation: {},
+		SagaStateCompensationFailed:  {},
 		SagaStateRecovering:          {},
 	},
 	SagaStateCompensating: {
