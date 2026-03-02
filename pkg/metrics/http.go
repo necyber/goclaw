@@ -54,6 +54,14 @@ func (m *Manager) recordHTTPRequest(ctx context.Context, method, path, status st
 	if !m.enabled {
 		return
 	}
+	method = sanitizeLabelValue(method)
+	status = sanitizeLabelValue(status)
+	normalizedPath, ok := m.cardinalityGuard.admit("http_requests_total", "path", path)
+	if !ok {
+		m.labelValuesDropped.WithLabelValues("http_requests_total", "path").Inc()
+		return
+	}
+	path = normalizedPath
 
 	exemplar, hasExemplar := traceExemplarLabels(ctx)
 

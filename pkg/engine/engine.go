@@ -81,9 +81,9 @@ type MetricsRecorder interface {
 	RecordWorkflowDuration(status string, duration time.Duration)
 	IncActiveWorkflows(status string)
 	DecActiveWorkflows(status string)
-	RecordTaskExecution(status string)
-	RecordTaskDuration(duration time.Duration)
-	RecordTaskRetry()
+	RecordTaskExecution(status string, taskType string)
+	RecordTaskDuration(taskType string, duration time.Duration)
+	RecordTaskRetry(taskType string)
 	IncQueueDepth(laneName string)
 	DecQueueDepth(laneName string)
 	RecordWaitDuration(laneName string, duration time.Duration)
@@ -727,9 +727,9 @@ func (n *nopMetrics) RecordWorkflowSubmission(status string)                    
 func (n *nopMetrics) RecordWorkflowDuration(status string, duration time.Duration) {}
 func (n *nopMetrics) IncActiveWorkflows(status string)                             {}
 func (n *nopMetrics) DecActiveWorkflows(status string)                             {}
-func (n *nopMetrics) RecordTaskExecution(status string)                            {}
-func (n *nopMetrics) RecordTaskDuration(duration time.Duration)                    {}
-func (n *nopMetrics) RecordTaskRetry()                                             {}
+func (n *nopMetrics) RecordTaskExecution(status string, taskType string)           {}
+func (n *nopMetrics) RecordTaskDuration(taskType string, duration time.Duration)   {}
+func (n *nopMetrics) RecordTaskRetry(taskType string)                              {}
 func (n *nopMetrics) IncQueueDepth(laneName string)                                {}
 func (n *nopMetrics) DecQueueDepth(laneName string)                                {}
 func (n *nopMetrics) RecordWaitDuration(laneName string, duration time.Duration)   {}

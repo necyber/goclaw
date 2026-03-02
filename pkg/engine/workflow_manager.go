@@ -381,7 +381,7 @@ func (e *Engine) transitionTask(exec *workflowExecution, taskID string, oldState
 		taskState.Error = ""
 	}
 	if newStatus == taskStatusScheduled && oldStatus == taskStatusRunning {
-		e.metrics.RecordTaskRetry()
+		e.metrics.RecordTaskRetry("unknown")
 	}
 	if isTerminalTaskStatus(newStatus) {
 		completed := now
@@ -397,9 +397,9 @@ func (e *Engine) transitionTask(exec *workflowExecution, taskID string, oldState
 			taskState.Error = ""
 		}
 		if taskState.StartedAt != nil {
-			e.metrics.RecordTaskDuration(completed.Sub(*taskState.StartedAt))
+			e.metrics.RecordTaskDuration("unknown", completed.Sub(*taskState.StartedAt))
 		}
-		e.metrics.RecordTaskExecution(taskMetricLabel(newStatus, taskState.Error))
+		e.metrics.RecordTaskExecution(taskMetricLabel(newStatus, taskState.Error), "unknown")
 	}
 
 	if err := e.storage.SaveTask(context.Background(), exec.workflowID, taskState); err != nil {

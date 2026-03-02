@@ -187,7 +187,7 @@ func BenchmarkRecordTaskExecution(b *testing.B) {
 	m := NewManager(DefaultConfig())
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		m.RecordTaskExecution("completed")
+		m.RecordTaskExecution("completed", "function")
 	}
 }
 
@@ -213,7 +213,7 @@ func BenchmarkNoOpRecording(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		m.RecordWorkflowSubmission("completed")
-		m.RecordTaskExecution("completed")
+		m.RecordTaskExecution("completed", "function")
 		m.RecordThroughput("default")
 	}
 }
@@ -230,8 +230,8 @@ func TestMetricsMemoryUsage(t *testing.T) {
 	for i := 0; i < 100000; i++ {
 		m.RecordWorkflowSubmission(statuses[i%len(statuses)])
 		m.RecordWorkflowDuration(statuses[i%len(statuses)], time.Duration(i)*time.Microsecond)
-		m.RecordTaskExecution(statuses[i%len(statuses)])
-		m.RecordTaskDuration(time.Duration(i) * time.Microsecond)
+		m.RecordTaskExecution(statuses[i%len(statuses)], "function")
+		m.RecordTaskDuration("function", time.Duration(i)*time.Microsecond)
 		m.RecordHTTPRequest(methods[i%len(methods)], paths[i%len(paths)], "200", time.Duration(i)*time.Microsecond)
 		m.RecordThroughput(lanes[i%len(lanes)])
 		m.RecordWaitDuration(lanes[i%len(lanes)], time.Duration(i)*time.Microsecond)

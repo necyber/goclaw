@@ -38,13 +38,22 @@ func (m *captureMetrics) RecordWorkflowDuration(status string, duration time.Dur
 }
 func (m *captureMetrics) IncActiveWorkflows(status string) { _ = status }
 func (m *captureMetrics) DecActiveWorkflows(status string) { _ = status }
-func (m *captureMetrics) RecordTaskExecution(status string) {
+func (m *captureMetrics) RecordTaskExecution(status string, taskType string) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
+	_ = taskType
 	m.taskExecution[status]++
 }
-func (m *captureMetrics) RecordTaskDuration(duration time.Duration) { _ = duration }
-func (m *captureMetrics) RecordTaskRetry()                          { m.mu.Lock(); m.taskRetryCount++; m.mu.Unlock() }
+func (m *captureMetrics) RecordTaskDuration(taskType string, duration time.Duration) {
+	_ = taskType
+	_ = duration
+}
+func (m *captureMetrics) RecordTaskRetry(taskType string) {
+	_ = taskType
+	m.mu.Lock()
+	m.taskRetryCount++
+	m.mu.Unlock()
+}
 func (m *captureMetrics) IncQueueDepth(laneName string)             { _ = laneName }
 func (m *captureMetrics) DecQueueDepth(laneName string)             { _ = laneName }
 func (m *captureMetrics) RecordWaitDuration(laneName string, duration time.Duration) {

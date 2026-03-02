@@ -85,6 +85,19 @@ func ValidateWithDetails(cfg *Config) error {
 	}
 	if cfg != nil {
 		var details ValidationErrors
+		if strings.TrimSpace(cfg.Metrics.Path) == "" {
+			details = append(details, ConfigError{
+				Field:   "Config.Metrics.Path",
+				Message: "must not be empty",
+				Value:   cfg.Metrics.Path,
+			})
+		} else if !strings.HasPrefix(strings.TrimSpace(cfg.Metrics.Path), "/") {
+			details = append(details, ConfigError{
+				Field:   "Config.Metrics.Path",
+				Message: "must start with /",
+				Value:   cfg.Metrics.Path,
+			})
+		}
 		if cfg.Server.HTTP.ReadTimeout <= 0 {
 			details = append(details, ConfigError{
 				Field:   "Config.Server.HTTP.ReadTimeout",

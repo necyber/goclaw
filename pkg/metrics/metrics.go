@@ -4,6 +4,7 @@ package metrics
 import (
 	"context"
 	"fmt"
+	"log"
 	"net/http"
 	"time"
 
@@ -16,6 +17,7 @@ import (
 type Manager struct {
 	registry *prometheus.Registry
 	enabled  bool
+	path     string
 
 	// Workflow metrics
 	workflowSubmissions *prometheus.CounterVec
@@ -65,6 +67,10 @@ type Manager struct {
 	eventBusDegraded       prometheus.Gauge
 	eventBusOutages        prometheus.Counter
 	eventBusRecoveries     prometheus.Counter
+
+	// Label cardinality safety
+	cardinalityGuard  *labelCardinalityGuard
+	labelValuesDropped *prometheus.CounterVec
 }
 
 // Config holds metrics configuration.
@@ -108,7 +114,15 @@ func NewManager(cfg Config) *Manager {
 	m := &Manager{
 		registry: registry,
 		enabled:  true,
+		path:     normalizeMetricsPath(cfg.Path),
+		cardinalityGuard: newLabelCardinalityGuard(
+			defaultLabelCardinalityLimit,
+			func(msg string, args ...any) {
+				log.Printf("metrics cardinality warning: "+msg, args...)
+			},
+		),
 	}
+	m.initInternalMetrics()
 
 	m.initWorkflowMetrics(cfg)
 	m.initTaskMetrics(cfg)
@@ -141,6 +155,10 @@ func (m *Manager) StartServer(ctx context.Context, port int, path string) error 
 	if !m.enabled {
 		return nil
 	}
+	if path == "" {
+		path = m.path
+	}
+	path = normalizeMetricsPath(path)
 
 	mux := http.NewServeMux()
 	mux.Handle(path, m.Handler())
@@ -163,4 +181,25 @@ func (m *Manager) StartServer(ctx context.Context, port int, path string) error 
 // NoOpManager returns a no-op metrics manager for when metrics are disabled.
 func NoOpManager() *Manager {
 	return &Manager{enabled: false}
+}
+
+func (m *Manager) initInternalMetrics() {
+	m.labelValuesDropped = prometheus.NewCounterVec(
+		prometheus.CounterOpts{
+			Name: "metrics_label_values_dropped_total",
+			Help: "Total number of dropped label values due to cardinality guard",
+		},
+		[]string{"metric", "label"},
+	)
+	m.registry.MustRegister(m.labelValuesDropped)
+}
+
+func normalizeMetricsPath(path string) string {
+	if path == "" {
+		return "/metrics"
+	}
+	if path[0] != '/' {
+		return "/" + path
+	}
+	return path
 }
