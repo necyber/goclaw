@@ -6,7 +6,7 @@ Migrated from legacy OpenSpec format while preserving existing requirement and s
 ## Requirements
 
 ### Requirement: Task execution metrics
-The metrics system SHALL track task execution events with status and type labels.
+The metrics system SHALL track task execution events with status and task_type labels.
 
 #### Scenario: Record successful task execution
 - **WHEN** task completes successfully
@@ -20,8 +20,12 @@ The metrics system SHALL track task execution events with status and type labels
 - **WHEN** recording task execution
 - **THEN** system includes task_type label if available
 
+#### Scenario: Fallback task type is deterministic
+- **WHEN** runtime cannot resolve an explicit task type
+- **THEN** system MUST emit a bounded fallback label value instead of an unbounded dynamic identifier
+
 ### Requirement: Task duration metrics
-The metrics system SHALL measure individual task execution duration.
+The metrics system SHALL measure individual task execution duration with task_type labels.
 
 #### Scenario: Record task execution time
 - **WHEN** task completes (success or failure)
@@ -36,7 +40,7 @@ The metrics system SHALL measure individual task execution duration.
 - **THEN** system includes task_type label for filtering
 
 ### Requirement: Task retry metrics
-The metrics system SHALL track task retry attempts.
+The metrics system SHALL track task retry attempts with task_type labels.
 
 #### Scenario: Record task retry
 - **WHEN** task is retried after failure
@@ -47,7 +51,7 @@ The metrics system SHALL track task retry attempts.
 - **THEN** system includes task_type label if available
 
 ### Requirement: Task metrics integration
-The metrics system SHALL integrate with lane task execution hooks.
+The metrics system SHALL integrate with lane task execution hooks and emit task_type labels consistently for start/completion/retry related metrics.
 
 #### Scenario: Hook into task start
 - **WHEN** lane begins executing a task

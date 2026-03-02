@@ -40,7 +40,7 @@ The metrics system SHALL measure workflow execution duration from submission to 
 - **THEN** system uses buckets [0.1, 0.5, 1, 2, 5, 10, 30, 60, 120, 300] seconds
 
 ### Requirement: Active workflow count metrics
-The metrics system SHALL track the current number of active workflows by status.
+The metrics system SHALL track the current number of active workflows by lifecycle status, including pending and running states with balanced transitions.
 
 #### Scenario: Increment active workflow count
 - **WHEN** workflow transitions to running state
@@ -54,8 +54,16 @@ The metrics system SHALL track the current number of active workflows by status.
 - **WHEN** workflow is submitted but not yet running
 - **THEN** system reflects count in workflow_active_count gauge with status="pending"
 
+#### Scenario: Pending gauge decrements on run transition
+- **WHEN** workflow transitions from pending to running
+- **THEN** system decrements workflow_active_count gauge with status="pending" before or atomically with running increment
+
+#### Scenario: Pending gauge decrements on pre-run terminal failure
+- **WHEN** workflow terminates from pending state without entering running
+- **THEN** system decrements workflow_active_count gauge with status="pending"
+
 ### Requirement: Workflow metrics integration
-The metrics system SHALL integrate with engine workflow lifecycle hooks.
+The metrics system SHALL integrate with engine workflow lifecycle hooks and keep submission, active-count, and duration metrics transition-consistent.
 
 #### Scenario: Hook into workflow submission
 - **WHEN** engine SubmitWorkflowRequest method is called

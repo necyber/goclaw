@@ -6,11 +6,11 @@ Migrated from legacy OpenSpec format while preserving existing requirement and s
 ## Requirements
 
 ### Requirement: HTTP request count metrics
-The metrics system SHALL track HTTP request counts by method, path, and status code.
+The metrics system SHALL track HTTP request counts by method, normalized path, and normalized status class labels.
 
 #### Scenario: Record successful request
 - **WHEN** HTTP request completes with 2xx status code
-- **THEN** system increments http_requests_total counter with method, path, and status labels
+- **THEN** system increments http_requests_total counter with method, path, and status="2xx" labels
 
 #### Scenario: Record client error request
 - **WHEN** HTTP request completes with 4xx status code
@@ -24,8 +24,12 @@ The metrics system SHALL track HTTP request counts by method, path, and status c
 - **WHEN** recording HTTP request metrics
 - **THEN** system normalizes path parameters (e.g., /api/v1/workflows/:id instead of /api/v1/workflows/abc123)
 
+#### Scenario: Path normalization handles UUID ULID and long tokens
+- **WHEN** request path contains UUID, ULID, or long opaque token segments
+- **THEN** system replaces those dynamic segments with bounded placeholders before emitting metric labels
+
 ### Requirement: HTTP request duration metrics
-The metrics system SHALL measure HTTP request latency from receipt to response.
+The metrics system SHALL measure HTTP request latency from receipt to response using normalized path labels.
 
 #### Scenario: Record request duration
 - **WHEN** HTTP request completes
@@ -51,7 +55,7 @@ The metrics system SHALL track the current number of active HTTP connections.
 - **THEN** system decrements http_active_connections gauge
 
 ### Requirement: HTTP metrics middleware integration
-The metrics system SHALL provide middleware for automatic HTTP metrics collection.
+The metrics system SHALL provide middleware for automatic HTTP metrics collection and apply status/path normalization before recording.
 
 #### Scenario: Middleware wraps request handler
 - **WHEN** HTTP request enters middleware chain
@@ -59,7 +63,7 @@ The metrics system SHALL provide middleware for automatic HTTP metrics collectio
 
 #### Scenario: Middleware records on completion
 - **WHEN** HTTP request completes (success or error)
-- **THEN** middleware calculates duration, records metrics, and decrements active connections
+- **THEN** middleware calculates duration, normalizes labels, records metrics, and decrements active connections
 
 #### Scenario: Middleware handles panics
 - **WHEN** HTTP handler panics during request processing
