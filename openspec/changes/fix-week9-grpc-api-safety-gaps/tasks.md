@@ -1,9 +1,9 @@
 ## 1. Server And Interceptor Hardening
 
-- [ ] 1.1 Update `pkg/grpc/server.go` to always mount the default interceptor chain and keep tracing as a conditional extension.
-- [ ] 1.2 Ensure forced shutdown timeout path in `Server.Stop` transitions runtime state to stopped and keeps state consistent for subsequent lifecycle calls.
-- [ ] 1.3 Align gRPC server health initialization to set both global and service-specific serving statuses for registered services.
-- [ ] 1.4 Add or update unit tests for interceptor-chain activation and server stop state transitions.
+- [x] 1.1 Update `pkg/grpc/server.go` to always mount the default interceptor chain and keep tracing as a conditional extension.
+- [x] 1.2 Ensure forced shutdown timeout path in `Server.Stop` transitions runtime state to stopped and keeps state consistent for subsequent lifecycle calls.
+- [x] 1.3 Align gRPC server health initialization to set both global and service-specific serving statuses for registered services.
+- [x] 1.4 Add or update unit tests for interceptor-chain activation and server stop state transitions.
 
 ## 2. Authentication And Authorization Behavior
 

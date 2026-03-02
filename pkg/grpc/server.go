@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/goclaw/goclaw/pkg/grpc/interceptors"
+	pb "github.com/goclaw/goclaw/pkg/grpc/pb/v1"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health/grpc_health_v1"
@@ -25,6 +26,7 @@ type Server struct {
 	listener     net.Listener
 	healthServer *HealthServer
 	pending      []serviceRegistration
+	services     map[string]struct{}
 	mu           sync.RWMutex
 	running      bool
 }
@@ -45,7 +47,8 @@ func New(cfg *Config) (*Server, error) {
 	}
 
 	return &Server{
-		config: cfg,
+		config:   cfg,
+		services: make(map[string]struct{}),
 	}, nil
 }
 
@@ -90,6 +93,16 @@ func (s *Server) Start() error {
 		s.healthServer = NewHealthServer()
 		grpc_health_v1.RegisterHealthServer(s.grpcSrv, s.healthServer.GetServer())
 		s.healthServer.SetServingStatusAll(grpc_health_v1.HealthCheckResponse_SERVING)
+		for service := range s.services {
+			s.healthServer.SetServingStatus(service, grpc_health_v1.HealthCheckResponse_SERVING)
+		}
+		// Set statuses for known generated gRPC services.
+		s.healthServer.SetServingStatus(pb.WorkflowService_ServiceDesc.ServiceName, grpc_health_v1.HealthCheckResponse_SERVING)
+		s.healthServer.SetServingStatus(pb.StreamingService_ServiceDesc.ServiceName, grpc_health_v1.HealthCheckResponse_SERVING)
+		s.healthServer.SetServingStatus(pb.BatchService_ServiceDesc.ServiceName, grpc_health_v1.HealthCheckResponse_SERVING)
+		s.healthServer.SetServingStatus(pb.AdminService_ServiceDesc.ServiceName, grpc_health_v1.HealthCheckResponse_SERVING)
+		s.healthServer.SetServingStatus(pb.SignalService_ServiceDesc.ServiceName, grpc_health_v1.HealthCheckResponse_SERVING)
+		s.healthServer.SetServingStatus(pb.SagaService_ServiceDesc.ServiceName, grpc_health_v1.HealthCheckResponse_SERVING)
 	}
 
 	s.running = true
@@ -129,6 +142,7 @@ func (s *Server) Stop(ctx context.Context) error {
 	case <-ctx.Done():
 		// Context timeout, force stop
 		s.grpcSrv.Stop()
+		s.running = false
 		return fmt.Errorf("graceful shutdown timeout, forced stop")
 	}
 
@@ -140,9 +154,16 @@ func (s *Server) Stop(ctx context.Context) error {
 func (s *Server) RegisterService(desc *grpc.ServiceDesc, impl interface{}) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	if desc == nil {
+		return
+	}
+	s.services[desc.ServiceName] = struct{}{}
 
 	if s.grpcSrv != nil {
 		s.grpcSrv.RegisterService(desc, impl)
+		if s.healthServer != nil {
+			s.healthServer.SetServingStatus(desc.ServiceName, grpc_health_v1.HealthCheckResponse_SERVING)
+		}
 		return
 	}
 	s.pending = append(s.pending, serviceRegistration{desc: desc, impl: impl})
@@ -216,9 +237,7 @@ func (s *Server) buildServerOptions() ([]grpc.ServerOption, error) {
 	if s.config.MaxSendMsgSize > 0 {
 		opts = append(opts, grpc.MaxSendMsgSize(s.config.MaxSendMsgSize))
 	}
-	if s.config.EnableTracing {
-		opts = append(opts, interceptors.NewChainBuilder().WithTracing().Build()...)
-	}
+	opts = append(opts, interceptors.DefaultChainWithTracing(s.config.EnableTracing).Build()...)
 
 	return opts, nil
 }
