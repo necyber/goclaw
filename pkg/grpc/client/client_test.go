@@ -2,12 +2,16 @@ package client
 
 import (
 	"context"
+	"net"
 	"testing"
 	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/health"
+	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/status"
 )
 
@@ -46,6 +50,90 @@ func TestNewClient_EmptyAddress(t *testing.T) {
 	_, err := NewClient(opts)
 	require.Error(t, err)
 	assert.Contains(t, err.Error(), "address is required")
+}
+
+func TestHealthCheck_ServiceSpecificAndGlobalFallback(t *testing.T) {
+	tests := []struct {
+		name              string
+		setServiceHealthy bool
+		expectErr         bool
+	}{
+		{
+			name:              "service specific health available",
+			setServiceHealthy: true,
+		},
+		{
+			name:              "fallback to global health",
+			setServiceHealthy: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			addr, shutdown := startHealthServer(t, tt.setServiceHealthy, grpc_health_v1.HealthCheckResponse_SERVING)
+			defer shutdown()
+
+			opts := DefaultOptions(addr)
+			opts.Timeout = 3 * time.Second
+			c, err := NewClient(opts)
+			require.NoError(t, err)
+			defer func() { _ = c.Close() }()
+
+			ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+			defer cancel()
+			err = c.HealthCheck(ctx)
+			if tt.expectErr {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func TestHealthCheck_NotServing(t *testing.T) {
+	addr, shutdown := startHealthServer(t, true, grpc_health_v1.HealthCheckResponse_NOT_SERVING)
+	defer shutdown()
+
+	opts := DefaultOptions(addr)
+	opts.Timeout = 3 * time.Second
+	c, err := NewClient(opts)
+	require.NoError(t, err)
+	defer func() { _ = c.Close() }()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer cancel()
+	err = c.HealthCheck(ctx)
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "service not healthy")
+}
+
+func startHealthServer(
+	t *testing.T,
+	setServiceStatus bool,
+	statusVal grpc_health_v1.HealthCheckResponse_ServingStatus,
+) (string, func()) {
+	t.Helper()
+
+	lis, err := net.Listen("tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+
+	grpcServer := grpc.NewServer()
+	healthServer := health.NewServer()
+	healthServer.SetServingStatus("", statusVal)
+	if setServiceStatus {
+		healthServer.SetServingStatus("goclaw.v1.WorkflowService", statusVal)
+	}
+	grpc_health_v1.RegisterHealthServer(grpcServer, healthServer)
+
+	go func() {
+		_ = grpcServer.Serve(lis)
+	}()
+
+	return lis.Addr().String(), func() {
+		grpcServer.Stop()
+		_ = lis.Close()
+	}
 }
 
 func TestIsRetryableError(t *testing.T) {

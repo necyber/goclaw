@@ -10,11 +10,13 @@ import (
 
 	pb "github.com/goclaw/goclaw/pkg/grpc/pb/v1"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/keepalive"
+	"google.golang.org/grpc/status"
 )
 
 // Client is the gRPC client for Goclaw
@@ -225,13 +227,23 @@ func (c *Client) Close() error {
 
 // HealthCheck checks if the server is healthy
 func (c *Client) HealthCheck(ctx context.Context) error {
+	const serviceName = "goclaw.v1.WorkflowService"
 	req := &grpc_health_v1.HealthCheckRequest{
-		Service: "goclaw.v1.WorkflowService",
+		Service: serviceName,
 	}
 
 	resp, err := c.healthClient.Check(ctx, req)
 	if err != nil {
-		return fmt.Errorf("health check failed: %w", err)
+		st, ok := status.FromError(err)
+		if !ok || st.Code() != codes.NotFound {
+			return fmt.Errorf("health check failed: %w", err)
+		}
+
+		// Fallback to global service health for backward compatibility.
+		resp, err = c.healthClient.Check(ctx, &grpc_health_v1.HealthCheckRequest{})
+		if err != nil {
+			return fmt.Errorf("health check failed: %w", err)
+		}
 	}
 
 	if resp.Status != grpc_health_v1.HealthCheckResponse_SERVING {

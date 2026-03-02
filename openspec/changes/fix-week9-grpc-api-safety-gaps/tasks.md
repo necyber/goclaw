@@ -25,6 +25,6 @@
 
 ## 5. Client Health Alignment And Validation
 
-- [ ] 5.1 Update `pkg/grpc/client/client.go` health-check behavior to align with service-scoped server health registration.
-- [ ] 5.2 Add client tests to verify healthy service checks succeed with service-specific queries.
-- [ ] 5.3 Run verification suites: `go test ./pkg/grpc/...` and targeted race suites for hardened paths (`handlers`, `streaming`, `interceptors`).
+- [x] 5.1 Update `pkg/grpc/client/client.go` health-check behavior to align with service-scoped server health registration.
+- [x] 5.2 Add client tests to verify healthy service checks succeed with service-specific queries.
+- [x] 5.3 Run verification suites: `go test ./pkg/grpc/...` and targeted race suites for hardened paths (`handlers`, `streaming`, `interceptors`).
