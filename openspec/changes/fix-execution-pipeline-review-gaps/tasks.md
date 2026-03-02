@@ -1,8 +1,8 @@
 ## 1. Runtime Transition Conformance
 
-- [ ] 1.1 Persist `storage.TaskState.Result` on `completed` terminal transition in runtime execution path
-- [ ] 1.2 Ensure non-terminal and non-completed terminal transitions do not leak stale task result payloads
-- [ ] 1.3 Add/adjust engine tests validating completed task result payload persistence and retrieval
+- [x] 1.1 Persist `storage.TaskState.Result` on `completed` terminal transition in runtime execution path
+- [x] 1.2 Ensure non-terminal and non-completed terminal transitions do not leak stale task result payloads
+- [x] 1.3 Add/adjust engine tests validating completed task result payload persistence and retrieval
 
 ## 2. Cancellation Graceful Timeout Semantics
 

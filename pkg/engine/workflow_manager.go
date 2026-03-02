@@ -380,6 +380,10 @@ func (e *Engine) transitionTask(exec *workflowExecution, taskID string, oldState
 	now := time.Now().UTC()
 	taskType := resolveTaskType(exec.wfState, taskID)
 	taskState.Status = newStatus
+	if newStatus == taskStatusScheduled {
+		// Guard against stale payload visibility while task is not terminal.
+		taskState.Result = nil
+	}
 	if newStatus == taskStatusRunning {
 		started := now
 		if !result.StartedAt.IsZero() {
@@ -387,6 +391,7 @@ func (e *Engine) transitionTask(exec *workflowExecution, taskID string, oldState
 		}
 		taskState.StartedAt = &started
 		taskState.Error = ""
+		taskState.Result = nil
 	}
 	if newStatus == taskStatusScheduled && oldStatus == taskStatusRunning {
 		e.metrics.RecordTaskRetry(taskType)
@@ -403,6 +408,11 @@ func (e *Engine) transitionTask(exec *workflowExecution, taskID string, oldState
 			taskState.Error = newStatus
 		} else {
 			taskState.Error = ""
+		}
+		if newStatus == taskStatusCompleted {
+			taskState.Result = result.Result
+		} else {
+			taskState.Result = nil
 		}
 		if taskState.StartedAt != nil {
 			e.metrics.RecordTaskDuration(taskType, completed.Sub(*taskState.StartedAt))

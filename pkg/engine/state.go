@@ -47,6 +47,7 @@ type TaskResult struct {
 	Error     error
 	StartedAt time.Time
 	EndedAt   time.Time
+	Result    any
 	Retries   int
 }
 

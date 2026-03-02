@@ -2,6 +2,7 @@ package engine
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"sync"
 	"testing"
@@ -398,5 +399,138 @@ func TestSubmitWorkflowRuntime_DependencyField_DependsOnAlias(t *testing.T) {
 	}
 	if resp.Status != workflowStatusCompleted {
 		t.Fatalf("workflow status = %s, want %s", resp.Status, workflowStatusCompleted)
+	}
+}
+
+func TestTransitionTask_PersistsCompletedResultPayload(t *testing.T) {
+	cfg := minConfig()
+	store := memory.NewMemoryStorage()
+
+	eng, err := New(cfg, nil, store)
+	if err != nil {
+		t.Fatalf("failed to create engine: %v", err)
+	}
+	if err := eng.Start(context.Background()); err != nil {
+		t.Fatalf("failed to start engine: %v", err)
+	}
+	defer eng.Stop(context.Background())
+
+	resp, err := eng.SubmitWorkflowRuntime(context.Background(), &models.WorkflowRequest{
+		Name: "result-persistence",
+		Tasks: []models.TaskDefinition{
+			{ID: "t1", Name: "task-1", Type: "function"},
+		},
+	}, SubmitWorkflowOptions{Mode: SubmissionModeAsync})
+	if err != nil {
+		t.Fatalf("SubmitWorkflowRuntime() error = %v", err)
+	}
+
+	wfState, err := store.GetWorkflow(context.Background(), resp.ID)
+	if err != nil {
+		t.Fatalf("GetWorkflow() error = %v", err)
+	}
+	exec := &workflowExecution{workflowID: resp.ID, wfState: wfState}
+
+	if err := eng.transitionTask(exec, "t1", TaskStatePending, TaskStateScheduled, TaskResult{}); err != nil {
+		t.Fatalf("transition to scheduled error = %v", err)
+	}
+	started := time.Now().Add(-200 * time.Millisecond)
+	if err := eng.transitionTask(exec, "t1", TaskStateScheduled, TaskStateRunning, TaskResult{StartedAt: started}); err != nil {
+		t.Fatalf("transition to running error = %v", err)
+	}
+
+	payload := map[string]any{"output": "ok", "count": 1}
+	if err := eng.transitionTask(exec, "t1", TaskStateRunning, TaskStateCompleted, TaskResult{
+		EndedAt: time.Now(),
+		Result:  payload,
+	}); err != nil {
+		t.Fatalf("transition to completed error = %v", err)
+	}
+
+	taskState, err := store.GetTask(context.Background(), resp.ID, "t1")
+	if err != nil {
+		t.Fatalf("GetTask() error = %v", err)
+	}
+	if taskState.Status != taskStatusCompleted {
+		t.Fatalf("task status = %s, want %s", taskState.Status, taskStatusCompleted)
+	}
+	resultMap, ok := taskState.Result.(map[string]any)
+	if !ok {
+		t.Fatalf("task result type = %T, want map[string]any", taskState.Result)
+	}
+	if resultMap["output"] != "ok" {
+		t.Fatalf("result output = %v, want ok", resultMap["output"])
+	}
+
+	resultResp, err := eng.GetTaskResultResponse(context.Background(), resp.ID, "t1")
+	if err != nil {
+		t.Fatalf("GetTaskResultResponse() error = %v", err)
+	}
+	if resultResp.Result == nil {
+		t.Fatal("expected non-nil task result payload")
+	}
+}
+
+func TestTransitionTask_ClearsResultForNonCompletedTerminalStates(t *testing.T) {
+	cfg := minConfig()
+	store := memory.NewMemoryStorage()
+
+	eng, err := New(cfg, nil, store)
+	if err != nil {
+		t.Fatalf("failed to create engine: %v", err)
+	}
+	if err := eng.Start(context.Background()); err != nil {
+		t.Fatalf("failed to start engine: %v", err)
+	}
+	defer eng.Stop(context.Background())
+
+	resp, err := eng.SubmitWorkflowRuntime(context.Background(), &models.WorkflowRequest{
+		Name: "result-clear",
+		Tasks: []models.TaskDefinition{
+			{ID: "t1", Name: "task-1", Type: "function"},
+		},
+	}, SubmitWorkflowOptions{Mode: SubmissionModeAsync})
+	if err != nil {
+		t.Fatalf("SubmitWorkflowRuntime() error = %v", err)
+	}
+
+	wfState, err := store.GetWorkflow(context.Background(), resp.ID)
+	if err != nil {
+		t.Fatalf("GetWorkflow() error = %v", err)
+	}
+	wfState.TaskStatus["t1"].Result = map[string]any{"stale": true}
+	if err := store.SaveTask(context.Background(), resp.ID, wfState.TaskStatus["t1"]); err != nil {
+		t.Fatalf("SaveTask() seed result error = %v", err)
+	}
+
+	exec := &workflowExecution{workflowID: resp.ID, wfState: wfState}
+	if err := eng.transitionTask(exec, "t1", TaskStatePending, TaskStateScheduled, TaskResult{}); err != nil {
+		t.Fatalf("transition to scheduled error = %v", err)
+	}
+	if err := eng.transitionTask(exec, "t1", TaskStateScheduled, TaskStateRunning, TaskResult{StartedAt: time.Now().Add(-100 * time.Millisecond)}); err != nil {
+		t.Fatalf("transition to running error = %v", err)
+	}
+	if err := eng.transitionTask(exec, "t1", TaskStateRunning, TaskStateFailed, TaskResult{
+		EndedAt: time.Now(),
+		Error:   errors.New("boom"),
+		Result:  map[string]any{"should": "drop"},
+	}); err != nil {
+		t.Fatalf("transition to failed error = %v", err)
+	}
+
+	taskState, err := store.GetTask(context.Background(), resp.ID, "t1")
+	if err != nil {
+		t.Fatalf("GetTask() error = %v", err)
+	}
+	if taskState.Result != nil {
+		t.Fatalf("expected nil result for failed task, got %v", taskState.Result)
+	}
+
+	resultResp, err := eng.GetTaskResultResponse(context.Background(), resp.ID, "t1")
+	if err != nil {
+		t.Fatalf("GetTaskResultResponse() error = %v", err)
+	}
+	if resultResp.Result != nil {
+		t.Fatalf("expected nil API result for failed task, got %v", resultResp.Result)
 	}
 }
