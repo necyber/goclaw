@@ -15,10 +15,10 @@
 
 ## 3. HTTP Metrics Normalization and Safety
 
-- [ ] 3.1 Normalize HTTP status labels to status classes (`2xx|3xx|4xx|5xx`) before metrics emission.
-- [ ] 3.2 Expand HTTP path normalization to cover UUID, ULID, numeric IDs, and long opaque token segments.
-- [ ] 3.3 Keep metrics-endpoint recursion exclusion behavior aligned with configured metrics path semantics.
-- [ ] 3.4 Route normalized HTTP labels through cardinality guard to drop unsafe new values.
+- [x] 3.1 Normalize HTTP status labels to status classes (`2xx|3xx|4xx|5xx`) before metrics emission.
+- [x] 3.2 Expand HTTP path normalization to cover UUID, ULID, numeric IDs, and long opaque token segments.
+- [x] 3.3 Keep metrics-endpoint recursion exclusion behavior aligned with configured metrics path semantics.
+- [x] 3.4 Route normalized HTTP labels through cardinality guard to drop unsafe new values.
 
 ## 4. Tests and Conformance Coverage
 

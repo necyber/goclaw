@@ -3,6 +3,7 @@ package middleware
 import (
 	"context"
 	"net/http"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -22,12 +23,23 @@ type TraceAwareMetricsRecorder interface {
 	RecordHTTPRequestWithContext(ctx context.Context, method, path, status string, duration time.Duration)
 }
 
+// MetricsOptions configures HTTP metrics middleware behavior.
+type MetricsOptions struct {
+	MetricsPath string
+}
+
 // Metrics returns a middleware that records HTTP metrics.
 func Metrics(recorder MetricsRecorder) func(http.Handler) http.Handler {
+	return MetricsWithOptions(recorder, MetricsOptions{MetricsPath: "/metrics"})
+}
+
+// MetricsWithOptions returns a middleware that records HTTP metrics with explicit options.
+func MetricsWithOptions(recorder MetricsRecorder, opts MetricsOptions) func(http.Handler) http.Handler {
+	metricsPath := normalizeMetricsPathOption(opts.MetricsPath)
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// Skip metrics endpoint to avoid recursion
-			if strings.HasPrefix(r.URL.Path, "/metrics") {
+			if isMetricsEndpointRequest(r.URL.Path, metricsPath) {
 				next.ServeHTTP(w, r)
 				return
 			}
@@ -48,7 +60,7 @@ func Metrics(recorder MetricsRecorder) func(http.Handler) http.Handler {
 					wrapped.statusCode = http.StatusInternalServerError
 					duration := time.Since(start)
 					path := normalizePath(r.URL.Path)
-					recordHTTPRequest(recorder, r.Context(), r.Method, path, strconv.Itoa(wrapped.statusCode), duration)
+					recordHTTPRequest(recorder, r.Context(), r.Method, path, statusClass(wrapped.statusCode), duration)
 					panic(err) // Re-panic after recording
 				}
 			}()
@@ -57,7 +69,7 @@ func Metrics(recorder MetricsRecorder) func(http.Handler) http.Handler {
 
 			duration := time.Since(start)
 			path := normalizePath(r.URL.Path)
-			recordHTTPRequest(recorder, r.Context(), r.Method, path, strconv.Itoa(wrapped.statusCode), duration)
+			recordHTTPRequest(recorder, r.Context(), r.Method, path, statusClass(wrapped.statusCode), duration)
 		})
 	}
 }
@@ -98,14 +110,61 @@ func normalizePath(path string) string {
 	parts := strings.Split(path, "/")
 	for i, part := range parts {
 		// Replace UUIDs (8-4-4-4-12 format)
-		if len(part) == 36 && strings.Count(part, "-") == 4 {
+		if uuidPattern.MatchString(part) {
+			parts[i] = ":id"
+			continue
+		}
+		// Replace ULIDs
+		if ulidPattern.MatchString(strings.ToUpper(part)) {
 			parts[i] = ":id"
 			continue
 		}
 		// Replace numeric IDs
 		if _, err := strconv.Atoi(part); err == nil && len(part) > 0 {
 			parts[i] = ":id"
+			continue
+		}
+		// Replace long opaque tokens
+		if opaqueTokenPattern.MatchString(part) {
+			parts[i] = ":id"
 		}
 	}
 	return strings.Join(parts, "/")
 }
+
+func statusClass(code int) string {
+	switch {
+	case code >= 200 && code < 300:
+		return "2xx"
+	case code >= 300 && code < 400:
+		return "3xx"
+	case code >= 400 && code < 500:
+		return "4xx"
+	default:
+		return "5xx"
+	}
+}
+
+func normalizeMetricsPathOption(path string) string {
+	path = strings.TrimSpace(path)
+	if path == "" {
+		return "/metrics"
+	}
+	if !strings.HasPrefix(path, "/") {
+		return "/" + path
+	}
+	return path
+}
+
+func isMetricsEndpointRequest(requestPath, metricsPath string) bool {
+	if requestPath == metricsPath {
+		return true
+	}
+	return strings.HasPrefix(requestPath, metricsPath+"/")
+}
+
+var (
+	uuidPattern       = regexp.MustCompile(`(?i)^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$`)
+	ulidPattern       = regexp.MustCompile(`^[0-9A-HJKMNP-TV-Z]{26}$`)
+	opaqueTokenPattern = regexp.MustCompile(`^[A-Za-z0-9_-]{16,}$`)
+)

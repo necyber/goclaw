@@ -52,7 +52,13 @@ func NewRouter(cfg *config.Config, log logger.Logger, handlers *Handlers) chi.Ro
 
 	// Add metrics middleware if provided
 	if handlers.Metrics != nil {
-		r.Use(middleware.Metrics(handlers.Metrics))
+		metricsPath := "/metrics"
+		if cfg != nil {
+			metricsPath = cfg.Metrics.Path
+		}
+		r.Use(middleware.MetricsWithOptions(handlers.Metrics, middleware.MetricsOptions{
+			MetricsPath: metricsPath,
+		}))
 	}
 
 	r.Use(middleware.CORS(&cfg.Server.CORS))

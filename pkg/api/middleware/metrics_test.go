@@ -13,10 +13,16 @@ import (
 type mockMetricsRecorder struct {
 	requests    int
 	activeConns int
+	lastMethod  string
+	lastPath    string
+	lastStatus  string
 }
 
 func (m *mockMetricsRecorder) RecordHTTPRequest(method, path, status string, duration time.Duration) {
 	m.requests++
+	m.lastMethod = method
+	m.lastPath = path
+	m.lastStatus = status
 }
 
 func (m *mockMetricsRecorder) IncActiveConnections() {
@@ -151,6 +157,8 @@ func TestNormalizePath(t *testing.T) {
 	}{
 		{"/api/v1/workflows/123", "/api/v1/workflows/:id"},
 		{"/api/v1/workflows/550e8400-e29b-41d4-a716-446655440000", "/api/v1/workflows/:id"},
+		{"/api/v1/workflows/01ARZ3NDEKTSV4RRFFQ69G5FAV", "/api/v1/workflows/:id"},
+		{"/api/v1/workflows/a1B2c3D4e5F6g7H8", "/api/v1/workflows/:id"},
 		{"/api/v1/workflows/123/tasks/456", "/api/v1/workflows/:id/tasks/:id"},
 		{"/api/v1/workflows", "/api/v1/workflows"},
 		{"/health", "/health"},
@@ -258,5 +266,38 @@ func TestMetrics_TraceAwareRecorderWithoutTraceContext(t *testing.T) {
 	}
 	if mock.traceID != "" || mock.spanID != "" {
 		t.Fatalf("expected empty trace correlation without span, got trace_id=%q span_id=%q", mock.traceID, mock.spanID)
+	}
+}
+
+func TestMetrics_StatusClassNormalization(t *testing.T) {
+	mock := &mockMetricsRecorder{}
+	handler := Metrics(mock)(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusNotFound)
+	}))
+
+	req := httptest.NewRequest("GET", "/api/v1/workflows/123", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if mock.lastStatus != "4xx" {
+		t.Fatalf("expected status class 4xx, got %q", mock.lastStatus)
+	}
+	if mock.lastPath != "/api/v1/workflows/:id" {
+		t.Fatalf("expected normalized path, got %q", mock.lastPath)
+	}
+}
+
+func TestMetrics_CustomMetricsPathSkip(t *testing.T) {
+	mock := &mockMetricsRecorder{}
+	handler := MetricsWithOptions(mock, MetricsOptions{MetricsPath: "/custom-metrics"})(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	}))
+
+	req := httptest.NewRequest("GET", "/custom-metrics", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if mock.requests != 0 {
+		t.Fatalf("expected no metrics to be recorded for custom metrics path, got %d", mock.requests)
 	}
 }
