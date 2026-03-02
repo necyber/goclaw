@@ -12,8 +12,8 @@
 
 ## 3. Documentation Consistency
 
-- [ ] 3.1 Fix conflicting WebSocket endpoint reference in `openspec/changes/archive/2026-02-27-week12-web-ui/proposal.md` from `/ws/workflows/{id}` to `/ws/events`.
-- [ ] 3.2 Verify week12 archived docs and relevant current specs consistently reference UI base-path behavior and canonical WebSocket endpoint.
+- [x] 3.1 Fix conflicting WebSocket endpoint reference in `openspec/changes/archive/2026-02-27-week12-web-ui/proposal.md` from `/ws/workflows/{id}` to `/ws/events`.
+- [x] 3.2 Verify week12 archived docs and relevant current specs consistently reference UI base-path behavior and canonical WebSocket endpoint.
 
 ## 4. Regression Tests And Validation
 

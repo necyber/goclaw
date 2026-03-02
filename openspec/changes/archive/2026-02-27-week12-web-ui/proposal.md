@@ -33,6 +33,6 @@ GoClaw 已具备完整的 HTTP API、gRPC API 和 Prometheus 指标体系，但�
 - **新增依赖**: React 18、TypeScript、Vite（构建工具）、dagre-d3 或 ELK（DAG 布局）、recharts（图表）、gorilla/websocket（WebSocket 服务端）
 - **构建流程**: 需要在 Go 构建前先构建前端资源，Makefile 添加 `build-ui` 目标
 - **二进制体积**: 嵌入前端资源预计增加 2-5MB（Gzip 后）
-- **API 变更**: 新增 `/ws/workflows/{id}` WebSocket 端点，新增 `/ui/*` 静态资源路由
+- **API 变更**: 新增 `/ws/events` WebSocket 端点，新增 `/ui/*` 静态资源路由
 - **配置变更**: `config.yaml` 新增 `ui` 配置段（启用/禁用、基础路径）
 - **受影响代码**: `pkg/api/server.go`、`pkg/api/router.go`、`cmd/goclaw/main.go`、`config/config.go`
