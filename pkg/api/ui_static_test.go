@@ -13,7 +13,7 @@ import (
 func TestEmbeddedUIHandler_SPAFallback(t *testing.T) {
 	handler := newEmbeddedUIHandler(fstest.MapFS{
 		"index.html": &fstest.MapFile{Data: []byte("<html>ui</html>")},
-	}, nil)
+	}, "/ui", nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/workflows/abc-123", nil)
 	rec := httptest.NewRecorder()
@@ -37,7 +37,7 @@ func TestEmbeddedUIHandler_StaticAssetHeaders(t *testing.T) {
 		"index.html":                 &fstest.MapFile{Data: []byte("<html>ui</html>")},
 		"assets/main.a1b2c3d4.js":    &fstest.MapFile{Data: []byte(js)},
 		"assets/small.abc12345.json": &fstest.MapFile{Data: []byte("{}")},
-	}, nil)
+	}, "/ui", nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/assets/main.a1b2c3d4.js", nil)
 	req.Header.Set("Accept-Encoding", "gzip")
@@ -72,7 +72,7 @@ func TestEmbeddedUIHandler_StaticAssetHeaders(t *testing.T) {
 func TestEmbeddedUIHandler_MissingAssetReturnsNotFound(t *testing.T) {
 	handler := newEmbeddedUIHandler(fstest.MapFS{
 		"index.html": &fstest.MapFile{Data: []byte("<html>ui</html>")},
-	}, nil)
+	}, "/ui", nil)
 
 	req := httptest.NewRequest(http.MethodGet, "/assets/missing.js", nil)
 	rec := httptest.NewRecorder()
@@ -80,5 +80,29 @@ func TestEmbeddedUIHandler_MissingAssetReturnsNotFound(t *testing.T) {
 
 	if rec.Code != http.StatusNotFound {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
+	}
+}
+
+func TestEmbeddedUIHandler_IndexInjectsUIBasePath(t *testing.T) {
+	handler := newEmbeddedUIHandler(fstest.MapFS{
+		"index.html": &fstest.MapFile{
+			Data: []byte(`<script>window.__GOCLAW_UI_BASE_PATH__="__GOCLAW_UI_BASE_PATH_VALUE__";</script><script src="/__GOCLAW_UI_BASE__/assets/app.js"></script>`),
+		},
+		"assets/app.js": &fstest.MapFile{Data: []byte("console.log('ok')")},
+	}, "/dashboard", nil)
+
+	req := httptest.NewRequest(http.MethodGet, "/workflows/abc-123", nil)
+	rec := httptest.NewRecorder()
+
+	handler.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	if !strings.Contains(rec.Body.String(), `window.__GOCLAW_UI_BASE_PATH__="/dashboard"`) {
+		t.Fatalf("expected runtime base path injection, got %q", rec.Body.String())
+	}
+	if !strings.Contains(rec.Body.String(), `/dashboard/assets/app.js`) {
+		t.Fatalf("expected asset base path injection, got %q", rec.Body.String())
 	}
 }

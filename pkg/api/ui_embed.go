@@ -13,7 +13,7 @@ import (
 //go:embed web/dist/**
 var embeddedUIDist embed.FS
 
-func newUIHandler(log logger.Logger) http.Handler {
+func newUIHandler(basePath string, log logger.Logger) http.Handler {
 	distFS, err := fs.Sub(embeddedUIDist, "web/dist")
 	if err != nil {
 		if log != nil {
@@ -23,5 +23,5 @@ func newUIHandler(log logger.Logger) http.Handler {
 			http.Error(w, "embedded UI assets are unavailable", http.StatusInternalServerError)
 		})
 	}
-	return newEmbeddedUIHandler(distFS, log)
+	return newEmbeddedUIHandler(distFS, basePath, log)
 }

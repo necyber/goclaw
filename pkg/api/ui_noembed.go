@@ -8,7 +8,7 @@ import (
 	"github.com/goclaw/goclaw/pkg/logger"
 )
 
-func newUIHandler(_ logger.Logger) http.Handler {
+func newUIHandler(_ string, _ logger.Logger) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
 		w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 		w.WriteHeader(http.StatusNotImplemented)

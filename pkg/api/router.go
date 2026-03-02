@@ -146,7 +146,7 @@ func registerUIRoutes(r chi.Router, cfg *config.Config, log logger.Logger) {
 	}
 
 	basePath := normalizeUIBasePath(cfg.UI.BasePath)
-	handler := newUIHandler(log)
+	handler := newUIHandler(basePath, log)
 
 	if cfg.UI.DevProxy != "" {
 		proxy, err := newUIDevProxy(cfg.UI.DevProxy, basePath, log)

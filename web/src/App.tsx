@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 
 import { AppShell } from "./layouts/AppShell";
+import { getUIBasePath } from "./lib/uiBasePath";
 import { useThemeStore } from "./stores/theme";
 import { AdminPage } from "./pages/Admin";
 import { DashboardPage } from "./pages/Dashboard";
@@ -30,8 +31,10 @@ function ThemeSync() {
 }
 
 export default function App() {
+  const basename = getUIBasePath();
+
   return (
-    <BrowserRouter basename="/ui">
+    <BrowserRouter basename={basename}>
       <ThemeSync />
       <Routes>
         <Route element={<AppShell />}>

@@ -16,7 +16,13 @@ import (
 
 var uiHashedAssetPattern = regexp.MustCompile(`\.[a-fA-F0-9]{6,}\.`)
 
-func newEmbeddedUIHandler(uiFS fs.FS, log logger.Logger) http.Handler {
+const (
+	uiAssetBaseToken            = "/__GOCLAW_UI_BASE__/"
+	uiRuntimeBasePathValueToken = "__GOCLAW_UI_BASE_PATH_VALUE__"
+)
+
+func newEmbeddedUIHandler(uiFS fs.FS, basePath string, log logger.Logger) http.Handler {
+	normalizedBasePath := normalizeUIBasePath(basePath)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet && r.Method != http.MethodHead {
 			w.WriteHeader(http.StatusMethodNotAllowed)
@@ -33,6 +39,9 @@ func newEmbeddedUIHandler(uiFS fs.FS, log logger.Logger) http.Handler {
 		if err != nil {
 			http.NotFound(w, r)
 			return
+		}
+		if filePath == "index.html" {
+			content = injectUIBasePath(content, normalizedBasePath)
 		}
 
 		contentType := mime.TypeByExtension(path.Ext(filePath))
@@ -64,6 +73,13 @@ func newEmbeddedUIHandler(uiFS fs.FS, log logger.Logger) http.Handler {
 
 		http.ServeContent(w, r, filePath, modTime, bytes.NewReader(content))
 	})
+}
+
+func injectUIBasePath(indexHTML []byte, basePath string) []byte {
+	assetBase := strings.TrimRight(basePath, "/") + "/"
+	content := bytes.ReplaceAll(indexHTML, []byte(uiAssetBaseToken), []byte(assetBase))
+	content = bytes.ReplaceAll(content, []byte(uiRuntimeBasePathValueToken), []byte(basePath))
+	return content
 }
 
 func resolveUIPath(uiFS fs.FS, requestPath string) (string, bool) {

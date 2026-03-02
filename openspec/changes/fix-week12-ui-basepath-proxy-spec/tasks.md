@@ -6,9 +6,9 @@
 
 ## 2. Frontend Base Path Handling
 
-- [ ] 2.1 Remove hardcoded `/ui` router basename in `web/src/App.tsx` and bind basename to server-provided/runtime UI base path.
-- [ ] 2.2 Update frontend build/base path configuration (for example in `web/vite.config.ts`) to avoid hardcoded `/ui/` asset URLs.
-- [ ] 2.3 Ensure WebSocket connection behavior remains `/ws/events` regardless of UI base path and keep existing behavior intact.
+- [x] 2.1 Remove hardcoded `/ui` router basename in `web/src/App.tsx` and bind basename to server-provided/runtime UI base path.
+- [x] 2.2 Update frontend build/base path configuration (for example in `web/vite.config.ts`) to avoid hardcoded `/ui/` asset URLs.
+- [x] 2.3 Ensure WebSocket connection behavior remains `/ws/events` regardless of UI base path and keep existing behavior intact.
 
 ## 3. Documentation Consistency
 
