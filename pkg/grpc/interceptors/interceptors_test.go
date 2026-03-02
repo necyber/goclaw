@@ -2,10 +2,15 @@ package interceptors
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"io"
 	"reflect"
 	"testing"
+	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/testutil"
@@ -70,6 +75,28 @@ func (b businessRuleReq) Validate() error {
 	return BusinessRuleError{Message: "rule violated"}
 }
 
+func makeBearerToken(t *testing.T, subject string, roles []string) string {
+	t.Helper()
+
+	claims := tokenClaims{
+		Subject: subject,
+		Roles:   roles,
+		Expiry:  time.Now().Add(5 * time.Minute).Unix(),
+	}
+
+	rawPayload, err := json.Marshal(claims)
+	if err != nil {
+		t.Fatalf("marshal claims error = %v", err)
+	}
+	payloadSegment := base64.RawURLEncoding.EncodeToString(rawPayload)
+
+	mac := hmac.New(sha256.New, tokenSecret())
+	_, _ = mac.Write([]byte(payloadSegment))
+	signature := base64.RawURLEncoding.EncodeToString(mac.Sum(nil))
+
+	return "Bearer " + payloadSegment + "." + signature
+}
+
 func TestRecoveryUnaryInterceptor_Panic(t *testing.T) {
 	interceptor := RecoveryUnaryInterceptor()
 	_, err := interceptor(context.Background(), nil, &grpc.UnaryServerInfo{FullMethod: "/svc/m"}, func(ctx context.Context, req interface{}) (interface{}, error) {
@@ -109,6 +136,38 @@ func TestAuthenticationUnaryInterceptor_MissingToken(t *testing.T) {
 	}
 }
 
+func TestAuthenticationUnaryInterceptor_ValidToken(t *testing.T) {
+	interceptor := AuthenticationUnaryInterceptor()
+	token := makeBearerToken(t, "user-123", []string{"user"})
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(AuthorizationKey, token))
+
+	_, err := interceptor(ctx, nil, &grpc.UnaryServerInfo{FullMethod: "/svc/m"}, func(ctx context.Context, req interface{}) (interface{}, error) {
+		userID, ok := userIDFromContext(ctx)
+		if !ok || userID != "user-123" {
+			t.Fatalf("expected user-123 in context, got %q, ok=%v", userID, ok)
+		}
+		roles, ok := rolesFromContext(ctx)
+		if !ok || len(roles) == 0 || roles[0] != RoleUser {
+			t.Fatalf("expected user role in context, got %v, ok=%v", roles, ok)
+		}
+		return nil, nil
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
+	}
+}
+
+func TestAuthenticationUnaryInterceptor_InvalidToken(t *testing.T) {
+	interceptor := AuthenticationUnaryInterceptor()
+	ctx := metadata.NewIncomingContext(context.Background(), metadata.Pairs(AuthorizationKey, "Bearer invalid.token"))
+	_, err := interceptor(ctx, nil, &grpc.UnaryServerInfo{FullMethod: "/svc/m"}, func(ctx context.Context, req interface{}) (interface{}, error) {
+		return nil, nil
+	})
+	if status.Code(err) != codes.Unauthenticated {
+		t.Fatalf("expected Unauthenticated, got %v", status.Code(err))
+	}
+}
+
 func TestAuthenticationUnaryInterceptor_HealthCheckBypass(t *testing.T) {
 	interceptor := AuthenticationUnaryInterceptor()
 	_, err := interceptor(context.Background(), nil, &grpc.UnaryServerInfo{FullMethod: "/grpc.health.v1.Health/Check"}, func(ctx context.Context, req interface{}) (interface{}, error) {
@@ -127,6 +186,18 @@ func TestAuthorizationUnaryInterceptor_AdminDenied(t *testing.T) {
 	})
 	if status.Code(err) != codes.PermissionDenied {
 		t.Fatalf("expected PermissionDenied, got %v", status.Code(err))
+	}
+}
+
+func TestAuthorizationUnaryInterceptor_AdminAllowed(t *testing.T) {
+	interceptor := AuthorizationUnaryInterceptor()
+	ctx := withUserID(context.Background(), "admin-123")
+	ctx = withRoles(ctx, []Role{RoleAdmin})
+	_, err := interceptor(ctx, nil, &grpc.UnaryServerInfo{FullMethod: "/goclaw.v1.AdminService/GetEngineStatus"}, func(ctx context.Context, req interface{}) (interface{}, error) {
+		return "ok", nil
+	})
+	if err != nil {
+		t.Fatalf("unexpected error: %v", err)
 	}
 }
 

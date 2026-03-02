@@ -31,14 +31,16 @@ func AuthorizationUnaryInterceptor() grpc.UnaryServerInterceptor {
 			return nil, status.Error(codes.PermissionDenied, "user not authenticated")
 		}
 
+		roles, _ := rolesFromContext(ctx)
+
 		// Check if method requires admin role
 		if requiresAdminRole(info.FullMethod) {
-			role := getUserRole(userID)
-			if role != RoleAdmin {
+			if !hasRole(roles, RoleAdmin) {
 				return nil, status.Error(codes.PermissionDenied, "admin role required")
 			}
 		}
 
+		_ = userID
 		return handler(ctx, req)
 	}
 }
@@ -60,14 +62,16 @@ func AuthorizationStreamInterceptor() grpc.StreamServerInterceptor {
 			return status.Error(codes.PermissionDenied, "user not authenticated")
 		}
 
+		roles, _ := rolesFromContext(ctx)
+
 		// Check if method requires admin role
 		if requiresAdminRole(info.FullMethod) {
-			role := getUserRole(userID)
-			if role != RoleAdmin {
+			if !hasRole(roles, RoleAdmin) {
 				return status.Error(codes.PermissionDenied, "admin role required")
 			}
 		}
 
+		_ = userID
 		return handler(srv, ss)
 	}
 }
@@ -90,10 +94,11 @@ func requiresAdminRole(method string) bool {
 	return adminMethods[method]
 }
 
-// getUserRole retrieves the role for a user
-// In production, this should query a database or cache
-func getUserRole(userID string) Role {
-	// Simplified role lookup - in production query database
-	// For now, return user role for all users
-	return RoleUser
+func hasRole(roles []Role, expected Role) bool {
+	for _, role := range roles {
+		if role == expected {
+			return true
+		}
+	}
+	return false
 }

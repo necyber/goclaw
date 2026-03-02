@@ -7,9 +7,9 @@
 
 ## 2. Authentication And Authorization Behavior
 
-- [ ] 2.1 Replace placeholder token-validation behavior in `pkg/grpc/interceptors/auth.go` with enforceable validation semantics and explicit identity extraction.
-- [ ] 2.2 Update `pkg/grpc/interceptors/authorization.go` to derive and enforce admin role from authenticated identity context.
-- [ ] 2.3 Add interceptor tests covering valid auth, invalid auth, admin authorization pass/fail, and health-check bypass behavior.
+- [x] 2.1 Replace placeholder token-validation behavior in `pkg/grpc/interceptors/auth.go` with enforceable validation semantics and explicit identity extraction.
+- [x] 2.2 Update `pkg/grpc/interceptors/authorization.go` to derive and enforce admin role from authenticated identity context.
+- [x] 2.3 Add interceptor tests covering valid auth, invalid auth, admin authorization pass/fail, and health-check bypass behavior.
 
 ## 3. Batch Pagination Safety
 
