@@ -227,3 +227,124 @@ func TestSagaHandlerCompensateAndRecoverValidation(t *testing.T) {
 		t.Fatalf("RecoverSaga() status = %d, want %d", recW.Code, http.StatusConflict)
 	}
 }
+
+func TestSagaHandlerCompensateAfterRestartUsesPersistedDefinition(t *testing.T) {
+	handler, _, cleanup := newSagaHandlerForTest(t)
+	defer cleanup()
+
+	reqBody := models.SagaSubmitRequest{
+		Name:   "manual-restart-compensate",
+		Policy: "manual",
+		Steps: []models.SagaStepRequest{
+			{ID: "a", EnableCompensation: true},
+			{ID: "b", DependsOn: []string{"a"}, ShouldFail: true},
+		},
+	}
+	body, _ := json.Marshal(reqBody)
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/sagas", bytes.NewReader(body))
+	w := httptest.NewRecorder()
+	handler.SubmitSaga(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("SubmitSaga() status = %d, want %d", w.Code, http.StatusCreated)
+	}
+
+	var submitResp models.SagaSubmitResponse
+	if err := json.NewDecoder(w.Body).Decode(&submitResp); err != nil {
+		t.Fatalf("decode submit response: %v", err)
+	}
+
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		instance, err := handler.orchestrator.GetInstance(submitResp.SagaID)
+		if err == nil && instance.State == saga.SagaStatePendingCompensation {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("saga did not reach pending-compensation state")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	// Simulate API process restart: new handler with empty in-memory definition cache.
+	restarted := NewSagaHandler(
+		handler.orchestrator,
+		handler.checkpointStore,
+		handler.definitionStore,
+		handler.recoveryManager,
+		handler.logger,
+	)
+
+	compReq := httptest.NewRequest(http.MethodPost, "/api/v1/sagas/"+submitResp.SagaID+"/compensate", bytes.NewReader([]byte(`{"reason":"restart"}`)))
+	compCtx := chi.NewRouteContext()
+	compCtx.URLParams.Add("id", submitResp.SagaID)
+	compReq = compReq.WithContext(context.WithValue(compReq.Context(), chi.RouteCtxKey, compCtx))
+	compW := httptest.NewRecorder()
+	restarted.CompensateSaga(compW, compReq)
+	if compW.Code != http.StatusAccepted {
+		t.Fatalf("CompensateSaga() status = %d, want %d, body=%s", compW.Code, http.StatusAccepted, compW.Body.String())
+	}
+}
+
+func TestSagaHandlerRecoverAfterRestartUsesStoreAndHandlesMissingDefinition(t *testing.T) {
+	handler, checkpointStore, cleanup := newSagaHandlerForTest(t)
+	defer cleanup()
+
+	restarted := NewSagaHandler(
+		handler.orchestrator,
+		handler.checkpointStore,
+		handler.definitionStore,
+		handler.recoveryManager,
+		handler.logger,
+	)
+
+	t.Run("recover uses persisted definition after restart", func(t *testing.T) {
+		const sagaID = "recover-restart-ok"
+		snapshot := &saga.DefinitionSnapshot{
+			Name:  "recover-restart",
+			Steps: []saga.DefinitionStepSnapshot{{ID: "a"}},
+		}
+		if err := handler.definitionStore.Save(context.Background(), sagaID, snapshot); err != nil {
+			t.Fatalf("definitionStore.Save() error = %v", err)
+		}
+		if err := checkpointStore.Save(context.Background(), &saga.Checkpoint{
+			DefinitionName: snapshot.Name,
+			SagaID:         sagaID,
+			State:          saga.SagaStateRunning,
+			LastUpdated:    time.Now().UTC(),
+		}); err != nil {
+			t.Fatalf("checkpointStore.Save() error = %v", err)
+		}
+
+		recReq := httptest.NewRequest(http.MethodPost, "/api/v1/sagas/"+sagaID+"/recover", nil)
+		recCtx := chi.NewRouteContext()
+		recCtx.URLParams.Add("id", sagaID)
+		recReq = recReq.WithContext(context.WithValue(recReq.Context(), chi.RouteCtxKey, recCtx))
+		recW := httptest.NewRecorder()
+		restarted.RecoverSaga(recW, recReq)
+		if recW.Code != http.StatusAccepted {
+			t.Fatalf("RecoverSaga() status = %d, want %d, body=%s", recW.Code, http.StatusAccepted, recW.Body.String())
+		}
+	})
+
+	t.Run("recover returns not found when definition missing", func(t *testing.T) {
+		const sagaID = "recover-restart-missing-def"
+		if err := checkpointStore.Save(context.Background(), &saga.Checkpoint{
+			DefinitionName: "recover-missing",
+			SagaID:         sagaID,
+			State:          saga.SagaStateRunning,
+			LastUpdated:    time.Now().UTC(),
+		}); err != nil {
+			t.Fatalf("checkpointStore.Save() error = %v", err)
+		}
+
+		recReq := httptest.NewRequest(http.MethodPost, "/api/v1/sagas/"+sagaID+"/recover", nil)
+		recCtx := chi.NewRouteContext()
+		recCtx.URLParams.Add("id", sagaID)
+		recReq = recReq.WithContext(context.WithValue(recReq.Context(), chi.RouteCtxKey, recCtx))
+		recW := httptest.NewRecorder()
+		restarted.RecoverSaga(recW, recReq)
+		if recW.Code != http.StatusNotFound {
+			t.Fatalf("RecoverSaga() status = %d, want %d, body=%s", recW.Code, http.StatusNotFound, recW.Body.String())
+		}
+	})
+}

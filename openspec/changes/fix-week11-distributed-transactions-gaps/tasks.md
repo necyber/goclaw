@@ -23,10 +23,10 @@
 
 ## 4. API and gRPC Lifecycle Behavior
 
-- [ ] 4.1 Update HTTP compensate/recover handlers to resolve definitions from durable store before fallback cache.
-- [ ] 4.2 Update gRPC compensate flow to resolve definitions from durable store before fallback cache.
-- [ ] 4.3 Return explicit not-found/precondition errors when definition snapshots are missing.
-- [ ] 4.4 Add HTTP and gRPC tests for post-restart manual compensate/recover scenarios.
+- [x] 4.1 Update HTTP compensate/recover handlers to resolve definitions from durable store before fallback cache.
+- [x] 4.2 Update gRPC compensate flow to resolve definitions from durable store before fallback cache.
+- [x] 4.3 Return explicit not-found/precondition errors when definition snapshots are missing.
+- [x] 4.4 Add HTTP and gRPC tests for post-restart manual compensate/recover scenarios.
 
 ## 5. Validation and Documentation
 

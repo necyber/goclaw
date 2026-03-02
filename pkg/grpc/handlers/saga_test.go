@@ -145,6 +145,74 @@ func TestSagaServiceCompensate(t *testing.T) {
 	assert.Equal(t, codes.FailedPrecondition, st.Code())
 }
 
+func TestSagaServiceCompensateAfterRestartUsesPersistedDefinition(t *testing.T) {
+	server, cleanup := newSagaServiceForTest(t)
+	defer cleanup()
+
+	submitResp, err := server.SubmitSaga(context.Background(), &pb.SubmitSagaRequest{
+		Name:   "grpc-restart-compensate",
+		Policy: pb.SagaCompensationPolicy_SAGA_COMPENSATION_POLICY_MANUAL,
+		Steps: []*pb.SagaStepDefinition{
+			{Id: "a", EnableCompensation: true},
+			{Id: "b", DependsOn: []string{"a"}, ShouldFail: true},
+		},
+	})
+	require.NoError(t, err)
+	require.NotEmpty(t, submitResp.SagaId)
+
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		instance, getErr := server.orchestrator.GetInstance(submitResp.SagaId)
+		if getErr == nil && instance.State == saga.SagaStatePendingCompensation {
+			break
+		}
+		if time.Now().After(deadline) {
+			t.Fatal("saga did not reach pending-compensation state")
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+
+	// Simulate gRPC service restart with empty in-memory cache.
+	restarted := NewSagaServiceServer(server.orchestrator, server.checkpointStore, server.definitionStore)
+	compResp, err := restarted.CompensateSaga(context.Background(), &pb.CompensateSagaRequest{
+		SagaId: submitResp.SagaId,
+		Reason: "restart",
+	})
+	require.NoError(t, err)
+	assert.Equal(t, submitResp.SagaId, compResp.SagaId)
+}
+
+func TestSagaServiceCompensateMissingDefinitionReturnsNotFound(t *testing.T) {
+	server, cleanup := newSagaServiceForTest(t)
+	defer cleanup()
+
+	def, err := saga.New("grpc-missing-definition").
+		WithCompensationPolicy(saga.ManualCompensate).
+		Step("a",
+			saga.Action(func(context.Context, *saga.StepContext) (any, error) { return "a", nil }),
+			saga.Compensate(func(context.Context, *saga.CompensationContext) error { return nil }),
+		).
+		Step("b",
+			saga.Action(func(context.Context, *saga.StepContext) (any, error) { return nil, errors.New("boom") }),
+			saga.DependsOn("a"),
+		).
+		Build()
+	require.NoError(t, err)
+
+	const sagaID = "grpc-missing-definition-1"
+	_, execErr := server.orchestrator.ExecuteWithID(context.Background(), sagaID, def, nil)
+	require.Error(t, execErr)
+
+	_, err = server.CompensateSaga(context.Background(), &pb.CompensateSagaRequest{
+		SagaId: sagaID,
+		Reason: "manual",
+	})
+	require.Error(t, err)
+	st, ok := status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.NotFound, st.Code())
+}
+
 func TestSagaServiceWatchSaga(t *testing.T) {
 	server, cleanup := newSagaServiceForTest(t)
 	defer cleanup()
