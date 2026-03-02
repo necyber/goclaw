@@ -388,8 +388,81 @@ func TestRegisterRoutes_UIDevProxy(t *testing.T) {
 	if w.Code != http.StatusOK {
 		t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
 	}
-	if !strings.Contains(w.Body.String(), "proxied:/ui/workflows/abc") {
+	if !strings.Contains(w.Body.String(), "proxied:/workflows/abc") {
 		t.Fatalf("unexpected proxy body: %q", w.Body.String())
+	}
+}
+
+func TestRegisterRoutes_UIDevProxyCustomBasePath(t *testing.T) {
+	upstream := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusOK)
+		_, _ = w.Write([]byte("proxied:" + r.URL.Path))
+	}))
+	defer upstream.Close()
+
+	tests := []struct {
+		name     string
+		basePath string
+		path     string
+		wantPath string
+	}{
+		{
+			name:     "custom base path strips prefix",
+			basePath: "/dashboard",
+			path:     "/dashboard/workflows/abc",
+			wantPath: "/workflows/abc",
+		},
+		{
+			name:     "custom base root request maps to slash",
+			basePath: "/dashboard",
+			path:     "/dashboard",
+			wantPath: "/",
+		},
+		{
+			name:     "nested custom base path strips prefix",
+			basePath: "/ops/ui",
+			path:     "/ops/ui/metrics",
+			wantPath: "/metrics",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cfg := &config.Config{
+				Server: config.ServerConfig{
+					HTTP: config.HTTPConfig{
+						ReadTimeout: 30 * time.Second,
+					},
+					CORS: config.CORSConfig{
+						Enabled: false,
+					},
+				},
+				UI: config.UIConfig{
+					Enabled:  true,
+					BasePath: tt.basePath,
+					DevProxy: upstream.URL,
+				},
+			}
+
+			log := logger.New(&logger.Config{
+				Level:  logger.InfoLevel,
+				Format: "json",
+				Output: "stdout",
+			})
+
+			router := NewRouter(cfg, log, &Handlers{})
+
+			req := httptest.NewRequest(http.MethodGet, tt.path, nil)
+			w := httptest.NewRecorder()
+			router.ServeHTTP(w, req)
+
+			if w.Code != http.StatusOK {
+				t.Fatalf("status = %d, want %d", w.Code, http.StatusOK)
+			}
+			if !strings.Contains(w.Body.String(), "proxied:"+tt.wantPath) {
+				t.Fatalf("unexpected proxy body: %q, want path %q", w.Body.String(), tt.wantPath)
+			}
+		})
 	}
 }
 

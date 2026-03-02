@@ -149,7 +149,7 @@ func registerUIRoutes(r chi.Router, cfg *config.Config, log logger.Logger) {
 	handler := newUIHandler(log)
 
 	if cfg.UI.DevProxy != "" {
-		proxy, err := newUIDevProxy(cfg.UI.DevProxy, log)
+		proxy, err := newUIDevProxy(cfg.UI.DevProxy, basePath, log)
 		if err != nil {
 			log.Error("invalid ui.dev_proxy, falling back to embedded UI", "value", cfg.UI.DevProxy, "error", err)
 			handler = http.StripPrefix(basePath, handler)
@@ -176,16 +176,20 @@ func normalizeUIBasePath(basePath string) string {
 	return strings.TrimRight(normalized, "/")
 }
 
-func newUIDevProxy(rawURL string, log logger.Logger) (http.Handler, error) {
+func newUIDevProxy(rawURL, basePath string, log logger.Logger) (http.Handler, error) {
 	target, err := url.Parse(rawURL)
 	if err != nil {
 		return nil, err
 	}
 
+	normalizedBasePath := normalizeUIBasePath(basePath)
 	proxy := httputil.NewSingleHostReverseProxy(target)
 	originalDirector := proxy.Director
 	proxy.Director = func(req *http.Request) {
+		rewrittenPath := stripUIBasePath(req.URL.Path, normalizedBasePath)
 		originalDirector(req)
+		req.URL.Path = joinProxyPath(target.Path, rewrittenPath)
+		req.URL.RawPath = ""
 		req.Host = target.Host
 	}
 	proxy.ErrorHandler = func(w http.ResponseWriter, req *http.Request, proxyErr error) {
@@ -196,4 +200,39 @@ func newUIDevProxy(rawURL string, log logger.Logger) (http.Handler, error) {
 	}
 
 	return proxy, nil
+}
+
+func stripUIBasePath(requestPath, basePath string) string {
+	normalizedBasePath := normalizeUIBasePath(basePath)
+	if strings.HasPrefix(requestPath, normalizedBasePath) {
+		trimmed := strings.TrimPrefix(requestPath, normalizedBasePath)
+		if trimmed == "" {
+			return "/"
+		}
+		if strings.HasPrefix(trimmed, "/") {
+			return trimmed
+		}
+		return "/" + trimmed
+	}
+	if requestPath == "" {
+		return "/"
+	}
+	return requestPath
+}
+
+func joinProxyPath(targetPath, requestPath string) string {
+	if targetPath == "" {
+		return requestPath
+	}
+	if requestPath == "" {
+		return targetPath
+	}
+	switch {
+	case strings.HasSuffix(targetPath, "/") && strings.HasPrefix(requestPath, "/"):
+		return targetPath + strings.TrimPrefix(requestPath, "/")
+	case !strings.HasSuffix(targetPath, "/") && !strings.HasPrefix(requestPath, "/"):
+		return targetPath + "/" + requestPath
+	default:
+		return targetPath + requestPath
+	}
 }

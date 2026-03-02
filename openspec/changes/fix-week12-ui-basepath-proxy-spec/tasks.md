@@ -1,8 +1,8 @@
 ## 1. Backend UI Routing And Proxy
 
-- [ ] 1.1 Update `pkg/api/router.go` UI dev-proxy branch to rewrite upstream paths by stripping configured `ui.base_path`.
-- [ ] 1.2 Keep default `/ui` behavior unchanged when `ui.base_path` is empty and ensure normalization still works for custom paths.
-- [ ] 1.3 Add/adjust router tests for custom base path registration and proxy rewrite behavior (including nested/deep routes).
+- [x] 1.1 Update `pkg/api/router.go` UI dev-proxy branch to rewrite upstream paths by stripping configured `ui.base_path`.
+- [x] 1.2 Keep default `/ui` behavior unchanged when `ui.base_path` is empty and ensure normalization still works for custom paths.
+- [x] 1.3 Add/adjust router tests for custom base path registration and proxy rewrite behavior (including nested/deep routes).
 
 ## 2. Frontend Base Path Handling
 
