@@ -235,6 +235,9 @@ type OrchestrationConfig struct {
 	// MaxAgents is the maximum number of concurrent agents.
 	MaxAgents int `mapstructure:"max_agents" validate:"min=1"`
 
+	// CancellationTimeout is the graceful wait duration for runtime workflow cancellation.
+	CancellationTimeout time.Duration `mapstructure:"cancellation_timeout"`
+
 	// Queue is the task queue configuration.
 	Queue QueueConfig `mapstructure:"queue"`
 

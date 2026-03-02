@@ -53,7 +53,8 @@ func DefaultConfig() *Config {
 			Output: "stdout",
 		},
 		Orchestration: OrchestrationConfig{
-			MaxAgents: 1000,
+			MaxAgents:           1000,
+			CancellationTimeout: 5 * time.Second,
 			Queue: QueueConfig{
 				Type: "memory",
 				Size: 10000,

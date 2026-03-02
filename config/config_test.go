@@ -180,6 +180,9 @@ func TestDurationParsing(t *testing.T) {
 	if cfg.Orchestration.Scheduler.CheckInterval != 5*time.Second {
 		t.Errorf("expected check interval 5s, got %v", cfg.Orchestration.Scheduler.CheckInterval)
 	}
+	if cfg.Orchestration.CancellationTimeout != 5*time.Second {
+		t.Errorf("expected orchestration cancellation timeout 5s, got %v", cfg.Orchestration.CancellationTimeout)
+	}
 }
 
 func TestLoader_Get(t *testing.T) {

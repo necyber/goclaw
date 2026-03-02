@@ -534,3 +534,111 @@ func TestTransitionTask_ClearsResultForNonCompletedTerminalStates(t *testing.T) 
 		t.Fatalf("expected nil API result for failed task, got %v", resultResp.Result)
 	}
 }
+
+func TestCancelWorkflowRequest_GracefulTimeoutExpiresToFailed(t *testing.T) {
+	cfg := minConfig()
+	cfg.Orchestration.CancellationTimeout = 50 * time.Millisecond
+	store := memory.NewMemoryStorage()
+
+	eng, err := New(cfg, nil, store)
+	if err != nil {
+		t.Fatalf("failed to create engine: %v", err)
+	}
+	if err := eng.Start(context.Background()); err != nil {
+		t.Fatalf("failed to start engine: %v", err)
+	}
+	defer eng.Stop(context.Background())
+
+	req := &models.WorkflowRequest{
+		Name: "cancel-timeout-failed",
+		Tasks: []models.TaskDefinition{
+			{ID: "t1", Name: "task-1", Type: "function"},
+		},
+	}
+	resp, err := eng.SubmitWorkflowRuntime(context.Background(), req, SubmitWorkflowOptions{
+		Mode: SubmissionModeAsync,
+		TaskFns: map[string]func(context.Context) error{
+			"t1": func(context.Context) error {
+				// Simulate non-cooperative task that exceeds graceful cancellation timeout.
+				time.Sleep(200 * time.Millisecond)
+				return nil
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("SubmitWorkflowRuntime() error = %v", err)
+	}
+	if err := waitWorkflowStatus(eng, resp.ID, workflowStatusRunning, 2*time.Second); err != nil {
+		t.Fatalf("workflow did not reach running state: %v", err)
+	}
+
+	start := time.Now()
+	if err := eng.CancelWorkflowRequest(context.Background(), resp.ID); err != nil {
+		t.Fatalf("CancelWorkflowRequest() error = %v", err)
+	}
+	elapsed := time.Since(start)
+	if elapsed > 150*time.Millisecond {
+		t.Fatalf("cancel exceeded graceful timeout bound, elapsed=%v", elapsed)
+	}
+
+	if err := waitWorkflowStatus(eng, resp.ID, workflowStatusFailed, 2*time.Second); err != nil {
+		t.Fatalf("workflow did not reach failed state after cancellation timeout: %v", err)
+	}
+	taskResp, err := eng.GetTaskResultResponse(context.Background(), resp.ID, "t1")
+	if err != nil {
+		t.Fatalf("GetTaskResultResponse() error = %v", err)
+	}
+	if taskResp.Status != taskStatusFailed {
+		t.Fatalf("task status = %s, want %s", taskResp.Status, taskStatusFailed)
+	}
+}
+
+func TestCancelWorkflowRequest_CompletesWithinGracefulTimeout(t *testing.T) {
+	cfg := minConfig()
+	cfg.Orchestration.CancellationTimeout = 500 * time.Millisecond
+	store := memory.NewMemoryStorage()
+
+	eng, err := New(cfg, nil, store)
+	if err != nil {
+		t.Fatalf("failed to create engine: %v", err)
+	}
+	if err := eng.Start(context.Background()); err != nil {
+		t.Fatalf("failed to start engine: %v", err)
+	}
+	defer eng.Stop(context.Background())
+
+	req := &models.WorkflowRequest{
+		Name: "cancel-graceful",
+		Tasks: []models.TaskDefinition{
+			{ID: "t1", Name: "task-1", Type: "function"},
+		},
+	}
+	resp, err := eng.SubmitWorkflowRuntime(context.Background(), req, SubmitWorkflowOptions{
+		Mode: SubmissionModeAsync,
+		TaskFns: map[string]func(context.Context) error{
+			"t1": func(ctx context.Context) error {
+				<-ctx.Done()
+				return nil
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("SubmitWorkflowRuntime() error = %v", err)
+	}
+	if err := waitWorkflowStatus(eng, resp.ID, workflowStatusRunning, 2*time.Second); err != nil {
+		t.Fatalf("workflow did not reach running state: %v", err)
+	}
+
+	start := time.Now()
+	if err := eng.CancelWorkflowRequest(context.Background(), resp.ID); err != nil {
+		t.Fatalf("CancelWorkflowRequest() error = %v", err)
+	}
+	elapsed := time.Since(start)
+	if elapsed > cfg.Orchestration.CancellationTimeout {
+		t.Fatalf("cancel exceeded configured graceful timeout, elapsed=%v timeout=%v", elapsed, cfg.Orchestration.CancellationTimeout)
+	}
+
+	if err := waitWorkflowStatus(eng, resp.ID, workflowStatusCancelled, 2*time.Second); err != nil {
+		t.Fatalf("workflow did not reach cancelled state: %v", err)
+	}
+}

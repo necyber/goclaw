@@ -6,9 +6,9 @@
 
 ## 2. Cancellation Graceful Timeout Semantics
 
-- [ ] 2.1 Add configurable cancellation graceful-timeout setting for workflow runtime cancel path
-- [ ] 2.2 Implement bounded cancel flow: signal cancellation, wait for task settlement, enforce timeout-derived terminal mapping on expiry
-- [ ] 2.3 Add integration tests for running-workflow cancel behavior within timeout and timeout-expiry cases
+- [x] 2.1 Add configurable cancellation graceful-timeout setting for workflow runtime cancel path
+- [x] 2.2 Implement bounded cancel flow: signal cancellation, wait for task settlement, enforce timeout-derived terminal mapping on expiry
+- [x] 2.3 Add integration tests for running-workflow cancel behavior within timeout and timeout-expiry cases
 
 ## 3. Streaming State Consistency and Backpressure
 

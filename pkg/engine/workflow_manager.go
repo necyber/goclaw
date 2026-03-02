@@ -559,18 +559,43 @@ func (e *Engine) CancelWorkflowRequest(ctx context.Context, id string) error {
 
 	if exec, ok := e.getExecution(id); ok {
 		exec.cancel()
-		for taskID, taskState := range exec.wfState.TaskStatus {
-			if isTerminalTaskStatus(taskState.Status) {
-				continue
+		timeout := e.cancellationGracefulTimeout()
+		timer := time.NewTimer(timeout)
+		defer timer.Stop()
+
+		select {
+		case <-exec.done:
+			latest, latestErr := e.storage.GetWorkflow(context.Background(), id)
+			if latestErr == nil && isTerminalWorkflowStatus(latest.Status) {
+				return nil
 			}
-			if err := e.transitionTask(exec, taskID, TaskStatePending, TaskStateCancelled, TaskResult{Error: context.Canceled}); err != nil {
-				e.logger.Warn("failed to cancel task during workflow cancel", "workflow_id", id, "task_id", taskID, "error", err)
+			for taskID, taskState := range exec.wfState.TaskStatus {
+				if isTerminalTaskStatus(taskState.Status) {
+					continue
+				}
+				if err := e.transitionTask(exec, taskID, TaskStatePending, TaskStateCancelled, TaskResult{Error: context.Canceled}); err != nil {
+					e.logger.Warn("failed to cancel task during workflow cancel", "workflow_id", id, "task_id", taskID, "error", err)
+				}
 			}
+			if err := e.transitionWorkflow(exec, workflowStatusCancelled, "cancelled by request"); err != nil && !isTerminalWorkflowStatus(exec.wfState.Status) {
+				return err
+			}
+			return nil
+		case <-timer.C:
+			timeoutErr := context.DeadlineExceeded
+			for taskID, taskState := range exec.wfState.TaskStatus {
+				if isTerminalTaskStatus(taskState.Status) {
+					continue
+				}
+				if err := e.transitionTask(exec, taskID, TaskStateRunning, TaskStateFailed, TaskResult{Error: timeoutErr}); err != nil {
+					e.logger.Warn("failed to mark task failed after cancellation timeout", "workflow_id", id, "task_id", taskID, "error", err)
+				}
+			}
+			if err := e.transitionWorkflow(exec, workflowStatusFailed, timeoutErr.Error()); err != nil && !isTerminalWorkflowStatus(exec.wfState.Status) {
+				return err
+			}
+			return nil
 		}
-		if err := e.transitionWorkflow(exec, workflowStatusCancelled, "cancelled by request"); err != nil && !isTerminalWorkflowStatus(exec.wfState.Status) {
-			return err
-		}
-		return nil
 	}
 
 	oldStatus := wfState.Status
@@ -696,4 +721,15 @@ func resolveTaskType(wfState *storage.WorkflowState, taskID string) string {
 
 func isPendingLikeWorkflowStatus(status string) bool {
 	return status == workflowStatusPending || status == workflowStatusScheduled
+}
+
+func (e *Engine) cancellationGracefulTimeout() time.Duration {
+	const defaultCancellationGracefulTimeout = 5 * time.Second
+	if e == nil || e.cfg == nil {
+		return defaultCancellationGracefulTimeout
+	}
+	if e.cfg.Orchestration.CancellationTimeout > 0 {
+		return e.cfg.Orchestration.CancellationTimeout
+	}
+	return defaultCancellationGracefulTimeout
 }
