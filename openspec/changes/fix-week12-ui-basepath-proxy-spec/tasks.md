@@ -17,6 +17,6 @@
 
 ## 4. Regression Tests And Validation
 
-- [ ] 4.1 Add frontend tests covering non-default UI base path routing/bootstrap behavior.
-- [ ] 4.2 Add backend tests covering dev proxy rewrite with custom `ui.base_path` and existing default-path compatibility.
-- [ ] 4.3 Run targeted checks (`go test ./pkg/api ./config` and frontend tests) to confirm no regressions.
+- [x] 4.1 Add frontend tests covering non-default UI base path routing/bootstrap behavior.
+- [x] 4.2 Add backend tests covering dev proxy rewrite with custom `ui.base_path` and existing default-path compatibility.
+- [x] 4.3 Run targeted checks (`go test ./pkg/api ./config` and frontend tests) to confirm no regressions.

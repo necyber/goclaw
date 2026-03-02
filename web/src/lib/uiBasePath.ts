@@ -1,5 +1,5 @@
 const DEFAULT_UI_BASE_PATH = "/ui";
-const RUNTIME_BASE_PATH_PLACEHOLDER = "__GOCLAW_UI_BASE_PATH__";
+const RUNTIME_BASE_PATH_PLACEHOLDER = "__GOCLAW_UI_BASE_PATH_VALUE__";
 
 function normalizeUIBasePath(basePath: string): string {
   const trimmed = basePath.trim();
