@@ -30,7 +30,15 @@
 
 ## 5. Validation and Documentation
 
-- [ ] 5.1 Update `docs/saga-guide.md` with restart-safe recovery guarantees and missing-definition behavior.
-- [ ] 5.2 Add regression tests for startup recovery with persisted definitions and incomplete checkpoints.
-- [ ] 5.3 Run `go test ./...` and `openspec validate --changes --strict`.
-- [ ] 5.4 Record final verification notes in change artifacts before apply/archive.
+- [x] 5.1 Update `docs/saga-guide.md` with restart-safe recovery guarantees and missing-definition behavior.
+- [x] 5.2 Add regression tests for startup recovery with persisted definitions and incomplete checkpoints.
+- [x] 5.3 Run `go test ./...` and `openspec validate --changes --strict`.
+- [x] 5.4 Record final verification notes in change artifacts before apply/archive.
+
+## 6. Final Verification Notes (2026-03-02)
+
+- `go test ./...` passed after all phase updates.
+- `go test -race ./pkg/saga/...` passed after compensation bookkeeping and synchronization updates.
+- `openspec validate --changes --strict` passed:
+  - `change/fix-week11-distributed-transactions-gaps`
+  - totals: `1 passed, 0 failed`

@@ -128,3 +128,66 @@ func TestEngineStartRecoversSagaFromPersistedDefinition(t *testing.T) {
 		time.Sleep(20 * time.Millisecond)
 	}
 }
+
+func TestEngineStartRecoversCompensatingSagaFromPersistedDefinition(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Storage.Type = "memory"
+	cfg.Storage.Badger.Path = t.TempDir()
+	cfg.Saga.Enabled = true
+	cfg.Saga.WALCleanupInterval = 10 * time.Millisecond
+	cfg.Saga.WALRetention = 24 * time.Hour
+
+	eng, err := New(cfg, nil, memory.NewMemoryStorage())
+	if err != nil {
+		t.Fatalf("New() error = %v", err)
+	}
+	if eng.GetSagaDefinitionStore() == nil {
+		t.Fatal("expected saga definition store to be initialized")
+	}
+	if eng.GetSagaCheckpointStore() == nil {
+		t.Fatal("expected saga checkpoint store to be initialized")
+	}
+
+	const sagaID = "startup-recover-compensating-1"
+	snapshot := &saga.DefinitionSnapshot{
+		Name: "startup-recover-compensating",
+		Steps: []saga.DefinitionStepSnapshot{
+			{ID: "a", EnableCompensation: true},
+			{ID: "b", DependsOn: []string{"a"}},
+		},
+	}
+	if err := eng.GetSagaDefinitionStore().Save(context.Background(), sagaID, snapshot); err != nil {
+		t.Fatalf("Save() definition snapshot error = %v", err)
+	}
+	if err := eng.GetSagaCheckpointStore().Save(context.Background(), &saga.Checkpoint{
+		DefinitionName: snapshot.Name,
+		SagaID:         sagaID,
+		State:          saga.SagaStateCompensating,
+		CompletedSteps: []string{"a"},
+		StepResults:    map[string]any{"a": "done"},
+		FailedStep:     "b",
+		LastUpdated:    time.Now().UTC(),
+	}); err != nil {
+		t.Fatalf("Save() checkpoint error = %v", err)
+	}
+
+	if err := eng.Start(context.Background()); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	defer func() { _ = eng.Stop(context.Background()) }()
+
+	deadline := time.Now().Add(2 * time.Second)
+	for {
+		instance, getErr := eng.GetSagaOrchestrator().GetInstance(sagaID)
+		if getErr == nil && instance.State == saga.SagaStateCompensated {
+			return
+		}
+		if time.Now().After(deadline) {
+			if getErr != nil {
+				t.Fatalf("expected recovered saga instance, last GetInstance() error = %v", getErr)
+			}
+			t.Fatalf("expected recovered saga compensated state, got %s", instance.State)
+		}
+		time.Sleep(20 * time.Millisecond)
+	}
+}

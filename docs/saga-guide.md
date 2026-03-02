@@ -82,12 +82,19 @@ Best practices:
 Persistence model:
 - WAL key format: `wal:{sagaID}:{sequence}`
 - Checkpoint key format: `checkpoint:{sagaID}`
+- Definition snapshot key format: `saga:def:{sagaID}`
 
 Recovery flow:
 1. On startup, scan non-terminal checkpoints.
-2. Resume `running` Sagas from the next uncompleted step.
-3. Resume `compensating` Sagas from remaining compensation work.
-4. Persist the latest snapshot after recovery attempt.
+2. Load persisted Saga definitions by `saga_id` and rebuild executable definitions.
+3. Resume `running` Sagas from the next uncompleted step.
+4. Resume `compensating` Sagas from remaining compensation work.
+5. Persist the latest snapshot after recovery attempt.
+
+Restart guarantees and failure semantics:
+- Manual lifecycle APIs (`/compensate`, `/recover`, `CompensateSaga`) resolve definitions from durable storage first, then optional in-memory fallback.
+- If a required definition snapshot is missing, APIs return explicit `404/NOT_FOUND` style errors and do not execute lifecycle actions.
+- Startup recovery keeps incomplete checkpoints when definition snapshots are missing and records recovery failure telemetry for operator intervention.
 
 Operational notes:
 - `wal_sync_mode=sync` favors durability.
@@ -127,8 +134,9 @@ Saga Prometheus metrics:
 - Verify engine startup logs for Saga initialization failures.
 
 `saga definition not found` on manual operations:
-- The running process must still have the submitted in-memory definition.
-- Re-submit the Saga definition or extend persistence for definitions.
+- The definition snapshot for this `saga_id` is missing in durable storage.
+- Re-submit the Saga (or restore the snapshot) before manual compensate/recover.
+- For startup recovery, keep the checkpoint and restore missing definition data before re-running recovery.
 
 `checkpoint not found` during recover:
 - Verify checkpoint persistence path and permissions.
