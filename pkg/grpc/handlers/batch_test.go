@@ -373,6 +373,44 @@ func TestGetWorkflowStatuses_Pagination(t *testing.T) {
 	assert.Len(t, resp2.Results, 10)
 }
 
+func TestGetWorkflowStatuses_InvalidPageToken(t *testing.T) {
+	engine := &mockBatchEngine{}
+	server := NewBatchServiceServer(engine)
+
+	req := &pb.GetWorkflowStatusesRequest{
+		WorkflowIds: []string{"wf-1", "wf-2"},
+		Pagination: &pb.PaginationRequest{
+			PageSize:  1,
+			PageToken: "invalid-token",
+		},
+	}
+
+	_, err := server.GetWorkflowStatuses(context.Background(), req)
+	require.Error(t, err)
+	st, ok := status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.InvalidArgument, st.Code())
+}
+
+func TestGetWorkflowStatuses_PageTokenOutOfRange(t *testing.T) {
+	engine := &mockBatchEngine{}
+	server := NewBatchServiceServer(engine)
+
+	req := &pb.GetWorkflowStatusesRequest{
+		WorkflowIds: []string{"wf-1", "wf-2"},
+		Pagination: &pb.PaginationRequest{
+			PageSize:  1,
+			PageToken: "99",
+		},
+	}
+
+	_, err := server.GetWorkflowStatuses(context.Background(), req)
+	require.Error(t, err)
+	st, ok := status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.InvalidArgument, st.Code())
+}
+
 func TestCancelWorkflows_Success(t *testing.T) {
 	engine := &mockBatchEngine{}
 	server := NewBatchServiceServer(engine)
@@ -544,6 +582,46 @@ func TestGetTaskResults_Pagination(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, resp2)
 	assert.Len(t, resp2.Results, 10)
+}
+
+func TestGetTaskResults_InvalidPageToken(t *testing.T) {
+	engine := &mockBatchEngine{}
+	server := NewBatchServiceServer(engine)
+
+	req := &pb.GetTaskResultsRequest{
+		WorkflowId: "wf-1",
+		TaskIds:    []string{"task-1", "task-2"},
+		Pagination: &pb.PaginationRequest{
+			PageSize:  1,
+			PageToken: "invalid-token",
+		},
+	}
+
+	_, err := server.GetTaskResults(context.Background(), req)
+	require.Error(t, err)
+	st, ok := status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.InvalidArgument, st.Code())
+}
+
+func TestGetTaskResults_PageTokenOutOfRange(t *testing.T) {
+	engine := &mockBatchEngine{}
+	server := NewBatchServiceServer(engine)
+
+	req := &pb.GetTaskResultsRequest{
+		WorkflowId: "wf-1",
+		TaskIds:    []string{"task-1", "task-2"},
+		Pagination: &pb.PaginationRequest{
+			PageSize:  1,
+			PageToken: "99",
+		},
+	}
+
+	_, err := server.GetTaskResults(context.Background(), req)
+	require.Error(t, err)
+	st, ok := status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.InvalidArgument, st.Code())
 }
 
 func TestSetWorkerPoolSize(t *testing.T) {

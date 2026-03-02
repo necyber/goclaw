@@ -13,9 +13,9 @@
 
 ## 3. Batch Pagination Safety
 
-- [ ] 3.1 Harden page-token parsing and bounds checks in `pkg/grpc/handlers/batch.go` for all paginated batch handlers before slice operations.
-- [ ] 3.2 Return `InvalidArgument` for malformed, negative, or out-of-range offsets instead of allowing panic paths.
-- [ ] 3.3 Add regression tests for invalid tokens and out-of-range offsets to verify panic-free behavior.
+- [x] 3.1 Harden page-token parsing and bounds checks in `pkg/grpc/handlers/batch.go` for all paginated batch handlers before slice operations.
+- [x] 3.2 Return `InvalidArgument` for malformed, negative, or out-of-range offsets instead of allowing panic paths.
+- [x] 3.3 Add regression tests for invalid tokens and out-of-range offsets to verify panic-free behavior.
 
 ## 4. Streaming Concurrency Safety
 

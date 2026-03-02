@@ -289,6 +289,9 @@ func (s *BatchServiceServer) GetWorkflowStatuses(ctx context.Context, req *pb.Ge
 			if err != nil {
 				return nil, status.Errorf(codes.InvalidArgument, "invalid page token: %v", err)
 			}
+			if offset > len(req.WorkflowIds) {
+				return nil, status.Errorf(codes.InvalidArgument, "invalid page token: offset out of range")
+			}
 			startIdx = offset
 		}
 		endIdx = startIdx + pageSize
@@ -519,6 +522,9 @@ func (s *BatchServiceServer) GetTaskResults(ctx context.Context, req *pb.GetTask
 			offset, err := parsePageTokenOffset(req.Pagination.PageToken)
 			if err != nil {
 				return nil, status.Errorf(codes.InvalidArgument, "invalid page token: %v", err)
+			}
+			if offset > len(req.TaskIds) {
+				return nil, status.Errorf(codes.InvalidArgument, "invalid page token: offset out of range")
 			}
 			startIdx = offset
 		}
