@@ -642,3 +642,84 @@ func TestCancelWorkflowRequest_CompletesWithinGracefulTimeout(t *testing.T) {
 		t.Fatalf("workflow did not reach cancelled state: %v", err)
 	}
 }
+
+func TestTransitionTask_MetricsDistinguishTimeoutFromUserCancellation(t *testing.T) {
+	cfg := minConfig()
+	store := memory.NewMemoryStorage()
+	metrics := newCaptureMetrics()
+
+	eng, err := New(cfg, nil, store, WithMetrics(metrics))
+	if err != nil {
+		t.Fatalf("failed to create engine: %v", err)
+	}
+
+	started := time.Now().Add(-1 * time.Second).UTC()
+	wfState := &storage.WorkflowState{
+		ID:        "wf-metric-labels",
+		Name:      "wf-metric-labels",
+		Status:    workflowStatusRunning,
+		CreatedAt: started.Add(-1 * time.Second),
+		StartedAt: &started,
+		Tasks: []models.TaskDefinition{
+			{ID: "user-cancel", Name: "user-cancel", Type: "function"},
+			{ID: "timeout-cancel", Name: "timeout-cancel", Type: "function"},
+		},
+		TaskStatus: map[string]*storage.TaskState{
+			"user-cancel": {
+				ID:        "user-cancel",
+				Name:      "user-cancel",
+				Status:    taskStatusRunning,
+				StartedAt: &started,
+			},
+			"timeout-cancel": {
+				ID:        "timeout-cancel",
+				Name:      "timeout-cancel",
+				Status:    taskStatusRunning,
+				StartedAt: &started,
+			},
+		},
+	}
+	if err := store.SaveWorkflow(context.Background(), wfState); err != nil {
+		t.Fatalf("SaveWorkflow() error = %v", err)
+	}
+	for taskID := range wfState.TaskStatus {
+		if err := store.SaveTask(context.Background(), wfState.ID, wfState.TaskStatus[taskID]); err != nil {
+			t.Fatalf("SaveTask(%s) error = %v", taskID, err)
+		}
+	}
+
+	exec := &workflowExecution{workflowID: wfState.ID, wfState: wfState}
+	if err := eng.transitionTask(exec, "user-cancel", TaskStateRunning, TaskStateCancelled, TaskResult{
+		EndedAt: time.Now().UTC(),
+		Error:   context.Canceled,
+	}); err != nil {
+		t.Fatalf("transitionTask(user-cancel) error = %v", err)
+	}
+	if err := eng.transitionTask(exec, "timeout-cancel", TaskStateRunning, TaskStateCancelled, TaskResult{
+		EndedAt: time.Now().UTC(),
+		Error:   context.DeadlineExceeded,
+	}); err != nil {
+		t.Fatalf("transitionTask(timeout-cancel) error = %v", err)
+	}
+
+	if got := metrics.taskCount(taskStatusCancelled); got != 1 {
+		t.Fatalf("cancelled metric = %d, want 1", got)
+	}
+	if got := metrics.taskCount("failed_timeout"); got != 1 {
+		t.Fatalf("failed_timeout metric = %d, want 1", got)
+	}
+	if got := metrics.taskCount(taskStatusFailed); got != 0 {
+		t.Fatalf("failed metric = %d, want 0", got)
+	}
+
+	// Duplicate terminal callback for the same attempt must not double-count.
+	if err := eng.transitionTask(exec, "timeout-cancel", TaskStateRunning, TaskStateCancelled, TaskResult{
+		EndedAt: time.Now().UTC(),
+		Error:   context.DeadlineExceeded,
+	}); err != nil {
+		t.Fatalf("duplicate transitionTask(timeout-cancel) error = %v", err)
+	}
+	if got := metrics.taskCount("failed_timeout"); got != 1 {
+		t.Fatalf("failed_timeout metric after duplicate terminal callback = %d, want 1", got)
+	}
+}

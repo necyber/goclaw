@@ -18,9 +18,9 @@
 
 ## 4. Task Metrics Outcome Labeling
 
-- [ ] 4.1 Implement deterministic task terminal metric label mapping that distinguishes user cancellation from timeout-derived outcomes
-- [ ] 4.2 Align timeout detection logic in task terminal metric emission path with runtime terminal policy
-- [ ] 4.3 Add metrics tests asserting cancellation and timeout outcomes are query-distinguishable and idempotent per attempt
+- [x] 4.1 Implement deterministic task terminal metric label mapping that distinguishes user cancellation from timeout-derived outcomes
+- [x] 4.2 Align timeout detection logic in task terminal metric emission path with runtime terminal policy
+- [x] 4.3 Add metrics tests asserting cancellation and timeout outcomes are query-distinguishable and idempotent per attempt
 
 ## 5. Regression and Documentation Hygiene
 

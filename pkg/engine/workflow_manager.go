@@ -341,7 +341,7 @@ func (e *Engine) transitionWorkflow(exec *workflowExecution, newStatus, errMsg s
 }
 
 func workflowMetricLabel(status, errMsg string) string {
-	if status == workflowStatusFailed && strings.Contains(strings.ToLower(errMsg), "deadline") {
+	if status == workflowStatusFailed && isTimeoutErrorMessage(errMsg) {
 		return "failed_timeout"
 	}
 	return status
@@ -430,10 +430,19 @@ func (e *Engine) transitionTask(exec *workflowExecution, taskID string, oldState
 }
 
 func taskMetricLabel(status, errMsg string) string {
-	if status == taskStatusFailed && strings.Contains(strings.ToLower(errMsg), "deadline") {
+	if (status == taskStatusFailed || status == taskStatusCancelled) && isTimeoutErrorMessage(errMsg) {
 		return "failed_timeout"
 	}
 	return status
+}
+
+func isTimeoutErrorMessage(errMsg string) bool {
+	normalized := strings.TrimSpace(strings.ToLower(errMsg))
+	if normalized == "" {
+		return false
+	}
+	timeoutToken := strings.ToLower(context.DeadlineExceeded.Error())
+	return strings.Contains(normalized, timeoutToken)
 }
 
 func mapTaskStateToStatus(state TaskState) string {
