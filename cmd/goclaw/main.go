@@ -727,7 +727,7 @@ func registerGRPCServices(
 
 	workflowSvc := grpchandlers.NewWorkflowServiceServer(engineAdapter)
 	batchSvc := grpchandlers.NewBatchServiceServer(engineAdapter)
-	streamingSvc := grpchandlers.NewStreamingServiceServer(streamingRegistry)
+	streamingSvc := grpchandlers.NewStreamingServiceServerWithEngine(streamingRegistry, engineAdapter)
 	adminSvc := grpchandlers.NewAdminServiceServer(engineAdapter)
 	signalSvc := grpchandlers.NewSignalServiceServer(signalBus)
 	if sagaSvc == nil {

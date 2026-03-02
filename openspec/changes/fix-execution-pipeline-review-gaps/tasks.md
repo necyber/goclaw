@@ -12,9 +12,9 @@
 
 ## 3. Streaming State Consistency and Backpressure
 
-- [ ] 3.1 Replace fixed initial workflow stream state with persisted-state-derived initial snapshot
-- [ ] 3.2 Implement terminal-priority behavior under streaming backpressure and explicit stream error on undeliverable terminal visibility
-- [ ] 3.3 Add streaming tests for initial-state correctness, transition ordering, and terminal visibility under slow-consumer pressure
+- [x] 3.1 Replace fixed initial workflow stream state with persisted-state-derived initial snapshot
+- [x] 3.2 Implement terminal-priority behavior under streaming backpressure and explicit stream error on undeliverable terminal visibility
+- [x] 3.3 Add streaming tests for initial-state correctness, transition ordering, and terminal visibility under slow-consumer pressure
 
 ## 4. Task Metrics Outcome Labeling
 

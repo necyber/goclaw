@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"time"
@@ -17,16 +18,23 @@ import (
 // StreamingServiceServer implements the gRPC StreamingService
 type StreamingServiceServer struct {
 	pb.UnimplementedStreamingServiceServer
-	registry *streaming.SubscriberRegistry
-	observer *streaming.WorkflowStreamObserver
-	bridge   *streaming.EventBusBridge
+	registry       *streaming.SubscriberRegistry
+	observer       *streaming.WorkflowStreamObserver
+	bridge         *streaming.EventBusBridge
+	workflowEngine WorkflowEngine
 }
 
 // NewStreamingServiceServer creates a new streaming service server
 func NewStreamingServiceServer(registry *streaming.SubscriberRegistry) *StreamingServiceServer {
+	return NewStreamingServiceServerWithEngine(registry, nil)
+}
+
+// NewStreamingServiceServerWithEngine creates a new streaming service server with optional runtime status provider.
+func NewStreamingServiceServerWithEngine(registry *streaming.SubscriberRegistry, eng WorkflowEngine) *StreamingServiceServer {
 	return &StreamingServiceServer{
-		registry: registry,
-		observer: streaming.NewWorkflowStreamObserver(registry),
+		registry:       registry,
+		observer:       streaming.NewWorkflowStreamObserver(registry),
+		workflowEngine: eng,
 	}
 }
 
@@ -65,13 +73,31 @@ func (s *StreamingServiceServer) WatchWorkflow(req *pb.WatchWorkflowRequest, str
 	// Set up context cancellation
 	ctx := stream.Context()
 
-	// Send initial status update
+	// Send initial status update from persisted runtime state when provider is available.
+	initialStatus := pb.WorkflowStatus_WORKFLOW_STATUS_PENDING
+	initialMessage := "Watching workflow"
+	initialTimestamp := timestamppb.Now()
+	if s.workflowEngine != nil {
+		workflowStatus, err := s.workflowEngine.GetWorkflowStatus(ctx, req.WorkflowId)
+		if err != nil {
+			if IsNotFoundError(err) {
+				return status.Error(codes.NotFound, err.Error())
+			}
+			return status.Errorf(codes.Internal, "failed to fetch workflow status: %v", err)
+		}
+		initialStatus = convertToProtoStatus(workflowStatus.Status)
+		initialMessage = "Current persisted workflow state"
+		if workflowStatus.UpdatedAt > 0 {
+			initialTimestamp = timestamppb.New(time.Unix(workflowStatus.UpdatedAt, 0))
+		}
+	}
+
 	if err := stream.Send(&pb.WorkflowStatusUpdate{
 		SequenceNumber: sub.LastSequence,
-		Timestamp:      timestamppb.Now(),
+		Timestamp:      initialTimestamp,
 		WorkflowId:     req.WorkflowId,
-		Status:         pb.WorkflowStatus_WORKFLOW_STATUS_PENDING,
-		Message:        "Watching workflow",
+		Status:         initialStatus,
+		Message:        initialMessage,
 	}); err != nil {
 		return status.Errorf(codes.Internal, "failed to send initial update: %v", err)
 	}
@@ -83,7 +109,7 @@ func (s *StreamingServiceServer) WatchWorkflow(req *pb.WatchWorkflowRequest, str
 			return status.Error(codes.Canceled, "client disconnected")
 
 		case err := <-sub.ErrorChan:
-			return status.Errorf(codes.Internal, "stream error: %v", err)
+			return status.Errorf(streamErrorCode(err), "stream error: %v", err)
 
 		case event, ok := <-sub.EventChan:
 			if !ok {
@@ -145,7 +171,7 @@ func (s *StreamingServiceServer) WatchTasks(req *pb.WatchTasksRequest, stream pb
 			return status.Error(codes.Canceled, "client disconnected")
 
 		case err := <-sub.ErrorChan:
-			return status.Errorf(codes.Internal, "stream error: %v", err)
+			return status.Errorf(streamErrorCode(err), "stream error: %v", err)
 
 		case event, ok := <-sub.EventChan:
 			if !ok {
@@ -247,7 +273,7 @@ func (s *StreamingServiceServer) StreamLogs(stream pb.StreamingService_StreamLog
 			return status.Errorf(codes.Internal, "receive error: %v", err)
 
 		case err := <-sub.ErrorChan:
-			return status.Errorf(codes.Internal, "stream error: %v", err)
+			return status.Errorf(streamErrorCode(err), "stream error: %v", err)
 
 		case event, ok := <-sub.EventChan:
 			if !ok {
@@ -425,4 +451,11 @@ func cloneTaskFilter(src map[string]bool) map[string]bool {
 		cp[taskID] = enabled
 	}
 	return cp
+}
+
+func streamErrorCode(err error) codes.Code {
+	if errors.Is(err, streaming.ErrTerminalBackpressure) {
+		return codes.ResourceExhausted
+	}
+	return codes.Internal
 }

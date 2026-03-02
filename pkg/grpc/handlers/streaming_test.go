@@ -221,6 +221,72 @@ func TestWatchWorkflow(t *testing.T) {
 	}
 }
 
+func TestWatchWorkflow_InitialSnapshotFromPersistedState(t *testing.T) {
+	registry := streaming.NewSubscriberRegistry()
+	server := NewStreamingServiceServerWithEngine(registry, &MockWorkflowEngine{
+		GetWorkflowStatusFunc: func(ctx context.Context, workflowID string) (*WorkflowStatus, error) {
+			return &WorkflowStatus{
+				WorkflowID: workflowID,
+				Name:       "wf",
+				Status:     "running",
+				UpdatedAt:  time.Now().Unix(),
+			}, nil
+		},
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+
+	stream := &mockWatchWorkflowStream{
+		ctx:     ctx,
+		updates: make([]*pb.WorkflowStatusUpdate, 0),
+	}
+
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- server.WatchWorkflow(&pb.WatchWorkflowRequest{WorkflowId: "wf-1"}, stream)
+	}()
+
+	err := <-errChan
+	if err != nil {
+		st, ok := status.FromError(err)
+		require.True(t, ok)
+		assert.Equal(t, codes.Canceled, st.Code())
+	}
+	require.NotEmpty(t, stream.updates)
+	assert.Equal(t, pb.WorkflowStatus_WORKFLOW_STATUS_RUNNING, stream.updates[0].Status)
+	assert.Equal(t, "Current persisted workflow state", stream.updates[0].Message)
+}
+
+func TestWatchWorkflow_BackpressureErrorMapsToResourceExhausted(t *testing.T) {
+	registry := streaming.NewSubscriberRegistry()
+	server := NewStreamingServiceServer(registry)
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	stream := &mockWatchWorkflowStream{
+		ctx:     ctx,
+		updates: make([]*pb.WorkflowStatusUpdate, 0),
+	}
+
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- server.WatchWorkflow(&pb.WatchWorkflowRequest{WorkflowId: "wf-backpressure"}, stream)
+	}()
+
+	// Wait for subscriber registration.
+	time.Sleep(20 * time.Millisecond)
+	subs := registry.GetWorkflowSubscribers("wf-backpressure")
+	require.Len(t, subs, 1)
+	subs[0].ErrorChan <- streaming.ErrTerminalBackpressure
+
+	err := <-errChan
+	require.Error(t, err)
+	st, ok := status.FromError(err)
+	require.True(t, ok)
+	assert.Equal(t, codes.ResourceExhausted, st.Code())
+}
+
 func TestWatchTasks(t *testing.T) {
 	tests := []struct {
 		name        string

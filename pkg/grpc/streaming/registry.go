@@ -1,6 +1,7 @@
 package streaming
 
 import (
+	"errors"
 	"fmt"
 	"sync"
 	"sync/atomic"
@@ -28,6 +29,8 @@ type SubscriberRegistry struct {
 	byWorkflow  map[string][]string    // workflowID -> []subscriberID
 	sequence    int64
 }
+
+var ErrTerminalBackpressure = errors.New("terminal event delivery failed due to backpressure")
 
 // NewSubscriberRegistry creates a new subscriber registry
 func NewSubscriberRegistry() *SubscriberRegistry {
@@ -130,6 +133,19 @@ func (r *SubscriberRegistry) Broadcast(workflowID string, event interface{}) {
 	subs := r.GetWorkflowSubscribers(workflowID)
 
 	for _, sub := range subs {
+		if isTerminalLifecycleEvent(event) {
+			sent, closed := trySendTerminalEvent(sub.EventChan, &SequencedEvent{
+				Sequence: seq,
+				Event:    event,
+			})
+			if sent || closed {
+				continue
+			}
+			r.markSlowConsumer(sub.ID)
+			_, _ = trySendError(sub.ErrorChan, ErrTerminalBackpressure)
+			continue
+		}
+
 		sent, closed := trySendEvent(sub.EventChan, &SequencedEvent{
 			Sequence: seq,
 			Event:    event,
@@ -160,6 +176,45 @@ func trySendEvent(ch chan interface{}, evt *SequencedEvent) (sent bool, closed b
 	}
 }
 
+func trySendTerminalEvent(ch chan interface{}, evt *SequencedEvent) (sent bool, closed bool) {
+	if sent, closed = trySendEvent(ch, evt); sent || closed {
+		return sent, closed
+	}
+
+	defer func() {
+		if recover() != nil {
+			closed = true
+		}
+	}()
+
+	// Channel is full: drop one stale event to preserve terminal visibility.
+	select {
+	case <-ch:
+		select {
+		case ch <- evt:
+			return true, false
+		default:
+			return false, false
+		}
+	default:
+		return false, false
+	}
+}
+
+func trySendError(ch chan error, err error) (sent bool, closed bool) {
+	defer func() {
+		if recover() != nil {
+			closed = true
+		}
+	}()
+	select {
+	case ch <- err:
+		return true, false
+	default:
+		return false, false
+	}
+}
+
 func (r *SubscriberRegistry) markSlowConsumer(subscriberID string) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
@@ -169,6 +224,21 @@ func (r *SubscriberRegistry) markSlowConsumer(subscriberID string) {
 		return
 	}
 	sub.SlowConsumer = true
+}
+
+func isTerminalLifecycleEvent(event interface{}) bool {
+	switch e := event.(type) {
+	case engine.WorkflowEvent:
+		return e.EventType == engine.WorkflowEventCompleted ||
+			e.EventType == engine.WorkflowEventFailed ||
+			e.EventType == engine.WorkflowEventCancelled
+	case engine.TaskEvent:
+		return e.EventType == engine.TaskEventCompleted ||
+			e.EventType == engine.TaskEventFailed ||
+			e.EventType == engine.TaskEventCancelled
+	default:
+		return false
+	}
 }
 
 // SequencedEvent wraps an event with a sequence number
