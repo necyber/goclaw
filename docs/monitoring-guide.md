@@ -1,4 +1,4 @@
-# Monitoring Guide
+﻿# Monitoring Guide
 
 Goclaw provides production-grade monitoring with Prometheus metrics, Grafana dashboards, and pre-configured alert rules.
 
@@ -37,9 +37,9 @@ Histogram buckets: 0.1, 0.5, 1, 2, 5, 10, 30, 60, 120, 300 seconds
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `task_executions_total` | Counter | `status` | Total task executions (completed, failed) |
-| `task_duration_seconds` | Histogram | `status` | Task execution duration |
-| `task_retries_total` | Counter | — | Total task retry attempts |
+| `task_executions_total` | Counter | `status`, `task_type` | Total task executions by status and task type |
+| `task_duration_seconds` | Histogram | `task_type` | Task execution duration by task type |
+| `task_retries_total` | Counter | `task_type` | Total task retry attempts by task type |
 
 Histogram buckets: 0.01, 0.05, 0.1, 0.5, 1, 5, 10, 30 seconds
 
@@ -57,11 +57,15 @@ Histogram buckets: 0.001, 0.01, 0.1, 0.5, 1, 5, 10, 30 seconds
 
 | Metric | Type | Labels | Description |
 |--------|------|--------|-------------|
-| `http_requests_total` | Counter | `method`, `path`, `status` | Total HTTP requests |
+| `http_requests_total` | Counter | `method`, `path`, `status` | Total HTTP requests (`status`: `2xx|3xx|4xx|5xx`) |
 | `http_request_duration_seconds` | Histogram | `method`, `path` | HTTP request latency |
-| `http_active_connections` | Gauge | — | Current active HTTP connections |
+| `http_active_connections` | Gauge | none | Current active HTTP connections |
 
 Histogram buckets: 0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1, 5 seconds
+
+Path normalization:
+- Numeric IDs, UUIDs, ULIDs, and long opaque tokens are normalized to `:id`
+- Example: `/api/v1/workflows/01ARZ3NDEKTSV4RRFFQ69G5FAV` -> `/api/v1/workflows/:id`
 
 ### System Metrics (Auto-collected)
 
@@ -91,6 +95,7 @@ export GOCLAW_METRICS_PORT=9091
 ```
 
 When `enabled: false`, a no-op metrics manager is used with zero overhead.
+`metrics.path` must be non-empty and start with `/`.
 
 ## Prometheus Configuration
 
@@ -127,7 +132,7 @@ scrape_configs:
 Import the pre-built dashboard from `config/grafana/goclaw-dashboard.json`:
 
 1. Open Grafana at http://localhost:3000
-2. Go to Dashboards → Import
+2. Go to Dashboards 鈫?Import
 3. Upload `config/grafana/goclaw-dashboard.json`
 4. Select your Prometheus data source
 
@@ -218,8 +223,28 @@ receivers:
 
 If Prometheus memory usage is high:
 - Check for high-cardinality labels (many unique values)
-- The `path` label on HTTP metrics can cause cardinality issues with dynamic URLs
+- HTTP label values are normalized and guarded; excess unseen values are dropped and counted by `metrics_label_values_dropped_total`
 - Consider reducing `scrape_interval` if storage is a concern
+
+### PromQL migration examples
+
+Use status classes instead of raw status codes:
+
+```promql
+# old
+sum(rate(http_requests_total{status="500"}[5m]))
+
+# new
+sum(rate(http_requests_total{status="5xx"}[5m]))
+```
+
+Task metrics now support task type breakdown:
+
+```promql
+sum(rate(task_executions_total{status="completed"}[5m])) by (task_type)
+/
+sum(rate(task_executions_total[5m])) by (task_type)
+```
 
 ### Metrics collection overhead
 

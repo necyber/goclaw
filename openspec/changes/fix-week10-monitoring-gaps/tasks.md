@@ -31,7 +31,7 @@
 
 ## 5. Documentation and Compatibility Notes
 
-- [ ] 5.1 Update `docs/monitoring-guide.md` with new label semantics (`task_type`, HTTP status class, path normalization rules).
-- [ ] 5.2 Add PromQL migration examples for dashboards/alerts impacted by label-semantic changes.
-- [ ] 5.3 Update README monitoring section with compatibility caveats and recommended queries.
-- [ ] 5.4 Run `openspec validate --changes --strict` and `go test ./...` before implementation handoff.
+- [x] 5.1 Update `docs/monitoring-guide.md` with new label semantics (`task_type`, HTTP status class, path normalization rules).
+- [x] 5.2 Add PromQL migration examples for dashboards/alerts impacted by label-semantic changes.
+- [x] 5.3 Update README monitoring section with compatibility caveats and recommended queries.
+- [x] 5.4 Run `openspec validate --changes --strict` and `go test ./...` before implementation handoff.

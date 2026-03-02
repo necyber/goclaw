@@ -350,9 +350,9 @@ curl http://localhost:9091/metrics
 - `saga_recovery_total` - Recovery attempts by status
 
 **Task Metrics:**
-- `task_executions_total` - Total task executions by status
-- `task_duration_seconds` - Task execution duration histogram
-- `task_retries_total` - Total task retry attempts
+- `task_executions_total` - Total task executions by status and `task_type`
+- `task_duration_seconds` - Task execution duration histogram by `task_type`
+- `task_retries_total` - Total task retry attempts by `task_type`
 
 **Lane Queue Metrics:**
 - `lane_queue_depth` - Current queue depth by lane
@@ -360,9 +360,33 @@ curl http://localhost:9091/metrics
 - `lane_throughput_total` - Total tasks processed by lane
 
 **HTTP API Metrics:**
-- `http_requests_total` - Total HTTP requests by method/path/status
+- `http_requests_total` - Total HTTP requests by method/path/status-class (`2xx|3xx|4xx|5xx`)
 - `http_request_duration_seconds` - HTTP request latency histogram
 - `http_active_connections` - Current active HTTP connections
+
+#### Metrics Compatibility Notes
+
+- HTTP `status` label now uses status classes (`2xx|3xx|4xx|5xx`) instead of raw status codes.
+- HTTP `path` labels normalize numeric IDs, UUIDs, ULIDs, and long opaque tokens to `:id`.
+- Task metrics include `task_type`; unknown task type falls back to `unknown`.
+- `metrics.path` must be non-empty and start with `/`.
+
+Recommended query updates:
+
+```promql
+# Old: raw HTTP status code
+sum(rate(http_requests_total{status="500"}[5m]))
+
+# New: status class
+sum(rate(http_requests_total{status="5xx"}[5m]))
+```
+
+```promql
+# Task success by task type
+sum(rate(task_executions_total{status="completed"}[5m])) by (task_type)
+/
+sum(rate(task_executions_total[5m])) by (task_type)
+```
 
 **System Metrics:**
 - `go_goroutines` - Number of goroutines
