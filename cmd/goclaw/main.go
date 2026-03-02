@@ -267,9 +267,10 @@ func main() {
 			log.Warn("Saga is enabled but orchestrator is unavailable")
 		} else {
 			sagaCheckpointStore := eng.GetSagaCheckpointStore()
+			sagaDefinitionStore := eng.GetSagaDefinitionStore()
 			sagaRecoveryManager := eng.GetSagaRecoveryManager()
-			sagaHandler = handlers.NewSagaHandler(sagaOrchestrator, sagaCheckpointStore, sagaRecoveryManager, log)
-			sagaGRPCService = grpchandlers.NewSagaServiceServer(sagaOrchestrator, sagaCheckpointStore)
+			sagaHandler = handlers.NewSagaHandler(sagaOrchestrator, sagaCheckpointStore, sagaDefinitionStore, sagaRecoveryManager, log)
+			sagaGRPCService = grpchandlers.NewSagaServiceServer(sagaOrchestrator, sagaCheckpointStore, sagaDefinitionStore)
 			log.Info("Saga orchestrator initialized",
 				"max_concurrent", cfg.Saga.MaxConcurrent,
 				"wal_sync_mode", cfg.Saga.WALSyncMode,
@@ -730,7 +731,7 @@ func registerGRPCServices(
 	adminSvc := grpchandlers.NewAdminServiceServer(engineAdapter)
 	signalSvc := grpchandlers.NewSignalServiceServer(signalBus)
 	if sagaSvc == nil {
-		sagaSvc = grpchandlers.NewSagaServiceServer(nil, nil)
+		sagaSvc = grpchandlers.NewSagaServiceServer(nil, nil, nil)
 	}
 
 	grpcServer.RegisterService(&pb.WorkflowService_ServiceDesc, workflowSvc)

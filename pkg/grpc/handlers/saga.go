@@ -22,16 +22,22 @@ type SagaServiceServer struct {
 
 	orchestrator    *saga.SagaOrchestrator
 	checkpointStore saga.CheckpointStore
+	definitionStore saga.SagaDefinitionStore
 
 	defMu       sync.RWMutex
 	definitions map[string]*saga.SagaDefinition
 }
 
 // NewSagaServiceServer creates a new Saga service server.
-func NewSagaServiceServer(orchestrator *saga.SagaOrchestrator, checkpointStore saga.CheckpointStore) *SagaServiceServer {
+func NewSagaServiceServer(
+	orchestrator *saga.SagaOrchestrator,
+	checkpointStore saga.CheckpointStore,
+	definitionStore saga.SagaDefinitionStore,
+) *SagaServiceServer {
 	return &SagaServiceServer{
 		orchestrator:    orchestrator,
 		checkpointStore: checkpointStore,
+		definitionStore: definitionStore,
 		definitions:     make(map[string]*saga.SagaDefinition),
 	}
 }
@@ -43,12 +49,17 @@ func (s *SagaServiceServer) SubmitSaga(ctx context.Context, req *pb.SubmitSagaRe
 		return nil, status.Error(codes.Unavailable, "saga orchestrator unavailable")
 	}
 
-	definition, input, err := buildSagaDefinitionFromProto(req)
+	definition, input, snapshot, err := buildSagaDefinitionFromProto(req)
 	if err != nil {
 		return nil, status.Error(codes.InvalidArgument, err.Error())
 	}
 
 	sagaID := uuid.NewString()
+	if s.definitionStore != nil {
+		if err := s.definitionStore.Save(context.Background(), sagaID, snapshot); err != nil {
+			return nil, status.Error(codes.Internal, "failed to persist saga definition")
+		}
+	}
 	s.defMu.Lock()
 	s.definitions[sagaID] = definition
 	s.defMu.Unlock()
@@ -156,9 +167,12 @@ func (s *SagaServiceServer) CompensateSaga(ctx context.Context, req *pb.Compensa
 		return nil, status.Error(codes.InvalidArgument, "saga_id is required")
 	}
 
-	definition := s.getDefinition(req.SagaId)
-	if definition == nil {
-		return nil, status.Error(codes.NotFound, "saga definition not found")
+	definition, err := s.getDefinition(ctx, req.SagaId)
+	if err != nil {
+		if errors.Is(err, saga.ErrSagaDefinitionNotFound) {
+			return nil, status.Error(codes.NotFound, "saga definition not found")
+		}
+		return nil, status.Error(codes.Internal, err.Error())
 	}
 
 	reason := errors.New("manual compensation requested")
@@ -251,8 +265,25 @@ func (s *SagaServiceServer) WatchSaga(req *pb.WatchSagaRequest, stream pb.SagaSe
 	}
 }
 
-func (s *SagaServiceServer) getDefinition(sagaID string) *saga.SagaDefinition {
+func (s *SagaServiceServer) getDefinition(ctx context.Context, sagaID string) (*saga.SagaDefinition, error) {
+	if s.definitionStore != nil {
+		snapshot, err := s.definitionStore.Load(ctx, sagaID)
+		if err == nil {
+			definition, _, buildErr := saga.BuildDefinitionFromSnapshot(snapshot)
+			if buildErr != nil {
+				return nil, buildErr
+			}
+			return definition, nil
+		}
+		if !errors.Is(err, saga.ErrSagaDefinitionNotFound) {
+			return nil, err
+		}
+	}
+
 	s.defMu.RLock()
 	defer s.defMu.RUnlock()
-	return s.definitions[sagaID]
+	if definition, ok := s.definitions[sagaID]; ok {
+		return definition, nil
+	}
+	return nil, saga.ErrSagaDefinitionNotFound
 }

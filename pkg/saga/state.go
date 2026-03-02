@@ -2,6 +2,7 @@ package saga
 
 import (
 	"fmt"
+	"sync"
 	"time"
 )
 
@@ -99,6 +100,7 @@ func ValidateTransition(current, next SagaState) error {
 
 // SagaInstance is a runtime state snapshot for one saga execution.
 type SagaInstance struct {
+	mu             sync.Mutex
 	ID             string
 	DefinitionName string
 	State          SagaState
@@ -137,6 +139,8 @@ func (i *SagaInstance) TransitionTo(next SagaState) error {
 	if i == nil {
 		return fmt.Errorf("saga instance cannot be nil")
 	}
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	if err := ValidateTransition(i.State, next); err != nil {
 		return err
 	}
@@ -160,6 +164,8 @@ func (i *SagaInstance) MarkStepCompleted(stepID string, result any) {
 	if i == nil {
 		return
 	}
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	i.CompletedSteps = append(i.CompletedSteps, stepID)
 	if i.StepResults == nil {
 		i.StepResults = make(map[string]any)
@@ -173,6 +179,8 @@ func (i *SagaInstance) MarkStepCompensated(stepID string) {
 	if i == nil {
 		return
 	}
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	i.Compensated = append(i.Compensated, stepID)
 	i.UpdatedAt = time.Now().UTC()
 }
@@ -182,6 +190,8 @@ func (i *SagaInstance) SetFailure(stepID string, err error) {
 	if i == nil {
 		return
 	}
+	i.mu.Lock()
+	defer i.mu.Unlock()
 	i.FailedStep = stepID
 	if err != nil {
 		i.FailureReason = err.Error()

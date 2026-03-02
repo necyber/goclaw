@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"net/http"
 	"strconv"
 	"strings"
@@ -24,6 +23,7 @@ import (
 type SagaHandler struct {
 	orchestrator    *saga.SagaOrchestrator
 	checkpointStore saga.CheckpointStore
+	definitionStore saga.SagaDefinitionStore
 	recoveryManager *saga.RecoveryManager
 	logger          logger.Logger
 	validator       *validator.Validate
@@ -36,12 +36,14 @@ type SagaHandler struct {
 func NewSagaHandler(
 	orchestrator *saga.SagaOrchestrator,
 	checkpointStore saga.CheckpointStore,
+	definitionStore saga.SagaDefinitionStore,
 	recoveryManager *saga.RecoveryManager,
 	log logger.Logger,
 ) *SagaHandler {
 	return &SagaHandler{
 		orchestrator:    orchestrator,
 		checkpointStore: checkpointStore,
+		definitionStore: definitionStore,
 		recoveryManager: recoveryManager,
 		logger:          log,
 		validator:       validator.New(),
@@ -76,18 +78,23 @@ func (h *SagaHandler) SubmitSaga(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	definition, err := buildSagaDefinition(req)
+	definition, input, snapshot, err := buildSagaDefinition(req)
 	if err != nil {
 		response.Error(w, http.StatusBadRequest, response.ErrCodeValidationFailed, err.Error(), getRequestID(r.Context()))
 		return
 	}
 
 	sagaID := uuid.NewString()
+	if h.definitionStore != nil {
+		if err := h.definitionStore.Save(r.Context(), sagaID, snapshot); err != nil {
+			response.Error(w, http.StatusInternalServerError, response.ErrCodeInternalServer, "failed to persist saga definition", getRequestID(r.Context()))
+			return
+		}
+	}
 	h.defMu.Lock()
 	h.definitions[sagaID] = definition
 	h.defMu.Unlock()
 
-	input := any(req.Input)
 	go func() {
 		_, execErr := h.orchestrator.ExecuteWithID(context.Background(), sagaID, definition, input)
 		if execErr != nil && h.logger != nil {
@@ -238,9 +245,13 @@ func (h *SagaHandler) CompensateSaga(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	definition := h.getDefinition(sagaID)
-	if definition == nil {
-		response.Error(w, http.StatusNotFound, response.ErrCodeNotFound, "saga definition not found", getRequestID(r.Context()))
+	definition, err := h.getDefinition(r.Context(), sagaID)
+	if err != nil {
+		if errors.Is(err, saga.ErrSagaDefinitionNotFound) {
+			response.Error(w, http.StatusNotFound, response.ErrCodeNotFound, "saga definition not found", getRequestID(r.Context()))
+			return
+		}
+		response.Error(w, http.StatusInternalServerError, response.ErrCodeInternalServer, err.Error(), getRequestID(r.Context()))
 		return
 	}
 
@@ -295,9 +306,13 @@ func (h *SagaHandler) RecoverSaga(w http.ResponseWriter, r *http.Request) {
 		response.Error(w, http.StatusBadRequest, response.ErrCodeBadRequest, "saga id is required", getRequestID(r.Context()))
 		return
 	}
-	definition := h.getDefinition(sagaID)
-	if definition == nil {
-		response.Error(w, http.StatusNotFound, response.ErrCodeNotFound, "saga definition not found", getRequestID(r.Context()))
+	definition, err := h.getDefinition(r.Context(), sagaID)
+	if err != nil {
+		if errors.Is(err, saga.ErrSagaDefinitionNotFound) {
+			response.Error(w, http.StatusNotFound, response.ErrCodeNotFound, "saga definition not found", getRequestID(r.Context()))
+			return
+		}
+		response.Error(w, http.StatusInternalServerError, response.ErrCodeInternalServer, err.Error(), getRequestID(r.Context()))
 		return
 	}
 
@@ -323,77 +338,56 @@ func (h *SagaHandler) RecoverSaga(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-func (h *SagaHandler) getDefinition(sagaID string) *saga.SagaDefinition {
+func (h *SagaHandler) getDefinition(ctx context.Context, sagaID string) (*saga.SagaDefinition, error) {
+	if h.definitionStore != nil {
+		snapshot, err := h.definitionStore.Load(ctx, sagaID)
+		if err == nil {
+			definition, _, buildErr := saga.BuildDefinitionFromSnapshot(snapshot)
+			if buildErr != nil {
+				return nil, buildErr
+			}
+			return definition, nil
+		}
+		if !errors.Is(err, saga.ErrSagaDefinitionNotFound) {
+			return nil, err
+		}
+	}
+
 	h.defMu.RLock()
 	defer h.defMu.RUnlock()
-	return h.definitions[sagaID]
+	if definition, ok := h.definitions[sagaID]; ok {
+		return definition, nil
+	}
+	return nil, saga.ErrSagaDefinitionNotFound
 }
 
-func buildSagaDefinition(req models.SagaSubmitRequest) (*saga.SagaDefinition, error) {
-	builder := saga.New(req.Name)
-	if req.TimeoutMS > 0 {
-		builder = builder.WithTimeout(time.Duration(req.TimeoutMS) * time.Millisecond)
+func buildSagaDefinition(req models.SagaSubmitRequest) (*saga.SagaDefinition, any, *saga.DefinitionSnapshot, error) {
+	snapshot := &saga.DefinitionSnapshot{
+		Name:          req.Name,
+		Policy:        req.Policy,
+		TimeoutMS:     req.TimeoutMS,
+		StepTimeoutMS: req.StepTimeoutMS,
+		Metadata:      cloneStringMap(req.Metadata),
+		Input:         sagaResultMap(req.Input),
+		Steps:         make([]saga.DefinitionStepSnapshot, 0, len(req.Steps)),
 	}
-	if req.StepTimeoutMS > 0 {
-		builder = builder.WithDefaultStepTimeout(time.Duration(req.StepTimeoutMS) * time.Millisecond)
-	}
-	switch strings.ToLower(strings.TrimSpace(req.Policy)) {
-	case "", "auto":
-		builder = builder.WithCompensationPolicy(saga.AutoCompensate)
-	case "manual":
-		builder = builder.WithCompensationPolicy(saga.ManualCompensate)
-	case "skip":
-		builder = builder.WithCompensationPolicy(saga.SkipCompensate)
-	default:
-		return nil, fmt.Errorf("unsupported policy: %s", req.Policy)
-	}
-
 	for _, stepReq := range req.Steps {
-		stepReq := stepReq
-		options := []saga.StepOption{
-			saga.Action(func(ctx context.Context, stepCtx *saga.StepContext) (any, error) {
-				if stepReq.DelayMS > 0 {
-					select {
-					case <-ctx.Done():
-						return nil, ctx.Err()
-					case <-time.After(time.Duration(stepReq.DelayMS) * time.Millisecond):
-					}
-				}
-				if stepReq.ShouldFail {
-					return nil, fmt.Errorf("step %s failed by request", stepReq.ID)
-				}
-				return map[string]any{
-					"step_id": stepReq.ID,
-					"saga_id": stepCtx.SagaID,
-					"status":  "ok",
-				}, nil
-			}),
-		}
-		if len(stepReq.DependsOn) > 0 {
-			options = append(options, saga.DependsOn(stepReq.DependsOn...))
-		}
-		if stepReq.TimeoutMS > 0 {
-			options = append(options, saga.StepTimeout(time.Duration(stepReq.TimeoutMS)*time.Millisecond))
-		}
-		if stepReq.SkipCompensation {
-			options = append(options, saga.WithStepCompensationPolicy(saga.SkipCompensate))
-		}
-		if stepReq.EnableCompensation {
-			options = append(options, saga.Compensate(func(ctx context.Context, c *saga.CompensationContext) error {
-				if stepReq.DelayMS > 0 {
-					select {
-					case <-ctx.Done():
-						return ctx.Err()
-					case <-time.After(time.Duration(stepReq.DelayMS) * time.Millisecond):
-					}
-				}
-				return nil
-			}))
-		}
-
-		builder = builder.Step(stepReq.ID, options...)
+		snapshot.Steps = append(snapshot.Steps, saga.DefinitionStepSnapshot{
+			ID:                 stepReq.ID,
+			DependsOn:          append([]string(nil), stepReq.DependsOn...),
+			DelayMS:            stepReq.DelayMS,
+			ShouldFail:         stepReq.ShouldFail,
+			TimeoutMS:          stepReq.TimeoutMS,
+			EnableCompensation: stepReq.EnableCompensation,
+			SkipCompensation:   stepReq.SkipCompensation,
+		})
 	}
-	return builder.Build()
+
+	definition, input, err := saga.BuildDefinitionFromSnapshot(snapshot)
+	if err != nil {
+		return nil, nil, nil, err
+	}
+	return definition, input, snapshot, nil
 }
 
 func sagaResultMap(source map[string]any) map[string]any {
@@ -401,6 +395,17 @@ func sagaResultMap(source map[string]any) map[string]any {
 		return map[string]any{}
 	}
 	copied := make(map[string]any, len(source))
+	for k, v := range source {
+		copied[k] = v
+	}
+	return copied
+}
+
+func cloneStringMap(source map[string]string) map[string]string {
+	if len(source) == 0 {
+		return map[string]string{}
+	}
+	copied := make(map[string]string, len(source))
 	for k, v := range source {
 		copied[k] = v
 	}

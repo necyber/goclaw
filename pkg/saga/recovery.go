@@ -3,6 +3,7 @@ package saga
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"strings"
 	"sync"
@@ -73,12 +74,20 @@ func (m *RecoveryManager) Recover(
 
 		definition, ok := definitions[checkpoint.DefinitionName]
 		if !ok {
-			m.orchestrator.metrics.RecordSagaRecovery("skipped")
-			m.logger.Warn("skipping recovery, definition not found",
-				"saga_id", checkpoint.SagaID,
-				"definition", checkpoint.DefinitionName,
-			)
-			continue
+			loaded, _, loadErr := m.orchestrator.LoadDefinition(ctx, checkpoint.SagaID)
+			if loadErr != nil {
+				m.orchestrator.metrics.RecordSagaRecovery("failed")
+				m.logger.Warn("recovery failed, definition snapshot not available",
+					"saga_id", checkpoint.SagaID,
+					"definition", checkpoint.DefinitionName,
+					"error", loadErr,
+				)
+				if !errors.Is(loadErr, ErrSagaDefinitionNotFound) && firstErr == nil {
+					firstErr = loadErr
+				}
+				continue
+			}
+			definition = loaded
 		}
 
 		var input any

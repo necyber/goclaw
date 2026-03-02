@@ -40,6 +40,10 @@ func TestSagaEndpointsIntegration(t *testing.T) {
 	if err != nil {
 		t.Fatalf("new checkpointer: %v", err)
 	}
+	definitionStore, err := saga.NewBadgerSagaDefinitionStore(db)
+	if err != nil {
+		t.Fatalf("new definition store: %v", err)
+	}
 	orchestrator := saga.NewSagaOrchestrator(
 		saga.WithWAL(wal),
 		saga.WithCheckpointer(checkpointer),
@@ -58,7 +62,7 @@ func TestSagaEndpointsIntegration(t *testing.T) {
 
 	cfg := config.DefaultConfig()
 	httpHandlers := &Handlers{
-		Saga: handlers.NewSagaHandler(orchestrator, checkpointStore, recoveryManager, log),
+		Saga: handlers.NewSagaHandler(orchestrator, checkpointStore, definitionStore, recoveryManager, log),
 	}
 	router := NewRouter(cfg, log, httpHandlers)
 

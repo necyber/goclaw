@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"sort"
@@ -13,97 +12,64 @@ import (
 	"google.golang.org/protobuf/types/known/timestamppb"
 )
 
-func buildSagaDefinitionFromProto(req *pb.SubmitSagaRequest) (*saga.SagaDefinition, any, error) {
-	if req == nil {
-		return nil, nil, fmt.Errorf("request cannot be nil")
-	}
-	if req.Name == "" {
-		return nil, nil, fmt.Errorf("name is required")
-	}
-	if len(req.Steps) == 0 {
-		return nil, nil, fmt.Errorf("at least one step is required")
+func buildSagaDefinitionFromProto(req *pb.SubmitSagaRequest) (*saga.SagaDefinition, any, *saga.DefinitionSnapshot, error) {
+	snapshot, err := snapshotFromProto(req)
+	if err != nil {
+		return nil, nil, nil, err
 	}
 
-	builder := saga.New(req.Name)
-	if req.TimeoutMs > 0 {
-		builder = builder.WithTimeout(time.Duration(req.TimeoutMs) * time.Millisecond)
+	definition, input, err := saga.BuildDefinitionFromSnapshot(snapshot)
+	if err != nil {
+		return nil, nil, nil, err
 	}
-	if req.StepTimeoutMs > 0 {
-		builder = builder.WithDefaultStepTimeout(time.Duration(req.StepTimeoutMs) * time.Millisecond)
+	return definition, input, snapshot, nil
+}
+
+func snapshotFromProto(req *pb.SubmitSagaRequest) (*saga.DefinitionSnapshot, error) {
+	if req == nil {
+		return nil, fmt.Errorf("request cannot be nil")
+	}
+	if req.Name == "" {
+		return nil, fmt.Errorf("name is required")
+	}
+	if len(req.Steps) == 0 {
+		return nil, fmt.Errorf("at least one step is required")
 	}
 
 	policy, err := protoPolicyToSagaPolicy(req.Policy)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
-	builder = builder.WithCompensationPolicy(policy)
 
+	snapshot := &saga.DefinitionSnapshot{
+		Name:          req.Name,
+		Policy:        policyToString(policy),
+		TimeoutMS:     int(req.TimeoutMs),
+		StepTimeoutMS: int(req.StepTimeoutMs),
+		Metadata:      cloneStringMap(req.Metadata),
+		Steps:         make([]saga.DefinitionStepSnapshot, 0, len(req.Steps)),
+	}
+	if req.Input != nil {
+		snapshot.Input = req.Input.AsMap()
+	}
 	for i, step := range req.Steps {
 		if step == nil {
-			return nil, nil, fmt.Errorf("step %d cannot be nil", i)
+			return nil, fmt.Errorf("step %d cannot be nil", i)
 		}
 		if step.Id == "" {
-			return nil, nil, fmt.Errorf("step %d id is required", i)
+			return nil, fmt.Errorf("step %d id is required", i)
 		}
-
-		stepCopy := step
-		options := []saga.StepOption{
-			saga.Action(func(ctx context.Context, stepCtx *saga.StepContext) (any, error) {
-				if stepCopy.DelayMs > 0 {
-					select {
-					case <-ctx.Done():
-						return nil, ctx.Err()
-					case <-time.After(time.Duration(stepCopy.DelayMs) * time.Millisecond):
-					}
-				}
-				if stepCopy.ShouldFail {
-					return nil, fmt.Errorf("step %s failed by request", stepCopy.Id)
-				}
-				return map[string]any{
-					"step_id": stepCopy.Id,
-					"saga_id": stepCtx.SagaID,
-					"status":  "ok",
-				}, nil
-			}),
-		}
-
-		if len(stepCopy.DependsOn) > 0 {
-			options = append(options, saga.DependsOn(stepCopy.DependsOn...))
-		}
-		if stepCopy.TimeoutMs > 0 {
-			options = append(options, saga.StepTimeout(time.Duration(stepCopy.TimeoutMs)*time.Millisecond))
-		}
-		if stepCopy.SkipCompensation {
-			options = append(options, saga.WithStepCompensationPolicy(saga.SkipCompensate))
-		}
-		if stepCopy.EnableCompensation {
-			options = append(options, saga.Compensate(func(ctx context.Context, compCtx *saga.CompensationContext) error {
-				_ = compCtx
-				if stepCopy.DelayMs > 0 {
-					select {
-					case <-ctx.Done():
-						return ctx.Err()
-					case <-time.After(time.Duration(stepCopy.DelayMs) * time.Millisecond):
-					}
-				}
-				return nil
-			}))
-		}
-
-		builder = builder.Step(stepCopy.Id, options...)
+		snapshot.Steps = append(snapshot.Steps, saga.DefinitionStepSnapshot{
+			ID:                 step.Id,
+			DependsOn:          append([]string(nil), step.DependsOn...),
+			DelayMS:            int(step.DelayMs),
+			ShouldFail:         step.ShouldFail,
+			TimeoutMS:          int(step.TimeoutMs),
+			EnableCompensation: step.EnableCompensation,
+			SkipCompensation:   step.SkipCompensation,
+		})
 	}
-
-	definition, err := builder.Build()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	input := map[string]any{}
-	if req.Input != nil {
-		input = req.Input.AsMap()
-	}
-
-	return definition, input, nil
+	return snapshot, nil
 }
 
 func protoPolicyToSagaPolicy(policy pb.SagaCompensationPolicy) (saga.CompensationPolicy, error) {
@@ -117,6 +83,17 @@ func protoPolicyToSagaPolicy(policy pb.SagaCompensationPolicy) (saga.Compensatio
 		return saga.SkipCompensate, nil
 	default:
 		return saga.AutoCompensate, fmt.Errorf("unsupported compensation policy: %s", policy.String())
+	}
+}
+
+func policyToString(policy saga.CompensationPolicy) string {
+	switch policy {
+	case saga.ManualCompensate:
+		return "manual"
+	case saga.SkipCompensate:
+		return "skip"
+	default:
+		return "auto"
 	}
 }
 
@@ -239,4 +216,15 @@ func timestampPtr(t *time.Time) *timestamppb.Timestamp {
 		return nil
 	}
 	return timestamppb.New(*t)
+}
+
+func cloneStringMap(source map[string]string) map[string]string {
+	if len(source) == 0 {
+		return map[string]string{}
+	}
+	copied := make(map[string]string, len(source))
+	for k, v := range source {
+		copied[k] = v
+	}
+	return copied
 }

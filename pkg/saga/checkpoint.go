@@ -193,6 +193,7 @@ func (c *Checkpointer) RecordStepCompletion(ctx context.Context, instance *SagaI
 	}
 
 	instance.MarkStepCompleted(stepID, result)
+	instance.mu.Lock()
 	cp := &Checkpoint{
 		DefinitionName: instance.DefinitionName,
 		SagaID:         instance.ID,
@@ -202,7 +203,16 @@ func (c *Checkpointer) RecordStepCompletion(ctx context.Context, instance *SagaI
 		StepResults:    copyResultMap(instance.StepResults),
 		LastUpdated:    time.Now().UTC(),
 	}
+	instance.mu.Unlock()
 	return c.store.Save(ctx, cp)
+}
+
+// SaveSnapshot persists the latest saga snapshot.
+func (c *Checkpointer) SaveSnapshot(ctx context.Context, instance *SagaInstance) error {
+	if instance == nil {
+		return fmt.Errorf("saga instance cannot be nil")
+	}
+	return c.store.Save(ctx, Snapshot(instance))
 }
 
 // Snapshot creates a checkpoint from an instance without persisting.
@@ -210,6 +220,8 @@ func Snapshot(instance *SagaInstance) *Checkpoint {
 	if instance == nil {
 		return nil
 	}
+	instance.mu.Lock()
+	defer instance.mu.Unlock()
 	return &Checkpoint{
 		DefinitionName: instance.DefinitionName,
 		SagaID:         instance.ID,

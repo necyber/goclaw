@@ -34,6 +34,10 @@ func newSagaHandlerForTest(t *testing.T) (*SagaHandler, *saga.BadgerCheckpointSt
 	if err != nil {
 		t.Fatalf("new checkpoint store: %v", err)
 	}
+	definitionStore, err := saga.NewBadgerSagaDefinitionStore(db)
+	if err != nil {
+		t.Fatalf("new definition store: %v", err)
+	}
 	checkpointer, err := saga.NewCheckpointer(checkpointStore)
 	if err != nil {
 		t.Fatalf("new checkpointer: %v", err)
@@ -53,7 +57,7 @@ func newSagaHandlerForTest(t *testing.T) (*SagaHandler, *saga.BadgerCheckpointSt
 		Format: "json",
 		Output: "stdout",
 	})
-	handler := NewSagaHandler(orchestrator, checkpointStore, recovery, log)
+	handler := NewSagaHandler(orchestrator, checkpointStore, definitionStore, recovery, log)
 	cleanup := func() {
 		_ = wal.Close()
 		_ = db.Close()
@@ -83,6 +87,16 @@ func TestSagaHandlerSubmitAndGet(t *testing.T) {
 	var submitResp models.SagaSubmitResponse
 	if err := json.NewDecoder(w.Body).Decode(&submitResp); err != nil {
 		t.Fatalf("decode submit response: %v", err)
+	}
+	if handler.definitionStore == nil {
+		t.Fatal("expected definition store to be configured")
+	}
+	snapshot, err := handler.definitionStore.Load(context.Background(), submitResp.SagaID)
+	if err != nil {
+		t.Fatalf("definitionStore.Load() error = %v", err)
+	}
+	if snapshot.Name != reqBody.Name {
+		t.Fatalf("expected persisted definition %q, got %q", reqBody.Name, snapshot.Name)
 	}
 
 	// wait for async execution

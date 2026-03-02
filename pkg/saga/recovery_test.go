@@ -348,8 +348,8 @@ func TestRecoveryManagerMissingDefinition(t *testing.T) {
 	if atomic.LoadInt32(&logger.warns) == 0 {
 		t.Fatal("expected warning logs for missing definition")
 	}
-	if metrics.recovery["skipped"] != 1 {
-		t.Fatalf("expected one skipped recovery metric, got %d", metrics.recovery["skipped"])
+	if metrics.recovery["failed"] != 1 {
+		t.Fatalf("expected one failed recovery metric, got %d", metrics.recovery["failed"])
 	}
 }
 

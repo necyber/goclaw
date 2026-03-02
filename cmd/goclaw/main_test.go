@@ -244,6 +244,7 @@ func TestServerStartup_WithSagaEnabled(t *testing.T) {
 	sagaHandler := handlers.NewSagaHandler(
 		sagaOrchestrator,
 		eng.GetSagaCheckpointStore(),
+		eng.GetSagaDefinitionStore(),
 		eng.GetSagaRecoveryManager(),
 		log,
 	)
@@ -299,7 +300,7 @@ func TestServerStartup_WithSagaEnabled(t *testing.T) {
 	}
 	bus := signalpkg.NewLocalBus(16)
 	defer bus.Close()
-	sagaSvc := grpchandlers.NewSagaServiceServer(sagaOrchestrator, eng.GetSagaCheckpointStore())
+	sagaSvc := grpchandlers.NewSagaServiceServer(sagaOrchestrator, eng.GetSagaCheckpointStore(), eng.GetSagaDefinitionStore())
 	if err := registerGRPCServices(grpcServer, eng, bus, grpcstreaming.NewSubscriberRegistry(), sagaSvc); err != nil {
 		t.Fatalf("registerGRPCServices() error = %v", err)
 	}

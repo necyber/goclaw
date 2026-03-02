@@ -55,6 +55,8 @@ func newSagaServiceForTest(t *testing.T) (*SagaServiceServer, func()) {
 
 	checkpointStore, err := saga.NewBadgerCheckpointStore(db)
 	require.NoError(t, err)
+	definitionStore, err := saga.NewBadgerSagaDefinitionStore(db)
+	require.NoError(t, err)
 
 	checkpointer, err := saga.NewCheckpointer(checkpointStore)
 	require.NoError(t, err)
@@ -65,7 +67,7 @@ func newSagaServiceForTest(t *testing.T) (*SagaServiceServer, func()) {
 		saga.WithSagaStore(saga.NewMemorySagaStore()),
 	)
 
-	server := NewSagaServiceServer(orchestrator, checkpointStore)
+	server := NewSagaServiceServer(orchestrator, checkpointStore, definitionStore)
 	return server, func() {
 		_ = wal.Close()
 		_ = db.Close()
@@ -89,6 +91,10 @@ func TestSagaServiceSubmitGetList(t *testing.T) {
 	require.NoError(t, err)
 	require.NotEmpty(t, submitResp.SagaId)
 	assert.Equal(t, pb.SagaState_SAGA_STATE_RUNNING, submitResp.State)
+	require.NotNil(t, server.definitionStore)
+	snapshot, err := server.definitionStore.Load(context.Background(), submitResp.SagaId)
+	require.NoError(t, err)
+	assert.Equal(t, "grpc-saga", snapshot.Name)
 
 	time.Sleep(80 * time.Millisecond)
 
@@ -204,7 +210,7 @@ func TestSagaServiceErrorCodes(t *testing.T) {
 }
 
 func TestBuildSagaDefinitionFromProto(t *testing.T) {
-	definition, input, err := buildSagaDefinitionFromProto(&pb.SubmitSagaRequest{
+	definition, input, _, err := buildSagaDefinitionFromProto(&pb.SubmitSagaRequest{
 		Name:   "convert",
 		Policy: pb.SagaCompensationPolicy_SAGA_COMPENSATION_POLICY_SKIP,
 		Steps: []*pb.SagaStepDefinition{

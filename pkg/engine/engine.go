@@ -119,6 +119,7 @@ type Engine struct {
 	sagaWAL             *saga.BadgerWAL
 	sagaOrchestrator    *saga.SagaOrchestrator
 	sagaCheckpointStore saga.CheckpointStore
+	sagaDefinitionStore saga.SagaDefinitionStore
 	sagaRecoveryManager *saga.RecoveryManager
 	sagaCleanupManager  *saga.CleanupManager
 	sagaCleanupCancel   context.CancelFunc
@@ -260,7 +261,25 @@ func (e *Engine) Start(ctx context.Context) error {
 	}
 
 	if e.sagaRecoveryManager != nil {
-		recovered, err := e.sagaRecoveryManager.Recover(ctx, map[string]*saga.SagaDefinition{}, nil)
+		definitions := make(map[string]*saga.SagaDefinition)
+		if e.sagaDefinitionStore != nil {
+			snapshots, listErr := e.sagaDefinitionStore.List(ctx)
+			if listErr != nil {
+				e.logger.Warn("failed to list persisted saga definitions", "error", listErr)
+			} else {
+				for _, snapshot := range snapshots {
+					definition, _, buildErr := saga.BuildDefinitionFromSnapshot(snapshot)
+					if buildErr != nil {
+						e.logger.Warn("failed to rebuild saga definition snapshot", "error", buildErr, "definition", snapshot.Name)
+						continue
+					}
+					if _, exists := definitions[definition.Name]; !exists {
+						definitions[definition.Name] = definition
+					}
+				}
+			}
+		}
+		recovered, err := e.sagaRecoveryManager.Recover(ctx, definitions, nil)
 		if err != nil {
 			e.logger.Warn("saga recovery completed with errors", "error", err)
 		} else if recovered > 0 {
@@ -635,6 +654,11 @@ func (e *Engine) GetSagaCheckpointStore() saga.CheckpointStore {
 	return e.sagaCheckpointStore
 }
 
+// GetSagaDefinitionStore returns saga definition storage when enabled.
+func (e *Engine) GetSagaDefinitionStore() saga.SagaDefinitionStore {
+	return e.sagaDefinitionStore
+}
+
 // GetSagaRecoveryManager returns saga recovery manager when enabled.
 func (e *Engine) GetSagaRecoveryManager() *saga.RecoveryManager {
 	return e.sagaRecoveryManager
@@ -681,12 +705,19 @@ func (e *Engine) initializeSagaRuntime() error {
 		_ = db.Close()
 		return fmt.Errorf("create saga store: %w", err)
 	}
+	definitionStore, err := saga.NewBadgerSagaDefinitionStore(db)
+	if err != nil {
+		_ = wal.Close()
+		_ = db.Close()
+		return fmt.Errorf("create saga definition store: %w", err)
+	}
 
 	sagaOptions := []saga.OrchestratorOption{
 		saga.WithMaxConcurrentSagas(e.cfg.Saga.MaxConcurrent),
 		saga.WithWAL(wal),
 		saga.WithCheckpointer(checkpointer),
 		saga.WithSagaStore(sagaStore),
+		saga.WithDefinitionStore(definitionStore),
 	}
 	if sagaMetrics, ok := e.metrics.(saga.MetricsRecorder); ok {
 		sagaOptions = append(sagaOptions, saga.WithMetrics(sagaMetrics))
@@ -716,6 +747,7 @@ func (e *Engine) initializeSagaRuntime() error {
 	e.sagaWAL = wal
 	e.sagaOrchestrator = orchestrator
 	e.sagaCheckpointStore = checkpointStore
+	e.sagaDefinitionStore = definitionStore
 	e.sagaRecoveryManager = recoveryManager
 	e.sagaCleanupManager = cleanupManager
 
