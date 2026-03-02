@@ -306,3 +306,129 @@ func TestCompensationMetricsRetryRecorded(t *testing.T) {
 		t.Fatalf("expected one compensation retry metric, got %d", metrics.retries)
 	}
 }
+
+func TestCompensationParallelBookkeepingRecordsEachStepOnce(t *testing.T) {
+	def, err := New("comp-bookkeeping-once").
+		Step("a",
+			Action(func(context.Context, *StepContext) (any, error) { return "a", nil }),
+			Compensate(func(context.Context, *CompensationContext) error { return nil }),
+		).
+		Step("b",
+			Action(func(context.Context, *StepContext) (any, error) { return "b", nil }),
+			Compensate(func(context.Context, *CompensationContext) error {
+				time.Sleep(5 * time.Millisecond)
+				return nil
+			}),
+			DependsOn("a"),
+		).
+		Step("c",
+			Action(func(context.Context, *StepContext) (any, error) { return "c", nil }),
+			Compensate(func(context.Context, *CompensationContext) error {
+				time.Sleep(5 * time.Millisecond)
+				return nil
+			}),
+			DependsOn("a"),
+		).
+		Step("d",
+			Action(func(context.Context, *StepContext) (any, error) { return nil, errors.New("fail-d") }),
+			DependsOn("b", "c"),
+		).
+		Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+
+	orchestrator := NewSagaOrchestrator()
+	instance, execErr := orchestrator.Execute(context.Background(), def, nil)
+	if execErr == nil {
+		t.Fatal("expected execution error")
+	}
+	if instance.State != SagaStateCompensated {
+		t.Fatalf("expected compensated state, got %s", instance.State)
+	}
+
+	counts := make(map[string]int, len(instance.Compensated))
+	for _, stepID := range instance.Compensated {
+		counts[stepID]++
+	}
+	for _, expected := range []string{"a", "b", "c"} {
+		if counts[expected] != 1 {
+			t.Fatalf("expected compensated step %s exactly once, got counts=%#v", expected, counts)
+		}
+	}
+	if len(counts) != 3 {
+		t.Fatalf("expected only a/b/c in compensated list, got %#v", counts)
+	}
+}
+
+func TestCompensationBookkeepingWithRetriesAndMixedOutcomes(t *testing.T) {
+	retryCfg := CompensationRetryConfig{
+		MaxRetries:     1,
+		InitialBackoff: time.Millisecond,
+		MaxBackoff:     2 * time.Millisecond,
+		BackoffFactor:  2.0,
+	}
+
+	bAttempts := 0
+	def, err := New("comp-bookkeeping-mixed").
+		WithRetryConfig(retryCfg).
+		Step("a",
+			Action(func(context.Context, *StepContext) (any, error) { return "a", nil }),
+			Compensate(func(context.Context, *CompensationContext) error { return nil }),
+		).
+		Step("b",
+			Action(func(context.Context, *StepContext) (any, error) { return "b", nil }),
+			Compensate(func(context.Context, *CompensationContext) error {
+				bAttempts++
+				if bAttempts == 1 {
+					return errors.New("transient-b")
+				}
+				return nil
+			}),
+			DependsOn("a"),
+		).
+		Step("c",
+			Action(func(context.Context, *StepContext) (any, error) { return "c", nil }),
+			Compensate(func(context.Context, *CompensationContext) error {
+				return errors.New("fatal-c")
+			}),
+			DependsOn("a"),
+		).
+		Step("d",
+			Action(func(context.Context, *StepContext) (any, error) { return nil, errors.New("fail-d") }),
+			DependsOn("b", "c"),
+		).
+		Build()
+	if err != nil {
+		t.Fatalf("Build() error = %v", err)
+	}
+
+	orchestrator := NewSagaOrchestrator()
+	instance, execErr := orchestrator.Execute(context.Background(), def, nil)
+	if execErr == nil {
+		t.Fatal("expected execution error")
+	}
+	if instance.State != SagaStateCompensationFailed {
+		t.Fatalf("expected compensation-failed state, got %s", instance.State)
+	}
+	if bAttempts != 2 {
+		t.Fatalf("expected step b compensation retry once, got %d attempts", bAttempts)
+	}
+
+	countB := 0
+	countC := 0
+	for _, stepID := range instance.Compensated {
+		if stepID == "b" {
+			countB++
+		}
+		if stepID == "c" {
+			countC++
+		}
+	}
+	if countB != 1 {
+		t.Fatalf("expected step b compensated exactly once, got %d (%#v)", countB, instance.Compensated)
+	}
+	if countC != 0 {
+		t.Fatalf("expected step c compensation not recorded on failure, got %d (%#v)", countC, instance.Compensated)
+	}
+}

@@ -16,10 +16,10 @@
 
 ## 3. Compensation Concurrency Safety
 
-- [ ] 3.1 Add synchronization for shared compensation bookkeeping (`Compensated`, failure fields, timestamps) under parallel compensation.
-- [ ] 3.2 Ensure compensation bookkeeping remains correct with retries and mixed success/failure outcomes.
-- [ ] 3.3 Add/extend tests for parallel compensation layers and deterministic compensated-step recording.
-- [ ] 3.4 Run `go test -race ./pkg/saga/...` and fix remaining race issues in Saga paths.
+- [x] 3.1 Add synchronization for shared compensation bookkeeping (`Compensated`, failure fields, timestamps) under parallel compensation.
+- [x] 3.2 Ensure compensation bookkeeping remains correct with retries and mixed success/failure outcomes.
+- [x] 3.3 Add/extend tests for parallel compensation layers and deterministic compensated-step recording.
+- [x] 3.4 Run `go test -race ./pkg/saga/...` and fix remaining race issues in Saga paths.
 
 ## 4. API and gRPC Lifecycle Behavior
 

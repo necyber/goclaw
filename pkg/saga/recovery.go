@@ -197,7 +197,14 @@ func (m *CleanupManager) Start(ctx context.Context, interval, retention time.Dur
 }
 
 // RunOnce performs one cleanup pass.
-func (m *CleanupManager) RunOnce(ctx context.Context, retention time.Duration) (int, error) {
+func (m *CleanupManager) RunOnce(ctx context.Context, retention time.Duration) (deleted int, err error) {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			deleted = 0
+			err = fmt.Errorf("cleanup manager panic recovered: %v", recovered)
+		}
+	}()
+
 	if m.wal == nil {
 		return 0, nil
 	}
@@ -208,7 +215,7 @@ func (m *CleanupManager) RunOnce(ctx context.Context, retention time.Duration) (
 	cutoff := time.Now().UTC().Add(-retention)
 	expiredBySaga := make(map[string][][]byte)
 
-	err := m.wal.db.View(func(txn *badger.Txn) error {
+	err = m.wal.db.View(func(txn *badger.Txn) error {
 		opts := badger.DefaultIteratorOptions
 		opts.Prefix = []byte(walKeyPrefix)
 		it := txn.NewIterator(opts)

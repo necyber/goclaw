@@ -316,6 +316,29 @@ func TestCleanupManagerStartBackground(t *testing.T) {
 	cancel()
 }
 
+func TestCleanupManagerRunOnceClosedDBDoesNotPanic(t *testing.T) {
+	db := openTestBadger(t)
+	wal, err := NewBadgerWAL(db, WALOptions{WriteMode: WALWriteModeSync})
+	if err != nil {
+		t.Fatalf("NewBadgerWAL() error = %v", err)
+	}
+
+	cleaner := NewCleanupManager(
+		wal,
+		nil,
+		func(string) bool { return true },
+		&testRecoveryLogger{},
+	)
+
+	if err := db.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+
+	if _, err := cleaner.RunOnce(context.Background(), time.Second); err == nil {
+		t.Fatal("expected RunOnce() to return error for closed db")
+	}
+}
+
 func TestRecoveryManagerMissingDefinition(t *testing.T) {
 	db := openTestBadger(t)
 	t.Cleanup(func() { _ = db.Close() })
