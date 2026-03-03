@@ -61,6 +61,11 @@ Cancellation APIs MUST define behavior for pending, running, and terminal workfl
 - **THEN** runtime MUST enforce graceful-stop behavior within configured cancellation timeout
 - **AND** tasks exceeding graceful timeout MUST transition according to timeout/cancellation terminal policy
 
+#### Scenario: Cancel request completion is bounded
+- **WHEN** cancellation is requested for a running workflow
+- **THEN** API/runtime cancel flow MUST complete within configured cancellation timeout boundary
+- **AND** returned workflow status MUST reflect the latest persisted cancellation or timeout-derived terminal outcome
+
 #### Scenario: Cancel terminal workflow
 - **WHEN** cancellation is requested for a terminal workflow
 - **THEN** API MUST return a conflict-style error indicating terminal immutability
@@ -71,6 +76,11 @@ Task result retrieval MUST provide deterministic behavior for terminal and non-t
 #### Scenario: Get result for completed task
 - **WHEN** task result is requested for a completed task
 - **THEN** API MUST return persisted result payload
+
+#### Scenario: Completed task result reflects persisted storage
+- **WHEN** task reaches `completed` and result payload is persisted
+- **THEN** task result endpoint MUST return exactly the persisted payload representation
+- **AND** endpoint MUST NOT return an empty payload caused by missing runtime-only in-memory state
 
 #### Scenario: Get result for non-terminal task
 - **WHEN** task result is requested for a task that is pending, scheduled, or running

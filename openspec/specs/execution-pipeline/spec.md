@@ -68,6 +68,11 @@ The runtime MUST persist task-level state transitions with timestamps and termin
 - **THEN** runtime MUST record `started_at`
 - **AND** when task transitions to `completed` or `failed`, runtime MUST record `completed_at`
 
+#### Scenario: Completed task payload is persisted for terminal result retrieval
+- **WHEN** a task reaches `completed`
+- **THEN** runtime MUST persist the terminal result payload in task state storage
+- **AND** subsequent task-result queries MUST read that persisted payload without synthetic reconstruction
+
 ### Requirement: Timestamp field naming contract
 Persisted and API-facing task timestamp fields MUST use snake_case naming.
 
@@ -86,3 +91,8 @@ The runtime MUST define deterministic precedence for cancellation and timeout ou
 #### Scenario: Task timeout during execution
 - **WHEN** a task exceeds configured timeout while running
 - **THEN** the task terminal outcome MUST be persisted as timeout-derived failure or cancellation according to runtime policy
+
+#### Scenario: Graceful cancel timeout expires with in-flight task
+- **WHEN** workflow cancellation is requested and a task does not stop within configured graceful cancellation timeout
+- **THEN** runtime MUST persist a deterministic timeout-derived terminal outcome for that task
+- **AND** the workflow terminal state MUST reflect timeout/cancellation policy without remaining in non-terminal state

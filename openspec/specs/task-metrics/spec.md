@@ -87,6 +87,16 @@ Task metrics MUST explicitly track retries and cancellation/timeout-derived term
 - **WHEN** a task terminates due to cancellation or timeout policy
 - **THEN** terminal metrics MUST capture cancellation/timeout outcome labels consistently
 
+#### Scenario: User cancellation label is distinct from timeout label
+- **WHEN** a task terminates because workflow/user cancellation is observed before timeout policy fires
+- **THEN** terminal task metric label MUST be cancellation-derived label
+- **AND** it MUST NOT be recorded as timeout-derived terminal label
+
+#### Scenario: Timeout-derived terminal label is explicit
+- **WHEN** a task terminal outcome is produced by deadline/timeout policy
+- **THEN** terminal task metric label MUST be timeout-derived label
+- **AND** it MUST be distinguishable from user-cancelled terminal label in metrics queries
+
 ### Requirement: Terminal metrics are idempotent
 Task terminal metric emission MUST be idempotent per task attempt.
 
