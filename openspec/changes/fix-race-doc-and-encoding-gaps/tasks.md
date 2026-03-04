@@ -6,9 +6,9 @@
 
 ## 2. Documentation Consistency and Encoding Repair
 
-- [ ] 2.1 Update `AGENTS.md` project phase/status statements to match implemented baseline.
-- [ ] 2.2 Repair UTF-8 readability issues in canonical docs (`README.md`, `ROADMAP.md`) without altering intended meaning.
-- [ ] 2.3 Normalize `openspec/specs/api-documentation/spec.md` maintained baseline text to readable UTF-8 where scoped by this change.
+- [x] 2.1 Update `AGENTS.md` project phase/status statements to match implemented baseline.
+- [x] 2.2 Repair UTF-8 readability issues in canonical docs (`README.md`, `ROADMAP.md`) without altering intended meaning.
+- [x] 2.3 Normalize `openspec/specs/api-documentation/spec.md` maintained baseline text to readable UTF-8 where scoped by this change.
 
 ## 3. Verification and Governance Closure
 
