@@ -2,11 +2,13 @@ package middleware
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
 	"time"
 
+	"github.com/goclaw/goclaw/pkg/logger"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	otelcodes "go.opentelemetry.io/otel/codes"
@@ -109,6 +111,90 @@ func TestTracing_HTTPStatusMapping(t *testing.T) {
 	}
 }
 
+func TestTracing_HTTPFailureAddsErrorAttributes(t *testing.T) {
+	tests := []struct {
+		name            string
+		statusCode      int
+		wantStatusClass string
+	}{
+		{name: "4xx failure", statusCode: http.StatusNotFound, wantStatusClass: "4xx"},
+		{name: "5xx failure", statusCode: http.StatusInternalServerError, wantStatusClass: "5xx"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			recorder, shutdown := setTracingTestProvider(t)
+			defer shutdown()
+
+			handler := Tracing(DefaultTracingOptions())(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+				w.WriteHeader(tt.statusCode)
+			}))
+
+			req := httptest.NewRequest(http.MethodGet, "/api/v1/workflows", nil)
+			w := httptest.NewRecorder()
+			handler.ServeHTTP(w, req)
+
+			spans := waitForHTTPSpans(recorder, 1, 500*time.Millisecond)
+			if len(spans) != 1 {
+				t.Fatalf("expected 1 span, got %d", len(spans))
+			}
+			attrs := spans[0].Attributes()
+			if !hasStringAttributeValue(attrs, "http.response.status_class", tt.wantStatusClass) {
+				t.Fatalf("expected http.response.status_class=%s", tt.wantStatusClass)
+			}
+			if !hasStringAttributeValue(attrs, "error.type", "http_error") {
+				t.Fatal("expected error.type=http_error")
+			}
+			expected := fmt.Sprintf("http_status_%d", tt.statusCode)
+			if !hasStringAttributeValue(attrs, "error.message", expected) {
+				t.Fatalf("expected error.message=%s", expected)
+			}
+		})
+	}
+}
+
+func TestTracing_RecoveredPanicAddsPanicAttributes(t *testing.T) {
+	recorder, shutdown := setTracingTestProvider(t)
+	defer shutdown()
+
+	log := logger.New(&logger.Config{
+		Level:  logger.InfoLevel,
+		Format: "json",
+		Output: "stdout",
+	})
+	defer log.Close()
+
+	handler := Tracing(DefaultTracingOptions())(
+		Recovery(log)(http.HandlerFunc(func(http.ResponseWriter, *http.Request) {
+			panic("panic boom")
+		})),
+	)
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/workflows", nil)
+	w := httptest.NewRecorder()
+	handler.ServeHTTP(w, req)
+
+	if w.Code != http.StatusInternalServerError {
+		t.Fatalf("status=%d, want=%d", w.Code, http.StatusInternalServerError)
+	}
+
+	spans := waitForHTTPSpans(recorder, 1, 500*time.Millisecond)
+	if len(spans) != 1 {
+		t.Fatalf("expected 1 span, got %d", len(spans))
+	}
+	span := spans[0]
+	if got, want := span.Status().Code, otelcodes.Error; got != want {
+		t.Fatalf("span status = %v, want %v", got, want)
+	}
+	attrs := span.Attributes()
+	if !hasStringAttributeValue(attrs, "error.type", "panic") {
+		t.Fatal("expected error.type=panic")
+	}
+	if !hasStringAttributeValue(attrs, "error.message", "panic boom") {
+		t.Fatal("expected panic error.message attribute")
+	}
+}
+
 func TestTracing_SkipHealthEndpoints(t *testing.T) {
 	recorder, shutdown := setTracingTestProvider(t)
 	defer shutdown()
@@ -200,6 +286,15 @@ func waitForHTTPSpans(recorder *tracetest.SpanRecorder, minCount int, timeout ti
 func hasAttributeValue(attrs []attribute.KeyValue, key string, want int64) bool {
 	for _, attr := range attrs {
 		if string(attr.Key) == key && attr.Value.AsInt64() == want {
+			return true
+		}
+	}
+	return false
+}
+
+func hasStringAttributeValue(attrs []attribute.KeyValue, key, want string) bool {
+	for _, attr := range attrs {
+		if string(attr.Key) == key && attr.Value.AsString() == want {
 			return true
 		}
 	}

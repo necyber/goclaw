@@ -2,9 +2,9 @@ package interceptors
 
 import (
 	"context"
-	"fmt"
 	"time"
 
+	"github.com/goclaw/goclaw/pkg/logger"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
@@ -21,8 +21,12 @@ func LoggingUnaryInterceptor() grpc.UnaryServerInterceptor {
 			requestID = "unknown"
 		}
 
-		// Log request
-		fmt.Printf("[%s] --> %s\n", requestID, info.FullMethod)
+		// Log request with context so trace correlation fields are emitted when available.
+		log := logger.FromContext(ctx)
+		log.InfoContext(ctx, "gRPC request started",
+			"request_id", requestID,
+			"method", info.FullMethod,
+		)
 
 		// Call handler
 		resp, err := handler(ctx, req)
@@ -34,7 +38,12 @@ func LoggingUnaryInterceptor() grpc.UnaryServerInterceptor {
 			statusCode = status.Code(err)
 		}
 
-		fmt.Printf("[%s] <-- %s [%s] %v\n", requestID, info.FullMethod, statusCode, duration)
+		log.InfoContext(ctx, "gRPC request completed",
+			"request_id", requestID,
+			"method", info.FullMethod,
+			"status", statusCode.String(),
+			"duration_ms", duration.Milliseconds(),
+		)
 
 		return resp, err
 	}
@@ -52,9 +61,13 @@ func LoggingStreamInterceptor() grpc.StreamServerInterceptor {
 			requestID = "unknown"
 		}
 
-		// Log stream start
-		fmt.Printf("[%s] --> STREAM %s (client=%v, server=%v)\n",
-			requestID, info.FullMethod, info.IsClientStream, info.IsServerStream)
+		log := logger.FromContext(ctx)
+		log.InfoContext(ctx, "gRPC stream started",
+			"request_id", requestID,
+			"method", info.FullMethod,
+			"is_client_stream", info.IsClientStream,
+			"is_server_stream", info.IsServerStream,
+		)
 
 		// Call handler
 		err := handler(srv, ss)
@@ -66,7 +79,12 @@ func LoggingStreamInterceptor() grpc.StreamServerInterceptor {
 			statusCode = status.Code(err)
 		}
 
-		fmt.Printf("[%s] <-- STREAM %s [%s] %v\n", requestID, info.FullMethod, statusCode, duration)
+		log.InfoContext(ctx, "gRPC stream completed",
+			"request_id", requestID,
+			"method", info.FullMethod,
+			"status", statusCode.String(),
+			"duration_ms", duration.Milliseconds(),
+		)
 
 		return err
 	}

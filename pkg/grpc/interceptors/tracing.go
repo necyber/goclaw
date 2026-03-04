@@ -2,6 +2,7 @@ package interceptors
 
 import (
 	"context"
+	"fmt"
 	"strings"
 
 	"go.opentelemetry.io/otel"
@@ -24,7 +25,14 @@ func TracingUnaryInterceptor() grpc.UnaryServerInterceptor {
 
 		tracer := otel.Tracer(grpcTracerName)
 		ctx, span := tracer.Start(ctx, info.FullMethod, trace.WithSpanKind(trace.SpanKindServer))
-		defer span.End()
+		defer func() {
+			if panicVal := recover(); panicVal != nil {
+				recordSpanPanic(span, panicVal)
+				span.End()
+				panic(panicVal)
+			}
+			span.End()
+		}()
 
 		span.SetAttributes(methodAttributes(info.FullMethod)...)
 		ctx = injectTraceContext(ctx)
@@ -41,7 +49,14 @@ func TracingStreamInterceptor() grpc.StreamServerInterceptor {
 		ctx := extractTraceContext(ss.Context())
 		tracer := otel.Tracer(grpcTracerName)
 		ctx, span := tracer.Start(ctx, info.FullMethod, trace.WithSpanKind(trace.SpanKindServer))
-		defer span.End()
+		defer func() {
+			if panicVal := recover(); panicVal != nil {
+				recordSpanPanic(span, panicVal)
+				span.End()
+				panic(panicVal)
+			}
+			span.End()
+		}()
 
 		attrs := methodAttributes(info.FullMethod)
 		attrs = append(attrs,
@@ -88,6 +103,17 @@ func recordSpanResult(span trace.Span, err error) {
 	span.RecordError(err)
 	span.SetAttributes(attribute.Int("rpc.grpc.status_code", int(code)))
 	span.SetStatus(otelcodes.Error, code.String())
+}
+
+func recordSpanPanic(span trace.Span, panicValue interface{}) {
+	panicErr := fmt.Errorf("panic: %v", panicValue)
+	span.RecordError(panicErr)
+	span.SetAttributes(
+		attribute.Int("rpc.grpc.status_code", int(codes.Internal)),
+		attribute.String("error.type", "panic"),
+		attribute.String("error.message", fmt.Sprint(panicValue)),
+	)
+	span.SetStatus(otelcodes.Error, codes.Internal.String())
 }
 
 func methodAttributes(fullMethod string) []attribute.KeyValue {

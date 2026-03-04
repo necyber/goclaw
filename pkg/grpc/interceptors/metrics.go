@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"go.opentelemetry.io/otel/trace"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/status"
 )
@@ -105,11 +106,12 @@ func MetricsUnaryInterceptor(metrics *Metrics) grpc.UnaryServerInterceptor {
 
 		resp, err := handler(ctx, req)
 		code := status.Code(err)
+		exemplar, hasExemplar := traceExemplarLabels(ctx)
 
-		metrics.requests.WithLabelValues(info.FullMethod, code.String()).Inc()
-		metrics.duration.WithLabelValues(info.FullMethod).Observe(time.Since(start).Seconds())
+		incrementCounter(metrics.requests.WithLabelValues(info.FullMethod, code.String()), hasExemplar, exemplar)
+		observeHistogram(metrics.duration.WithLabelValues(info.FullMethod), time.Since(start).Seconds(), hasExemplar, exemplar)
 		if err != nil {
-			metrics.errors.WithLabelValues(info.FullMethod, code.String()).Inc()
+			incrementCounter(metrics.errors.WithLabelValues(info.FullMethod, code.String()), hasExemplar, exemplar)
 		}
 
 		return resp, err
@@ -129,12 +131,13 @@ func MetricsStreamInterceptor(metrics *Metrics) grpc.StreamServerInterceptor {
 		wrapped := &metricsServerStream{ServerStream: ss}
 		err := handler(srv, wrapped)
 		code := status.Code(err)
+		exemplar, hasExemplar := traceExemplarLabels(ss.Context())
 
-		metrics.streamDuration.WithLabelValues(info.FullMethod).Observe(time.Since(start).Seconds())
-		metrics.streamMessages.WithLabelValues(info.FullMethod, "recv").Add(float64(wrapped.recvCount))
-		metrics.streamMessages.WithLabelValues(info.FullMethod, "sent").Add(float64(wrapped.sendCount))
+		observeHistogram(metrics.streamDuration.WithLabelValues(info.FullMethod), time.Since(start).Seconds(), hasExemplar, exemplar)
+		addCounter(metrics.streamMessages.WithLabelValues(info.FullMethod, "recv"), float64(wrapped.recvCount), hasExemplar, exemplar)
+		addCounter(metrics.streamMessages.WithLabelValues(info.FullMethod, "sent"), float64(wrapped.sendCount), hasExemplar, exemplar)
 		if err != nil {
-			metrics.streamErrors.WithLabelValues(info.FullMethod, code.String()).Inc()
+			incrementCounter(metrics.streamErrors.WithLabelValues(info.FullMethod, code.String()), hasExemplar, exemplar)
 		}
 
 		return err
@@ -145,6 +148,26 @@ type metricsServerStream struct {
 	grpc.ServerStream
 	recvCount int64
 	sendCount int64
+}
+
+type counterIncrementer interface {
+	Inc()
+}
+
+type counterAdder interface {
+	Add(float64)
+}
+
+type exemplarCounterAdder interface {
+	AddWithExemplar(float64, prometheus.Labels)
+}
+
+type histogramObserver interface {
+	Observe(float64)
+}
+
+type exemplarHistogramObserver interface {
+	ObserveWithExemplar(float64, prometheus.Labels)
 }
 
 func (s *metricsServerStream) RecvMsg(m interface{}) error {
@@ -161,6 +184,58 @@ func (s *metricsServerStream) SendMsg(m interface{}) error {
 	}
 	s.sendCount++
 	return nil
+}
+
+func traceExemplarLabels(ctx context.Context) (prometheus.Labels, bool) {
+	if ctx == nil {
+		return nil, false
+	}
+
+	spanCtx := trace.SpanContextFromContext(ctx)
+	if !spanCtx.IsValid() {
+		return nil, false
+	}
+
+	return prometheus.Labels{
+		"trace_id": spanCtx.TraceID().String(),
+		"span_id":  spanCtx.SpanID().String(),
+	}, true
+}
+
+func incrementCounter(counter counterIncrementer, hasExemplar bool, exemplar prometheus.Labels) bool {
+	if hasExemplar {
+		if recorder, ok := any(counter).(exemplarCounterAdder); ok {
+			recorder.AddWithExemplar(1, exemplar)
+			return true
+		}
+	}
+	counter.Inc()
+	return false
+}
+
+func addCounter(counter counterAdder, value float64, hasExemplar bool, exemplar prometheus.Labels) bool {
+	if value == 0 {
+		return false
+	}
+	if hasExemplar {
+		if recorder, ok := any(counter).(exemplarCounterAdder); ok {
+			recorder.AddWithExemplar(value, exemplar)
+			return true
+		}
+	}
+	counter.Add(value)
+	return false
+}
+
+func observeHistogram(observer histogramObserver, value float64, hasExemplar bool, exemplar prometheus.Labels) bool {
+	if hasExemplar {
+		if recorder, ok := any(observer).(exemplarHistogramObserver); ok {
+			recorder.ObserveWithExemplar(value, exemplar)
+			return true
+		}
+	}
+	observer.Observe(value)
+	return false
 }
 
 func registerCounterVec(registerer prometheus.Registerer, collector *prometheus.CounterVec) *prometheus.CounterVec {

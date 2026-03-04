@@ -2,9 +2,11 @@ package middleware
 
 import (
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"go.opentelemetry.io/otel"
@@ -46,6 +48,8 @@ func Tracing(opts TracingOptions) func(http.Handler) http.Handler {
 
 			ctx, span := tracer.Start(ctx, "HTTP "+r.Method, trace.WithSpanKind(trace.SpanKindServer))
 			defer span.End()
+			ctx, panicInfo := withRecoveredPanicInfo(ctx)
+			start := time.Now()
 
 			span.SetAttributes(
 				attribute.String("http.request.method", r.Method),
@@ -63,7 +67,9 @@ func Tracing(opts TracingOptions) func(http.Handler) http.Handler {
 			span.SetAttributes(
 				attribute.String("http.route", route),
 				attribute.Int("http.response.status_code", wrapped.statusCode),
+				attribute.Float64("http.server.request.duration_ms", float64(time.Since(start))/float64(time.Millisecond)),
 			)
+			setHTTPErrorAttributes(span, wrapped.statusCode, panicInfo)
 			recordHTTPSpanStatus(span, wrapped.statusCode)
 		})
 	}
@@ -121,6 +127,48 @@ func recordHTTPSpanStatus(span trace.Span, statusCode int) {
 		return
 	}
 	span.SetStatus(otelcodes.Ok, http.StatusText(statusCode))
+}
+
+func setHTTPErrorAttributes(span trace.Span, statusCode int, panicInfo *recoveredPanicInfo) {
+	if statusCode < http.StatusBadRequest && (panicInfo == nil || !panicInfo.Recovered) {
+		return
+	}
+
+	span.SetAttributes(
+		attribute.Bool("error", true),
+		attribute.String("http.response.status_class", traceStatusClass(statusCode)),
+	)
+
+	if statusCode >= http.StatusBadRequest {
+		span.SetAttributes(
+			attribute.String("error.type", "http_error"),
+			attribute.String("error.message", fmt.Sprintf("http_status_%d", statusCode)),
+		)
+	}
+
+	if panicInfo != nil && panicInfo.Recovered {
+		panicMessage := strings.TrimSpace(panicInfo.Message)
+		if panicMessage == "" {
+			panicMessage = "panic recovered"
+		}
+		panicErr := fmt.Errorf("panic recovered: %s", panicMessage)
+		span.RecordError(panicErr)
+		span.SetAttributes(
+			attribute.String("error.type", "panic"),
+			attribute.String("error.message", panicMessage),
+		)
+	}
+}
+
+func traceStatusClass(statusCode int) string {
+	switch {
+	case statusCode >= 400 && statusCode < 500:
+		return "4xx"
+	case statusCode >= 500 && statusCode < 600:
+		return "5xx"
+	default:
+		return "other"
+	}
 }
 
 type tracingResponseWriter struct {

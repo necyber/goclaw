@@ -43,7 +43,7 @@ func Logger(log logger.Logger) func(http.Handler) http.Handler {
 
 			// Log request details
 			duration := time.Since(start)
-			log.Info("HTTP request",
+			log.InfoContext(r.Context(), "HTTP request",
 				"method", r.Method,
 				"path", r.URL.Path,
 				"status", wrapped.statusCode,
