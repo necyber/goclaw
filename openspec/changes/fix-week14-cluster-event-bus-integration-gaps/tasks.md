@@ -18,9 +18,9 @@
 
 ## 4. Coordination Backend Guardrails
 
-- [ ] 4.1 Enforce explicit unsupported handling for `etcd`/`consul` modes when real backend implementations are unavailable
-- [ ] 4.2 Remove silent in-memory coordinator emulation from non-test distributed runtime paths unless explicitly gated for dev/test override
-- [ ] 4.3 Add adapter/bootstrap tests covering supported memory mode, unsupported backend fail-fast, and explicit override behavior
+- [x] 4.1 Enforce explicit unsupported handling for `etcd`/`consul` modes when real backend implementations are unavailable
+- [x] 4.2 Remove silent in-memory coordinator emulation from non-test distributed runtime paths unless explicitly gated for dev/test override
+- [x] 4.3 Add adapter/bootstrap tests covering supported memory mode, unsupported backend fail-fast, and explicit override behavior
 
 ## 5. Shard-Scoped Transfer Idempotency
 

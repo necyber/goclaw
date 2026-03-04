@@ -30,6 +30,7 @@ import (
 	"github.com/goclaw/goclaw/pkg/api"
 	"github.com/goclaw/goclaw/pkg/api/events"
 	"github.com/goclaw/goclaw/pkg/api/handlers"
+	"github.com/goclaw/goclaw/pkg/cluster"
 	"github.com/goclaw/goclaw/pkg/engine"
 	"github.com/goclaw/goclaw/pkg/eventbus"
 	grpcpkg "github.com/goclaw/goclaw/pkg/grpc"
@@ -135,6 +136,16 @@ func main() {
 			log.Error("Error closing storage", "error", err)
 		}
 	}()
+
+	if _, backend, coordErr := initializeClusterCoordinator(cfg); coordErr != nil {
+		log.Error("Failed to initialize cluster coordination", "error", coordErr)
+		os.Exit(1)
+	} else if backend != "" {
+		log.Info("Cluster coordination backend initialized",
+			"backend", backend,
+			"emulation", cluster.CoordinationEmulationEnabled(),
+		)
+	}
 
 	// Initialize metrics manager
 	metricsCfg := metrics.Config{
@@ -594,6 +605,29 @@ func resolveHTTPShutdownTimeout(timeout time.Duration) time.Duration {
 		return timeout
 	}
 	return 30 * time.Second
+}
+
+func initializeClusterCoordinator(cfg *config.Config) (cluster.Coordinator, string, error) {
+	if cfg == nil {
+		return nil, "", fmt.Errorf("config cannot be nil")
+	}
+	if !cfg.Cluster.Enabled {
+		return nil, "", nil
+	}
+
+	backend := strings.TrimSpace(strings.ToLower(cfg.Cluster.Discovery.Type))
+	if backend == "" {
+		return nil, "", fmt.Errorf("cluster: discovery.type is required when cluster mode is enabled")
+	}
+	if backend == "kubernetes" {
+		return nil, backend, fmt.Errorf("cluster: unsupported coordination backend %q", backend)
+	}
+
+	coordinator, err := cluster.NewCoordinator(backend)
+	if err != nil {
+		return nil, backend, err
+	}
+	return coordinator, backend, nil
 }
 
 func logTracingStartup(log logger.Logger, cfg *config.Config, tracingCfg config.TracingConfig) {

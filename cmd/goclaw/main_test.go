@@ -16,6 +16,7 @@ import (
 	"github.com/goclaw/goclaw/pkg/api"
 	"github.com/goclaw/goclaw/pkg/api/handlers"
 	"github.com/goclaw/goclaw/pkg/api/models"
+	"github.com/goclaw/goclaw/pkg/cluster"
 	"github.com/goclaw/goclaw/pkg/engine"
 	"github.com/goclaw/goclaw/pkg/eventbus"
 	grpcpkg "github.com/goclaw/goclaw/pkg/grpc"
@@ -778,5 +779,50 @@ func TestResolveHTTPShutdownTimeout(t *testing.T) {
 	}
 	if got := resolveHTTPShutdownTimeout(0); got != 30*time.Second {
 		t.Fatalf("resolveHTTPShutdownTimeout(default) = %v, want %v", got, 30*time.Second)
+	}
+}
+
+func TestInitializeClusterCoordinator_Disabled(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Cluster.Enabled = false
+
+	coordinator, backend, err := initializeClusterCoordinator(cfg)
+	if err != nil {
+		t.Fatalf("initializeClusterCoordinator() error = %v", err)
+	}
+	if coordinator != nil {
+		t.Fatalf("expected nil coordinator when cluster disabled, got %T", coordinator)
+	}
+	if backend != "" {
+		t.Fatalf("expected empty backend when cluster disabled, got %q", backend)
+	}
+}
+
+func TestInitializeClusterCoordinator_FailsWithoutEmulationOverride(t *testing.T) {
+	t.Setenv(cluster.CoordinationEmulationEnv, "")
+	cfg := config.DefaultConfig()
+	cfg.Cluster.Enabled = true
+	cfg.Cluster.Discovery.Type = "consul"
+
+	if _, _, err := initializeClusterCoordinator(cfg); err == nil {
+		t.Fatal("expected initialization error for consul without explicit emulation override")
+	}
+}
+
+func TestInitializeClusterCoordinator_AllowsExplicitEmulationOverride(t *testing.T) {
+	t.Setenv(cluster.CoordinationEmulationEnv, "true")
+	cfg := config.DefaultConfig()
+	cfg.Cluster.Enabled = true
+	cfg.Cluster.Discovery.Type = "consul"
+
+	coordinator, backend, err := initializeClusterCoordinator(cfg)
+	if err != nil {
+		t.Fatalf("initializeClusterCoordinator() error = %v", err)
+	}
+	if backend != "consul" {
+		t.Fatalf("backend = %s, want consul", backend)
+	}
+	if _, ok := coordinator.(*cluster.ConsulCoordinator); !ok {
+		t.Fatalf("coordinator type = %T, want *cluster.ConsulCoordinator", coordinator)
 	}
 }

@@ -1,15 +1,24 @@
 package cluster
 
-import "fmt"
+import (
+	"fmt"
+	"os"
+	"strings"
+)
 
-// EtcdCoordinator is the etcd-backed adapter exposed through the unified Coordinator interface.
-// Current implementation reuses the in-memory semantics while preserving backend identity.
+const (
+	// CoordinationEmulationEnv enables explicit etcd/consul in-memory emulation for dev/test only.
+	CoordinationEmulationEnv = "GOCLAW_CLUSTER_ALLOW_COORDINATION_EMULATION"
+)
+
+// EtcdCoordinator is the etcd adapter exposed through the unified Coordinator interface.
+// It currently reuses in-memory semantics and should only be enabled through explicit emulation gate.
 type EtcdCoordinator struct {
 	*MemoryCoordinator
 }
 
-// ConsulCoordinator is the Consul-backed adapter exposed through the unified Coordinator interface.
-// Current implementation reuses the in-memory semantics while preserving backend identity.
+// ConsulCoordinator is the Consul adapter exposed through the unified Coordinator interface.
+// It currently reuses in-memory semantics and should only be enabled through explicit emulation gate.
 type ConsulCoordinator struct {
 	*MemoryCoordinator
 }
@@ -24,15 +33,38 @@ func NewConsulCoordinator() *ConsulCoordinator {
 	return &ConsulCoordinator{MemoryCoordinator: NewMemoryCoordinator("consul")}
 }
 
+// CoordinationEmulationEnabled reports whether explicit dev/test emulation override is enabled.
+func CoordinationEmulationEnabled() bool {
+	value := strings.TrimSpace(strings.ToLower(os.Getenv(CoordinationEmulationEnv)))
+	switch value {
+	case "1", "true", "yes", "on":
+		return true
+	default:
+		return false
+	}
+}
+
 // NewCoordinator creates a coordinator by backend name.
 func NewCoordinator(backend string) (Coordinator, error) {
-	switch backend {
+	switch strings.ToLower(strings.TrimSpace(backend)) {
 	case "", "memory":
 		return NewMemoryCoordinator("memory"), nil
 	case "etcd":
-		return NewEtcdCoordinator(), nil
+		if CoordinationEmulationEnabled() {
+			return NewEtcdCoordinator(), nil
+		}
+		return nil, fmt.Errorf(
+			"cluster: etcd coordinator is not implemented; set %s=true for dev/test in-memory emulation",
+			CoordinationEmulationEnv,
+		)
 	case "consul":
-		return NewConsulCoordinator(), nil
+		if CoordinationEmulationEnabled() {
+			return NewConsulCoordinator(), nil
+		}
+		return nil, fmt.Errorf(
+			"cluster: consul coordinator is not implemented; set %s=true for dev/test in-memory emulation",
+			CoordinationEmulationEnv,
+		)
 	default:
 		return nil, fmt.Errorf("cluster: unsupported coordination backend %q", backend)
 	}
