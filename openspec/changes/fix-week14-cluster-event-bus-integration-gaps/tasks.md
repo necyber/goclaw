@@ -30,6 +30,6 @@
 
 ## 6. End-to-End Regression Coverage
 
-- [ ] 6.1 Add end-to-end regression tests validating canonical lifecycle publication reaches remote streaming subscribers in distributed mode
-- [ ] 6.2 Add observability assertions for bridge decode failures, degraded mode transitions, and recovery signals
-- [ ] 6.3 Run focused test suites (`eventbus`, `grpc streaming`, `cluster adapters`, `transfer`, `startup wiring`) and resolve regressions
+- [x] 6.1 Add end-to-end regression tests validating canonical lifecycle publication reaches remote streaming subscribers in distributed mode
+- [x] 6.2 Add observability assertions for bridge decode failures, degraded mode transitions, and recovery signals
+- [x] 6.3 Run focused test suites (`eventbus`, `grpc streaming`, `cluster adapters`, `transfer`, `startup wiring`) and resolve regressions

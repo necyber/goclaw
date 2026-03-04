@@ -184,6 +184,50 @@ func TestRuntimeEventBroadcaster_PublishFailureDegradesAndRecovers(t *testing.T)
 	}
 }
 
+func TestRuntimeEventBroadcaster_CrossNodePublishBridgeStreamFlow(t *testing.T) {
+	canonicalBus := eventbus.NewMemoryBus()
+	publisher, err := eventbus.NewPublisher("node-a", canonicalBus, eventbus.DefaultRetryConfig(), nil)
+	if err != nil {
+		t.Fatalf("NewPublisher() error = %v", err)
+	}
+	asyncPublisher := newAsyncLifecyclePublisher(publisher, nil, 8)
+	defer asyncPublisher.Close()
+
+	remoteRegistry := grpcstreaming.NewSubscriberRegistry()
+	remoteSub := remoteRegistry.Subscribe("wf-cross-node", 8)
+	defer remoteRegistry.Unsubscribe(remoteSub.ID)
+
+	bridge, err := grpcstreaming.NewEventBusBridge(remoteRegistry, eventbus.NewSchemaRouter())
+	if err != nil {
+		t.Fatalf("NewEventBusBridge() error = %v", err)
+	}
+	if err := bridge.Start(canonicalBus); err != nil {
+		t.Fatalf("bridge.Start() error = %v", err)
+	}
+	defer bridge.Stop()
+
+	broadcaster := newRuntimeEventBroadcaster(nil, nil, asyncPublisher)
+	broadcaster.BroadcastWorkflowStateChanged(
+		"wf-cross-node",
+		"wf-cross-node",
+		"pending",
+		"running",
+		time.Now().UTC(),
+	)
+
+	seqEvent := waitStreamEvent(t, remoteSub.EventChan)
+	workflowEvent, ok := seqEvent.Event.(engine.WorkflowEvent)
+	if !ok {
+		t.Fatalf("event type = %T, want engine.WorkflowEvent", seqEvent.Event)
+	}
+	if workflowEvent.WorkflowID != "wf-cross-node" {
+		t.Fatalf("workflow id = %s, want wf-cross-node", workflowEvent.WorkflowID)
+	}
+	if workflowEvent.EventType != engine.WorkflowEventStarted {
+		t.Fatalf("event type = %s, want %s", workflowEvent.EventType, engine.WorkflowEventStarted)
+	}
+}
+
 func waitWebEvent(t *testing.T, ch <-chan events.Event, expectedType string) {
 	t.Helper()
 	select {
