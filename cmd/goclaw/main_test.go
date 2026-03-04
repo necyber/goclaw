@@ -17,6 +17,7 @@ import (
 	"github.com/goclaw/goclaw/pkg/api/handlers"
 	"github.com/goclaw/goclaw/pkg/api/models"
 	"github.com/goclaw/goclaw/pkg/engine"
+	"github.com/goclaw/goclaw/pkg/eventbus"
 	grpcpkg "github.com/goclaw/goclaw/pkg/grpc"
 	grpchandlers "github.com/goclaw/goclaw/pkg/grpc/handlers"
 	grpcstreaming "github.com/goclaw/goclaw/pkg/grpc/streaming"
@@ -301,7 +302,7 @@ func TestServerStartup_WithSagaEnabled(t *testing.T) {
 	bus := signalpkg.NewLocalBus(16)
 	defer bus.Close()
 	sagaSvc := grpchandlers.NewSagaServiceServer(sagaOrchestrator, eng.GetSagaCheckpointStore(), eng.GetSagaDefinitionStore())
-	if err := registerGRPCServices(grpcServer, eng, bus, grpcstreaming.NewSubscriberRegistry(), sagaSvc); err != nil {
+	if err := registerGRPCServices(grpcServer, eng, bus, grpcstreaming.NewSubscriberRegistry(), sagaSvc, nil, nil); err != nil {
 		t.Fatalf("registerGRPCServices() error = %v", err)
 	}
 
@@ -625,7 +626,7 @@ func TestRegisterGRPCServices_MissingWiring(t *testing.T) {
 		t.Fatalf("failed to create engine: %v", err)
 	}
 
-	err = registerGRPCServices(grpcServer, eng, signalpkg.NewLocalBus(16), nil, nil)
+	err = registerGRPCServices(grpcServer, eng, signalpkg.NewLocalBus(16), nil, nil, nil, nil)
 	if err == nil {
 		t.Fatal("expected missing streaming registry error")
 	}
@@ -647,8 +648,74 @@ func TestRegisterGRPCServices_Success(t *testing.T) {
 	bus := signalpkg.NewLocalBus(16)
 	defer bus.Close()
 
-	if err := registerGRPCServices(grpcServer, eng, bus, grpcstreaming.NewSubscriberRegistry(), nil); err != nil {
+	if err := registerGRPCServices(grpcServer, eng, bus, grpcstreaming.NewSubscriberRegistry(), nil, nil, nil); err != nil {
 		t.Fatalf("registerGRPCServices() error = %v", err)
+	}
+}
+
+func TestRegisterGRPCServices_AttachesEventBusBridgeWhenConfigured(t *testing.T) {
+	cfg := config.DefaultConfig()
+	cfg.Server.GRPC.Enabled = true
+	grpcServer, err := grpcpkg.New(cfg.Server.GRPC.ToGRPCConfig())
+	if err != nil {
+		t.Fatalf("failed to create grpc server: %v", err)
+	}
+
+	eng, err := engine.New(cfg, logger.New(&logger.Config{Level: logger.InfoLevel, Format: "json", Output: "stdout"}), &mockStorage{})
+	if err != nil {
+		t.Fatalf("failed to create engine: %v", err)
+	}
+
+	bus := signalpkg.NewLocalBus(16)
+	defer bus.Close()
+	streamingRegistry := grpcstreaming.NewSubscriberRegistry()
+	canonicalBus := eventbus.NewMemoryBus()
+
+	if err := registerGRPCServices(
+		grpcServer,
+		eng,
+		bus,
+		streamingRegistry,
+		nil,
+		canonicalBus,
+		eventbus.NewSchemaRouter(),
+	); err != nil {
+		t.Fatalf("registerGRPCServices() error = %v", err)
+	}
+
+	sub := streamingRegistry.Subscribe("wf-bridge", 8)
+	defer streamingRegistry.Unsubscribe(sub.ID)
+
+	publisher, err := eventbus.NewPublisher("node-bridge", canonicalBus, eventbus.DefaultRetryConfig(), nil)
+	if err != nil {
+		t.Fatalf("NewPublisher() error = %v", err)
+	}
+	if _, err := publisher.PublishLifecycleEvent(context.Background(), eventbus.LifecycleEvent{
+		Domain:     eventbus.DomainWorkflow,
+		EventType:  "running",
+		ShardKey:   "s1",
+		WorkflowID: "wf-bridge",
+		Schema:     eventbus.SchemaVersionV1,
+		Payload: map[string]any{
+			"status":    "RUNNING",
+			"message":   "bridge event",
+			"timestamp": time.Now().Unix(),
+		},
+	}); err != nil {
+		t.Fatalf("PublishLifecycleEvent() error = %v", err)
+	}
+
+	select {
+	case event := <-sub.EventChan:
+		seqEvent, ok := event.(*grpcstreaming.SequencedEvent)
+		if !ok {
+			t.Fatalf("event type = %T, want *grpcstreaming.SequencedEvent", event)
+		}
+		if _, ok := seqEvent.Event.(engine.WorkflowEvent); !ok {
+			t.Fatalf("inner event type = %T, want engine.WorkflowEvent", seqEvent.Event)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for bridged streaming event")
 	}
 }
 

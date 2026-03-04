@@ -168,17 +168,21 @@ func main() {
 		streamObserver = grpcstreaming.NewWorkflowStreamObserver(streamingRegistry)
 	}
 	var canonicalEventPublisher *asyncLifecyclePublisher
+	var canonicalEventBus *eventbus.MemoryBus
+	var canonicalSchemaRouter *eventbus.SchemaRouter
 	if cfg.Cluster.Enabled {
 		nodeID := strings.TrimSpace(cfg.Cluster.NodeID)
 		if nodeID == "" {
 			nodeID = "node-1"
 		}
-		bus := eventbus.NewMemoryBus()
-		publisher, publishErr := eventbus.NewPublisher(nodeID, bus, eventbus.DefaultRetryConfig(), metricsManager)
+		canonicalEventBus = eventbus.NewMemoryBus()
+		canonicalSchemaRouter = eventbus.NewSchemaRouter()
+		publisher, publishErr := eventbus.NewPublisher(nodeID, canonicalEventBus, eventbus.DefaultRetryConfig(), metricsManager)
 		if publishErr != nil {
 			log.Error("Failed to initialize canonical event publisher", "error", publishErr)
 			os.Exit(1)
 		}
+		publisher.SetSchemaRouter(canonicalSchemaRouter)
 		canonicalEventPublisher = newAsyncLifecyclePublisher(publisher, log, 1024)
 		defer canonicalEventPublisher.Close()
 	}
@@ -331,7 +335,15 @@ func main() {
 			log.Error("Failed to create gRPC server", "error", err)
 			os.Exit(1)
 		}
-		if err := registerGRPCServices(grpcServer, eng, signalBus, streamingRegistry, sagaGRPCService); err != nil {
+		if err := registerGRPCServices(
+			grpcServer,
+			eng,
+			signalBus,
+			streamingRegistry,
+			sagaGRPCService,
+			canonicalEventBus,
+			canonicalSchemaRouter,
+		); err != nil {
 			log.Error("Failed to register gRPC services", "error", err)
 			os.Exit(1)
 		}
@@ -639,6 +651,8 @@ func registerGRPCServices(
 	signalBus signalpkg.Bus,
 	streamingRegistry *grpcstreaming.SubscriberRegistry,
 	sagaSvc *grpchandlers.SagaServiceServer,
+	canonicalEventBus *eventbus.MemoryBus,
+	canonicalSchemaRouter *eventbus.SchemaRouter,
 ) error {
 	if grpcServer == nil {
 		return fmt.Errorf("grpc server is nil")
@@ -661,6 +675,11 @@ func registerGRPCServices(
 	workflowSvc := grpchandlers.NewWorkflowServiceServer(engineAdapter)
 	batchSvc := grpchandlers.NewBatchServiceServer(engineAdapter)
 	streamingSvc := grpchandlers.NewStreamingServiceServerWithEngine(streamingRegistry, engineAdapter)
+	if canonicalEventBus != nil {
+		if err := streamingSvc.AttachEventBusBridge(canonicalEventBus, canonicalSchemaRouter); err != nil {
+			return fmt.Errorf("failed to attach event-bus bridge: %w", err)
+		}
+	}
 	adminSvc := grpchandlers.NewAdminServiceServer(engineAdapter)
 	signalSvc := grpchandlers.NewSignalServiceServer(signalBus)
 	if sagaSvc == nil {

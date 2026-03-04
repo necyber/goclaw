@@ -6,9 +6,9 @@
 
 ## 2. Streaming Bridge Startup and Typed Translation
 
-- [ ] 2.1 Attach eventbus bridge in production startup/bootstrap when distributed event transport is enabled
-- [ ] 2.2 Implement envelope decode and translation to handler-compatible `engine.WorkflowEvent`/`engine.TaskEvent` payloads before registry broadcast
-- [ ] 2.3 Add bridge/streaming integration tests for cross-node publish->bridge->stream delivery and unsupported schema decode telemetry
+- [x] 2.1 Attach eventbus bridge in production startup/bootstrap when distributed event transport is enabled
+- [x] 2.2 Implement envelope decode and translation to handler-compatible `engine.WorkflowEvent`/`engine.TaskEvent` payloads before registry broadcast
+- [x] 2.3 Add bridge/streaming integration tests for cross-node publish->bridge->stream delivery and unsupported schema decode telemetry
 
 ## 3. NATS Degraded-Mode Semantics
 

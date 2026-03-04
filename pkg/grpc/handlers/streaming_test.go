@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/goclaw/goclaw/pkg/engine"
+	"github.com/goclaw/goclaw/pkg/eventbus"
 	pb "github.com/goclaw/goclaw/pkg/grpc/pb/v1"
 	"github.com/goclaw/goclaw/pkg/grpc/streaming"
 	"github.com/stretchr/testify/assert"
@@ -256,6 +257,63 @@ func TestWatchWorkflow_InitialSnapshotFromPersistedState(t *testing.T) {
 	require.NotEmpty(t, stream.updates)
 	assert.Equal(t, pb.WorkflowStatus_WORKFLOW_STATUS_RUNNING, stream.updates[0].Status)
 	assert.Equal(t, "Current persisted workflow state", stream.updates[0].Message)
+}
+
+func TestWatchWorkflow_EventBusBridgeIntegration(t *testing.T) {
+	registry := streaming.NewSubscriberRegistry()
+	server := NewStreamingServiceServer(registry)
+	canonicalBus := eventbus.NewMemoryBus()
+	if err := server.AttachEventBusBridge(canonicalBus, eventbus.NewSchemaRouter()); err != nil {
+		t.Fatalf("AttachEventBusBridge() error = %v", err)
+	}
+	defer server.Close()
+
+	ctx, cancel := context.WithTimeout(context.Background(), 250*time.Millisecond)
+	defer cancel()
+	stream := &mockWatchWorkflowStream{
+		ctx:     ctx,
+		updates: make([]*pb.WorkflowStatusUpdate, 0),
+	}
+
+	errChan := make(chan error, 1)
+	go func() {
+		errChan <- server.WatchWorkflow(&pb.WatchWorkflowRequest{WorkflowId: "wf-bridge"}, stream)
+	}()
+
+	time.Sleep(20 * time.Millisecond)
+	publisher, err := eventbus.NewPublisher("node-a", canonicalBus, eventbus.DefaultRetryConfig(), nil)
+	if err != nil {
+		t.Fatalf("NewPublisher() error = %v", err)
+	}
+	if _, err := publisher.PublishLifecycleEvent(context.Background(), eventbus.LifecycleEvent{
+		Domain:     eventbus.DomainWorkflow,
+		EventType:  "running",
+		ShardKey:   "s1",
+		WorkflowID: "wf-bridge",
+		Schema:     eventbus.SchemaVersionV1,
+		Payload: map[string]any{
+			"status":    "RUNNING",
+			"message":   "bridge running",
+			"timestamp": time.Now().Unix(),
+		},
+	}); err != nil {
+		t.Fatalf("PublishLifecycleEvent() error = %v", err)
+	}
+
+	deadline := time.Now().Add(150 * time.Millisecond)
+	for len(stream.updates) < 2 && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	cancel()
+	err = <-errChan
+	if err != nil {
+		st, ok := status.FromError(err)
+		require.True(t, ok)
+		assert.Equal(t, codes.Canceled, st.Code())
+	}
+
+	require.GreaterOrEqual(t, len(stream.updates), 2)
+	assert.Equal(t, pb.WorkflowStatus_WORKFLOW_STATUS_RUNNING, stream.updates[1].Status)
 }
 
 func TestWatchWorkflow_BackpressureErrorMapsToResourceExhausted(t *testing.T) {
