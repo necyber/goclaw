@@ -1,8 +1,8 @@
 ## 1. Streaming Race-Safety Fix
 
-- [ ] 1.1 Make `pkg/grpc/handlers/streaming_test.go` mock stream update buffers concurrency-safe (synchronized append/read helpers).
-- [ ] 1.2 Update race-prone assertions to use synchronized snapshots instead of direct shared-slice reads.
-- [ ] 1.3 Run `go test -race ./pkg/grpc/handlers` and fix any remaining race findings.
+- [x] 1.1 Make `pkg/grpc/handlers/streaming_test.go` mock stream update buffers concurrency-safe (synchronized append/read helpers).
+- [x] 1.2 Update race-prone assertions to use synchronized snapshots instead of direct shared-slice reads.
+- [x] 1.3 Run `go test -race ./pkg/grpc/handlers` and fix any remaining race findings.
 
 ## 2. Documentation Consistency and Encoding Repair
 
@@ -15,4 +15,3 @@
 - [ ] 3.1 Run `go test ./...` and `go vet ./...` after fixes.
 - [ ] 3.2 Run `openspec validate --change fix-race-doc-and-encoding-gaps --strict`.
 - [ ] 3.3 Ensure this change artifacts and modified files are committed together with a traceable message.
-

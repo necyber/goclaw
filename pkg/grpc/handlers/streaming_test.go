@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"sync"
 	"testing"
 	"time"
 
@@ -19,6 +20,7 @@ import (
 // mockWatchWorkflowStream implements pb.StreamingService_WatchWorkflowServer
 type mockWatchWorkflowStream struct {
 	ctx     context.Context
+	mu      sync.Mutex
 	updates []*pb.WorkflowStatusUpdate
 	sendErr error
 }
@@ -27,8 +29,22 @@ func (m *mockWatchWorkflowStream) Send(update *pb.WorkflowStatusUpdate) error {
 	if m.sendErr != nil {
 		return m.sendErr
 	}
+	m.mu.Lock()
 	m.updates = append(m.updates, update)
+	m.mu.Unlock()
 	return nil
+}
+
+func (m *mockWatchWorkflowStream) updateCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.updates)
+}
+
+func (m *mockWatchWorkflowStream) updatesSnapshot() []*pb.WorkflowStatusUpdate {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return append([]*pb.WorkflowStatusUpdate(nil), m.updates...)
 }
 
 func (m *mockWatchWorkflowStream) Context() context.Context {
@@ -44,6 +60,7 @@ func (m *mockWatchWorkflowStream) RecvMsg(msg interface{}) error   { return nil 
 // mockWatchTasksStream implements pb.StreamingService_WatchTasksServer
 type mockWatchTasksStream struct {
 	ctx     context.Context
+	mu      sync.Mutex
 	updates []*pb.TaskProgressUpdate
 	sendErr error
 }
@@ -52,8 +69,22 @@ func (m *mockWatchTasksStream) Send(update *pb.TaskProgressUpdate) error {
 	if m.sendErr != nil {
 		return m.sendErr
 	}
+	m.mu.Lock()
 	m.updates = append(m.updates, update)
+	m.mu.Unlock()
 	return nil
+}
+
+func (m *mockWatchTasksStream) updateCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.updates)
+}
+
+func (m *mockWatchTasksStream) updatesSnapshot() []*pb.TaskProgressUpdate {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return append([]*pb.TaskProgressUpdate(nil), m.updates...)
 }
 
 func (m *mockWatchTasksStream) Context() context.Context {
@@ -69,6 +100,7 @@ func (m *mockWatchTasksStream) RecvMsg(msg interface{}) error   { return nil }
 // mockStreamLogsStream implements pb.StreamingService_StreamLogsServer
 type mockStreamLogsStream struct {
 	ctx       context.Context
+	mu        sync.Mutex
 	responses []*pb.LogStreamResponse
 	requests  []*pb.LogStreamRequest
 	recvIdx   int
@@ -80,7 +112,9 @@ func (m *mockStreamLogsStream) Send(response *pb.LogStreamResponse) error {
 	if m.sendErr != nil {
 		return m.sendErr
 	}
+	m.mu.Lock()
 	m.responses = append(m.responses, response)
+	m.mu.Unlock()
 	return nil
 }
 
@@ -88,13 +122,28 @@ func (m *mockStreamLogsStream) Recv() (*pb.LogStreamRequest, error) {
 	if m.recvErr != nil {
 		return nil, m.recvErr
 	}
+	m.mu.Lock()
 	if m.recvIdx >= len(m.requests) {
+		m.mu.Unlock()
 		<-m.ctx.Done()
 		return nil, m.ctx.Err()
 	}
 	req := m.requests[m.recvIdx]
 	m.recvIdx++
+	m.mu.Unlock()
 	return req, nil
+}
+
+func (m *mockStreamLogsStream) responseCount() int {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return len(m.responses)
+}
+
+func (m *mockStreamLogsStream) responsesSnapshot() []*pb.LogStreamResponse {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return append([]*pb.LogStreamResponse(nil), m.responses...)
 }
 
 func (m *mockStreamLogsStream) Context() context.Context {
@@ -216,7 +265,7 @@ func TestWatchWorkflow(t *testing.T) {
 					require.True(t, ok)
 					assert.Equal(t, codes.Canceled, st.Code())
 				}
-				assert.GreaterOrEqual(t, len(stream.updates), tt.wantUpdates)
+				assert.GreaterOrEqual(t, stream.updateCount(), tt.wantUpdates)
 			}
 		})
 	}
@@ -254,9 +303,10 @@ func TestWatchWorkflow_InitialSnapshotFromPersistedState(t *testing.T) {
 		require.True(t, ok)
 		assert.Equal(t, codes.Canceled, st.Code())
 	}
-	require.NotEmpty(t, stream.updates)
-	assert.Equal(t, pb.WorkflowStatus_WORKFLOW_STATUS_RUNNING, stream.updates[0].Status)
-	assert.Equal(t, "Current persisted workflow state", stream.updates[0].Message)
+	updates := stream.updatesSnapshot()
+	require.NotEmpty(t, updates)
+	assert.Equal(t, pb.WorkflowStatus_WORKFLOW_STATUS_RUNNING, updates[0].Status)
+	assert.Equal(t, "Current persisted workflow state", updates[0].Message)
 }
 
 func TestWatchWorkflow_EventBusBridgeIntegration(t *testing.T) {
@@ -301,7 +351,7 @@ func TestWatchWorkflow_EventBusBridgeIntegration(t *testing.T) {
 	}
 
 	deadline := time.Now().Add(150 * time.Millisecond)
-	for len(stream.updates) < 2 && time.Now().Before(deadline) {
+	for stream.updateCount() < 2 && time.Now().Before(deadline) {
 		time.Sleep(10 * time.Millisecond)
 	}
 	cancel()
@@ -312,8 +362,9 @@ func TestWatchWorkflow_EventBusBridgeIntegration(t *testing.T) {
 		assert.Equal(t, codes.Canceled, st.Code())
 	}
 
-	require.GreaterOrEqual(t, len(stream.updates), 2)
-	assert.Equal(t, pb.WorkflowStatus_WORKFLOW_STATUS_RUNNING, stream.updates[1].Status)
+	updates := stream.updatesSnapshot()
+	require.GreaterOrEqual(t, len(updates), 2)
+	assert.Equal(t, pb.WorkflowStatus_WORKFLOW_STATUS_RUNNING, updates[1].Status)
 }
 
 func TestWatchWorkflow_BackpressureErrorMapsToResourceExhausted(t *testing.T) {
@@ -496,7 +547,7 @@ func TestWatchTasks(t *testing.T) {
 					require.True(t, ok)
 					assert.Equal(t, codes.Canceled, st.Code())
 				}
-				assert.GreaterOrEqual(t, len(stream.updates), tt.wantUpdates)
+				assert.GreaterOrEqual(t, stream.updateCount(), tt.wantUpdates)
 			}
 		})
 	}
@@ -659,7 +710,7 @@ func TestStreamLogs(t *testing.T) {
 						assert.Contains(t, []codes.Code{codes.Canceled, codes.Internal}, st.Code())
 					}
 				}
-				assert.GreaterOrEqual(t, len(stream.responses), tt.wantResponses)
+				assert.GreaterOrEqual(t, stream.responseCount(), tt.wantResponses)
 			}
 		})
 	}
@@ -720,9 +771,10 @@ func TestStreamLogs_DynamicFilterUpdatesAreRaceSafe(t *testing.T) {
 		}
 	}
 
-	require.GreaterOrEqual(t, len(stream.responses), 1)
+	responses := stream.responsesSnapshot()
+	require.GreaterOrEqual(t, len(responses), 1)
 	foundTask2 := false
-	for _, resp := range stream.responses {
+	for _, resp := range responses {
 		for _, entry := range resp.Entries {
 			if entry.TaskId == "task-2" && entry.Level >= pb.LogLevel_LOG_LEVEL_ERROR {
 				foundTask2 = true
