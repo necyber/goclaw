@@ -12,6 +12,6 @@
 
 ## 3. Verification and Governance Closure
 
-- [ ] 3.1 Run `go test ./...` and `go vet ./...` after fixes.
-- [ ] 3.2 Run `openspec validate --change fix-race-doc-and-encoding-gaps --strict`.
-- [ ] 3.3 Ensure this change artifacts and modified files are committed together with a traceable message.
+- [x] 3.1 Run `go test ./...` and `go vet ./...` after fixes.
+- [x] 3.2 Run `openspec validate --change fix-race-doc-and-encoding-gaps --strict`.
+- [x] 3.3 Ensure this change artifacts and modified files are committed together with a traceable message.
