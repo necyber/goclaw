@@ -1,4 +1,4 @@
-# Goclaw 馃
+# Goclaw 🦀
 
 <p align="center">
   <img src="https://img.shields.io/badge/Go-1.24+-00ADD8?logo=go&logoColor=white" alt="Go Version">
@@ -9,13 +9,13 @@
 
 <p align="center">
   <a href="#english">English</a> | 
-  <a href="#chinese">涓枃</a>
+  <a href="#chinese">中文</a>
 </p>
 
 ---
 
 <a name="english"></a>
-## 馃専 Overview
+## 🌟 Overview
 
 **Goclaw** is a production-grade, high-performance, distributed-ready multi-Agent orchestration engine written in Go.
 
@@ -23,13 +23,13 @@ It provides a robust framework for building, deploying, and managing intelligent
 
 ### Key Features
 
-- 馃殌 **High Performance** - Built with Go's concurrency model for maximum throughput
-- 馃彈锔?**Distributed Architecture** - Native support for cluster deployment and service discovery
-- 馃攧 **Agent Orchestration** - Advanced workflow management and task scheduling
-- 馃寪 **RESTful API** - Complete HTTP API with Swagger documentation
-- 馃搳 **Observability** - Built-in metrics, logging, and tracing support
-- 馃攲 **Extensible** - Plugin architecture for custom agent behaviors
-- 馃洝锔?**Production Ready** - Comprehensive error handling and fault tolerance
+- 🚀 **High Performance** - Built with Go's concurrency model for maximum throughput
+- 🏗️ **Distributed Architecture** - Native support for cluster deployment and service discovery
+- 🔄 **Agent Orchestration** - Advanced workflow management and task scheduling
+- 🌐 **RESTful API** - Complete HTTP API with Swagger documentation
+- 📊 **Observability** - Built-in metrics, logging, and tracing support
+- 🔌 **Extensible** - Plugin architecture for custom agent behaviors
+- 🛡️ **Production Ready** - Comprehensive error handling and fault tolerance
 
 ### Quick Start
 
@@ -106,7 +106,7 @@ func main() {
     defer eng.Stop(ctx)
 
     // HTTP API server is now running on port 8080
-    // Access API docs at http://localhost:8080/docs
+    // Access Swagger UI at http://localhost:8080/swagger/index.html
 }
 ```
 
@@ -207,8 +207,7 @@ Goclaw provides a complete RESTful API for workflow management:
 - `GET /metrics` - Prometheus metrics endpoint (port 9091)
 
 **Documentation:**
-- `GET /docs` - Interactive API documentation (primary)
-- `GET /swagger/index.html` - Interactive API documentation (compatibility alias)
+- `GET /swagger/index.html` - Interactive API documentation
 
 ### gRPC API
 
@@ -296,7 +295,7 @@ curl -X POST http://localhost:8080/api/v1/workflows \
         "id": "task-2",
         "name": "Process data",
         "type": "script",
-        "dependencies": ["task-1"]
+        "depends_on": ["task-1"]
       }
     ]
   }'
@@ -305,17 +304,10 @@ curl -X POST http://localhost:8080/api/v1/workflows \
 curl http://localhost:8080/api/v1/workflows/{workflow-id}
 
 # List all workflows
-curl http://localhost:8080/api/v1/workflows?limit=50&offset=0
+curl http://localhost:8080/api/v1/workflows?limit=10&offset=0
 ```
 
 For more examples, see [docs/examples/curl-examples.md](docs/examples/curl-examples.md).
-For compatibility and deprecation guidance, see [docs/api-compatibility.md](docs/api-compatibility.md).
-
-#### API Compatibility Notes
-
-- Canonical workflow identifier field in API responses is `workflow_id` (legacy `id` is still included during compatibility window).
-- Canonical task dependency field is `dependencies`; `depends_on` is accepted as a legacy request alias.
-- `GET /api/v1/workflows/{id}/tasks/{tid}/result` returns `409` until the task reaches a terminal state.
 
 ### Monitoring and Observability
 
@@ -350,9 +342,9 @@ curl http://localhost:9091/metrics
 - `saga_recovery_total` - Recovery attempts by status
 
 **Task Metrics:**
-- `task_executions_total` - Total task executions by status and `task_type`
-- `task_duration_seconds` - Task execution duration histogram by `task_type`
-- `task_retries_total` - Total task retry attempts by `task_type`
+- `task_executions_total` - Total task executions by status
+- `task_duration_seconds` - Task execution duration histogram
+- `task_retries_total` - Total task retry attempts
 
 **Lane Queue Metrics:**
 - `lane_queue_depth` - Current queue depth by lane
@@ -360,33 +352,9 @@ curl http://localhost:9091/metrics
 - `lane_throughput_total` - Total tasks processed by lane
 
 **HTTP API Metrics:**
-- `http_requests_total` - Total HTTP requests by method/path/status-class (`2xx|3xx|4xx|5xx`)
+- `http_requests_total` - Total HTTP requests by method/path/status
 - `http_request_duration_seconds` - HTTP request latency histogram
 - `http_active_connections` - Current active HTTP connections
-
-#### Metrics Compatibility Notes
-
-- HTTP `status` label now uses status classes (`2xx|3xx|4xx|5xx`) instead of raw status codes.
-- HTTP `path` labels normalize numeric IDs, UUIDs, ULIDs, and long opaque tokens to `:id`.
-- Task metrics include `task_type`; unknown task type falls back to `unknown`.
-- `metrics.path` must be non-empty and start with `/`.
-
-Recommended query updates:
-
-```promql
-# Old: raw HTTP status code
-sum(rate(http_requests_total{status="500"}[5m]))
-
-# New: status class
-sum(rate(http_requests_total{status="5xx"}[5m]))
-```
-
-```promql
-# Task success by task type
-sum(rate(task_executions_total{status="completed"}[5m])) by (task_type)
-/
-sum(rate(task_executions_total[5m])) by (task_type)
-```
 
 **System Metrics:**
 - `go_goroutines` - Number of goroutines
@@ -460,11 +428,11 @@ Goclaw includes a hybrid memory system for intelligent agent memory management, 
 
 #### Architecture
 
-- **Tiered Storage** 鈥?L1 LRU cache + L2 Badger persistence
-- **Vector Index** 鈥?Cosine similarity search over embedding vectors
-- **BM25 Index** 鈥?Full-text search with TF-IDF scoring (CJK support)
-- **Hybrid Retriever** 鈥?Reciprocal Rank Fusion (RRF) combining both indexes
-- **FSRS-6 Decay** 鈥?Automatic memory strength decay with spaced repetition
+- **Tiered Storage** — L1 LRU cache + L2 Badger persistence
+- **Vector Index** — Cosine similarity search over embedding vectors
+- **BM25 Index** — Full-text search with TF-IDF scoring (CJK support)
+- **Hybrid Retriever** — Reciprocal Rank Fusion (RRF) combining both indexes
+- **FSRS-6 Decay** — Automatic memory strength decay with spaced repetition
 
 #### Memory API Endpoints
 
@@ -508,46 +476,46 @@ For detailed documentation, see [docs/memory-system-guide.md](docs/memory-system
 ---
 
 <a name="chinese"></a>
-## 馃専 椤圭洰绠€浠?
+## 🌟 项目简介
 
-**Goclaw** 鏄竴涓熀浜?Go 璇█鏋勫缓鐨勭敓浜х骇銆侀珮鎬ц兘銆佸垎甯冨紡澶?Agent 缂栨帓寮曟搸銆?
+**Goclaw** 是一个基于 Go 语言构建的生产级、高性能、分布式多 Agent 编排引擎。
 
-瀹冩彁渚涗簡涓€涓仴澹殑妗嗘灦锛岀敤浜庢瀯寤恒€侀儴缃插拰绠＄悊鑳藉鍦ㄥ垎甯冨紡鐜涓棤缂濆崗浣滅殑鏅鸿兘浠ｇ悊銆?
+它提供了一个健壮的框架，用于构建、部署和管理能够在分布式环境中无缝协作的智能代理。
 
-### 鏍稿績鐗规€?
+### 核心特性
 
-- 馃殌 **楂樻€ц兘** - 鍩轰簬 Go 鐨勫苟鍙戞ā鍨嬶紝瀹炵幇鏈€澶у悶鍚愰噺
-- 馃彈锔?**鍒嗗竷寮忔灦鏋?* - 鍘熺敓鏀寔闆嗙兢閮ㄧ讲鍜屾湇鍔″彂鐜?
-- 馃攧 **Agent 缂栨帓** - 楂樼骇宸ヤ綔娴佺鐞嗗拰浠诲姟璋冨害
-- 馃寪 **RESTful API** - 瀹屾暣鐨?HTTP API 鍜?Swagger 鏂囨。
-- 馃搳 **鍙娴嬫€?* - 鍐呯疆鎸囨爣銆佹棩蹇楀拰閾捐矾杩借釜鏀寔
-- 馃攲 **鍙墿灞?* - 鎻掍欢鍖栨灦鏋勶紝鏀寔鑷畾涔?Agent 琛屼负
-- 馃洝锔?**鐢熶骇灏辩华** - 瀹屽杽鐨勯敊璇鐞嗗拰瀹归敊鏈哄埗
+- 🚀 **高性能** - 基于 Go 的并发模型，实现最大吞吐量
+- 🏗️ **分布式架构** - 原生支持集群部署和服务发现
+- 🔄 **Agent 编排** - 高级工作流管理和任务调度
+- 🌐 **RESTful API** - 完整的 HTTP API 和 Swagger 文档
+- 📊 **可观测性** - 内置指标、日志和链路追踪支持
+- 🔌 **可扩展** - 插件化架构，支持自定义 Agent 行为
+- 🛡️ **生产就绪** - 完善的错误处理和容错机制
 
-### 蹇€熷紑濮?
+### 快速开始
 
 ```bash
-# 鍏嬮殕浠撳簱
+# 克隆仓库
 git clone https://github.com/goclaw/goclaw.git
 cd goclaw
 
-# 鏋勫缓椤圭洰
+# 构建项目
 make build
 
-# 杩愯娴嬭瘯
+# 运行测试
 make test
 
-# 鍚姩鏈嶅姟
+# 启动服务
 make run
 ```
 
-### 瀹夎
+### 安装
 
 ```bash
 go get github.com/goclaw/goclaw
 ```
 
-### 浣跨敤绀轰緥
+### 使用示例
 
 ```go
 package main
@@ -560,206 +528,203 @@ import (
 )
 
 func main() {
-    // 鍔犺浇閰嶇疆
+    // 加载配置
     cfg, err := config.Load("config.yaml", nil)
     if err != nil {
         panic(err)
     }
 
-    // 鍒濆鍖栨棩蹇?
+    // 初始化日志
     log := logger.New(&logger.Config{
         Level:  logger.InfoLevel,
         Format: "json",
         Output: "stdout",
     })
 
-    // 鍒涘缓缂栨帓寮曟搸
+    // 创建编排引擎
     eng, err := engine.New(cfg, log)
     if err != nil {
         panic(err)
     }
 
-    // 鍚姩寮曟搸
+    // 启动引擎
     ctx := context.Background()
     if err := eng.Start(ctx); err != nil {
         panic(err)
     }
     defer eng.Stop(ctx)
 
-    // HTTP API 鏈嶅姟鍣ㄧ幇鍦ㄨ繍琛屽湪 8080 绔彛
-    // 璁块棶 API 文档: http://localhost:8080/docs
+    // HTTP API 服务器现在运行在 8080 端口
+    // 访问 Swagger UI: http://localhost:8080/swagger/index.html
 }
 ```
 
 ### HTTP API
 
-Goclaw 鎻愪緵瀹屾暣鐨?RESTful API 鐢ㄤ簬宸ヤ綔娴佺鐞嗭細
+Goclaw 提供完整的 RESTful API 用于工作流管理：
 
-#### API 绔偣
+#### API 端点
 
-**宸ヤ綔娴佺鐞嗭細**
-- `POST /api/v1/workflows` - 鎻愪氦鏂板伐浣滄祦
-- `GET /api/v1/workflows` - 鍒楀嚭鎵€鏈夊伐浣滄祦锛堟敮鎸佸垎椤碉級
-- `GET /api/v1/workflows/{id}` - 鑾峰彇宸ヤ綔娴佺姸鎬?
-- `POST /api/v1/workflows/{id}/cancel` - 鍙栨秷宸ヤ綔娴?
-- `GET /api/v1/workflows/{id}/tasks/{tid}/result` - 鑾峰彇浠诲姟缁撴灉
+**工作流管理：**
+- `POST /api/v1/workflows` - 提交新工作流
+- `GET /api/v1/workflows` - 列出所有工作流（支持分页）
+- `GET /api/v1/workflows/{id}` - 获取工作流状态
+- `POST /api/v1/workflows/{id}/cancel` - 取消工作流
+- `GET /api/v1/workflows/{id}/tasks/{tid}/result` - 获取任务结果
 
-**鍋ュ悍妫€鏌ワ細**
-- `GET /health` - 瀛樻椿鎺㈤拡
-- `GET /ready` - 灏辩华鎺㈤拡
-- `GET /status` - 璇︾粏鐘舵€佷俊鎭?
+**健康检查：**
+- `GET /health` - 存活探针
+- `GET /ready` - 就绪探针
+- `GET /status` - 详细状态信息
 
-**鎸囨爣鐩戞帶锛?*
-- `GET /metrics` - Prometheus 鎸囨爣绔偣锛堢鍙?9091锛?
+**指标监控：**
+- `GET /metrics` - Prometheus 指标端点（端口 9091）
 
-**鏂囨。锛?*
-- `GET /swagger/index.html` - 浜や簰寮?API 鏂囨。
+**文档：**
+- `GET /swagger/index.html` - 交互式 API 文档
 
-#### 蹇€?API 绀轰緥
+#### 快速 API 示例
 
 ```bash
-# 鎻愪氦宸ヤ綔娴?
+# 提交工作流
 curl -X POST http://localhost:8080/api/v1/workflows \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "鏁版嵁澶勭悊",
-    "description": "澶勭悊瀹㈡埛鏁版嵁",
+    "name": "数据处理",
+    "description": "处理客户数据",
     "tasks": [
       {
         "id": "task-1",
-        "name": "鑾峰彇鏁版嵁",
+        "name": "获取数据",
         "type": "http"
       },
       {
         "id": "task-2",
-        "name": "澶勭悊鏁版嵁",
+        "name": "处理数据",
         "type": "script",
-        "dependencies": ["task-1"]
+        "depends_on": ["task-1"]
       }
     ]
   }'
 
-# 鑾峰彇宸ヤ綔娴佺姸鎬?
+# 获取工作流状态
 curl http://localhost:8080/api/v1/workflows/{workflow-id}
 
-# 鍒楀嚭鎵€鏈夊伐浣滄祦
-curl http://localhost:8080/api/v1/workflows?limit=50&offset=0
+# 列出所有工作流
+curl http://localhost:8080/api/v1/workflows?limit=10&offset=0
 ```
 
-鏇村绀轰緥璇峰弬瑙?[docs/examples/curl-examples.md](docs/examples/curl-examples.md)銆?
+更多示例请参见 [docs/examples/curl-examples.md](docs/examples/curl-examples.md)。
 
-### 鐩戞帶涓庡彲瑙傛祴鎬?
+### 监控与可观测性
 
-Goclaw 鎻愪緵鐢熶骇绾х殑 Prometheus 鎸囨爣鐩戞帶锛?
+Goclaw 提供生产级的 Prometheus 指标监控：
 
-#### 鎸囨爣绔偣
+#### 指标端点
 
 ```bash
-# 璁块棶鎸囨爣
+# 访问指标
 curl http://localhost:9091/metrics
 ```
 
-#### 鍙敤鎸囨爣
+#### 可用指标
 
-**宸ヤ綔娴佹寚鏍囷細**
-- `workflow_submissions_total` - 鎸夌姸鎬佺粺璁＄殑宸ヤ綔娴佹彁浜ゆ€绘暟
-- `workflow_duration_seconds` - 宸ヤ綔娴佹墽琛屾椂闀跨洿鏂瑰浘
-- `workflow_active_count` - 鎸夌姸鎬佺粺璁＄殑褰撳墠娲昏穬宸ヤ綔娴佹暟
+**工作流指标：**
+- `workflow_submissions_total` - 按状态统计的工作流提交总数
+- `workflow_duration_seconds` - 工作流执行时长直方图
+- `workflow_active_count` - 按状态统计的当前活跃工作流数
 
-**浠诲姟鎸囨爣锛?*
-- `task_executions_total` - 鎸夌姸鎬佺粺璁＄殑浠诲姟鎵ц鎬绘暟
-- `task_duration_seconds` - 浠诲姟鎵ц鏃堕暱鐩存柟鍥?
-- `task_retries_total` - 浠诲姟閲嶈瘯鎬绘鏁?
+**任务指标：**
+- `task_executions_total` - 按状态统计的任务执行总数
+- `task_duration_seconds` - 任务执行时长直方图
+- `task_retries_total` - 任务重试总次数
 
-**闃熷垪鎸囨爣锛?*
-- `lane_queue_depth` - 鎸?lane 缁熻鐨勫綋鍓嶉槦鍒楁繁搴?
-- `lane_wait_duration_seconds` - 浠诲姟鍦ㄩ槦鍒椾腑鐨勭瓑寰呮椂闀跨洿鏂瑰浘
-- `lane_throughput_total` - 鎸?lane 缁熻鐨勫凡澶勭悊浠诲姟鎬绘暟
+**队列指标：**
+- `lane_queue_depth` - 按 lane 统计的当前队列深度
+- `lane_wait_duration_seconds` - 任务在队列中的等待时长直方图
+- `lane_throughput_total` - 按 lane 统计的已处理任务总数
 
-**HTTP API 鎸囨爣锛?*
-- `http_requests_total` - 鎸夋柟娉?璺緞/鐘舵€佺粺璁＄殑 HTTP 璇锋眰鎬绘暟
-- `http_request_duration_seconds` - HTTP 璇锋眰寤惰繜鐩存柟鍥?
-- `http_active_connections` - 褰撳墠娲昏穬 HTTP 杩炴帴鏁?
+**HTTP API 指标：**
+- `http_requests_total` - 按方法/路径/状态统计的 HTTP 请求总数
+- `http_request_duration_seconds` - HTTP 请求延迟直方图
+- `http_active_connections` - 当前活跃 HTTP 连接数
 
-**绯荤粺鎸囨爣锛?*
-- `go_goroutines` - Goroutine 鏁伴噺
-- `go_memstats_alloc_bytes` - 宸插垎閰嶅唴瀛?
-- `process_cpu_seconds_total` - CPU 鏃堕棿
-- `process_open_fds` - 鎵撳紑鐨勬枃浠舵弿杩扮鏁?
+**系统指标：**
+- `go_goroutines` - Goroutine 数量
+- `go_memstats_alloc_bytes` - 已分配内存
+- `process_cpu_seconds_total` - CPU 时间
+- `process_open_fds` - 打开的文件描述符数
 
-#### Docker Compose 鐩戞帶鏍?
+#### Docker Compose 监控栈
 
 ```bash
-# 鍚姩 Goclaw 鍙?Prometheus 鍜?Grafana
+# 启动 Goclaw 及 Prometheus 和 Grafana
 docker-compose up -d
 
-# 璁块棶鏈嶅姟
+# 访问服务
 # - Goclaw API: http://localhost:8080
-# - 鎸囨爣绔偣: http://localhost:9091/metrics
+# - 指标端点: http://localhost:9091/metrics
 # - Prometheus: http://localhost:9092
 # - Grafana: http://localhost:3000 (admin/admin)
 ```
 
-鐩戞帶鏍堝寘鎷細
-- **Prometheus** - 鎸囨爣鏀堕泦鍜屽瓨鍌?
-- **Grafana** - 鍙鍖栦华琛ㄦ澘
-- **鍛婅瑙勫垯** - 棰勯厤缃殑澶辫触銆佸欢杩熷拰璧勬簮浣跨敤鍛婅
+监控栈包括：
+- **Prometheus** - 指标收集和存储
+- **Grafana** - 可视化仪表板
+- **告警规则** - 预配置的失败、延迟和资源使用告警
 
-璇︾粏鐨勭洃鎺ч厤缃鍙傝 [config/prometheus.yml](config/prometheus.yml) 鍜?[config/grafana/](config/grafana/)銆?
+详细的监控配置请参见 [config/prometheus.yml](config/prometheus.yml) 和 [config/grafana/](config/grafana/)。
 
-### 娣峰悎璁板繂绯荤粺
+### 混合记忆系统
 
-Goclaw 鍐呯疆娣峰悎璁板繂绯荤粺锛岀粨鍚堝悜閲忚涔夋悳绱€丅M25 鍏ㄦ枃妫€绱㈠拰 FSRS-6 闂撮殧閲嶅琛板噺绠楁硶锛屼负 Agent 鎻愪緵鏅鸿兘璁板繂绠＄悊銆?
+Goclaw 内置混合记忆系统，结合向量语义搜索、BM25 全文检索和 FSRS-6 间隔重复衰减算法，为 Agent 提供智能记忆管理。
 
-#### 鏋舵瀯
+#### 架构
 
-- **鍒嗗眰瀛樺偍** 鈥?L1 LRU 缂撳瓨 + L2 Badger 鎸佷箙鍖?
-- **鍚戦噺绱㈠紩** 鈥?鍩轰簬浣欏鸡鐩镐技搴︾殑宓屽叆鍚戦噺鎼滅储
-- **BM25 绱㈠紩** 鈥?鏀寔涓嫳鏂囩殑鍏ㄦ枃妫€绱?
-- **娣峰悎妫€绱?* 鈥?RRF (Reciprocal Rank Fusion) 铻嶅悎涓ょ妫€绱㈢粨鏋?
-- **FSRS-6 琛板噺** 鈥?鍩轰簬闂撮殧閲嶅鐨勮嚜鍔ㄨ蹇嗗己搴﹁“鍑?
+- **分层存储** — L1 LRU 缓存 + L2 Badger 持久化
+- **向量索引** — 基于余弦相似度的嵌入向量搜索
+- **BM25 索引** — 支持中英文的全文检索
+- **混合检索** — RRF (Reciprocal Rank Fusion) 融合两种检索结果
+- **FSRS-6 衰减** — 基于间隔重复的自动记忆强度衰减
 
-#### 璁板繂 API 绔偣
+#### 记忆 API 端点
 
-- `POST /api/v1/memory/{sessionID}` - 瀛樺偍璁板繂
-- `GET /api/v1/memory/{sessionID}` - 鏌ヨ璁板繂锛堟枃鏈?鍚戦噺/娣峰悎锛?
-- `DELETE /api/v1/memory/{sessionID}` - 鍒犻櫎鎸囧畾璁板繂
-- `GET /api/v1/memory/{sessionID}/list` - 鍒楀嚭璁板繂锛堝垎椤碉級
-- `GET /api/v1/memory/{sessionID}/stats` - 鑾峰彇浼氳瘽缁熻
-- `DELETE /api/v1/memory/{sessionID}/all` - 鍒犻櫎鏁翠釜浼氳瘽
-- `DELETE /api/v1/memory/{sessionID}/weak` - 鍒犻櫎寮辫蹇?
+- `POST /api/v1/memory/{sessionID}` - 存储记忆
+- `GET /api/v1/memory/{sessionID}` - 查询记忆（文本/向量/混合）
+- `DELETE /api/v1/memory/{sessionID}` - 删除指定记忆
+- `GET /api/v1/memory/{sessionID}/list` - 列出记忆（分页）
+- `GET /api/v1/memory/{sessionID}/stats` - 获取会话统计
+- `DELETE /api/v1/memory/{sessionID}/all` - 删除整个会话
+- `DELETE /api/v1/memory/{sessionID}/weak` - 删除弱记忆
 
-#### 蹇€熺ず渚?
+#### 快速示例
 
 ```bash
-# 瀛樺偍璁板繂
+# 存储记忆
 curl -X POST http://localhost:8080/api/v1/memory/session-1 \
   -H "Content-Type: application/json" \
-  -d '{"content": "Go 鏄紪璇戝瀷璇█", "metadata": {"type": "fact"}}'
+  -d '{"content": "Go 是编译型语言", "metadata": {"type": "fact"}}'
 
-# 鏌ヨ璁板繂
-curl "http://localhost:8080/api/v1/memory/session-1?query=缂栬瘧鍨嬭瑷€&limit=5"
+# 查询记忆
+curl "http://localhost:8080/api/v1/memory/session-1?query=编译型语言&limit=5"
 ```
 
-璇︾粏鏂囨。璇峰弬瑙?[docs/memory-system-guide.md](docs/memory-system-guide.md)銆?
+详细文档请参见 [docs/memory-system-guide.md](docs/memory-system-guide.md)。
 
 ---
 
-## 馃摎 Documentation
+## 📚 Documentation
 
-- [Current Canonical Specs (OpenSpec)](openspec/specs/)
-- [Implementation Status Snapshot](docs/STATUS.md)
-- [Historical Specification v0.2 (English)](docs/SPEC_en_v0.2.md)
+- [English Specification](docs/SPEC_CORE_en_v0.2.md)
 - [OpenTelemetry Tracing Guide](docs/opentelemetry-tracing-guide.md)
 - [Tracing Architecture](docs/tracing-architecture.md)
 - [Tracing Runbook](docs/tracing-runbook.md)
-- [Historical Specification v0.2 (Chinese)](docs/SPEC_zh_v0.2.md)
+- [中文规格说明](docs/SPEC_CORE_zh_v0.2.md)
 
-## 馃 Contributing
+## 🤝 Contributing
 
 Contributions are welcome! Please read our [Contributing Guide](CONTRIBUTING.md) for details.
 
-## 馃搫 License
+## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-

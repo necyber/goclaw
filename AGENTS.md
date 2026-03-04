@@ -93,8 +93,8 @@ goclaw/
 ├── cmd/
 │   └── goclaw/       # Main entry point
 └── docs/
-    ├── SPEC_en_v0.2.md   # English specification
-    └── SPEC_zh_v0.2.md   # Chinese specification
+    ├── SPEC_CORE_en_v0.2.md   # English specification
+    └── SPEC_CORE_zh_v0.2.md   # Chinese specification
 ```
 
 ---
