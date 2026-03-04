@@ -31,6 +31,7 @@ import (
 	"github.com/goclaw/goclaw/pkg/api/events"
 	"github.com/goclaw/goclaw/pkg/api/handlers"
 	"github.com/goclaw/goclaw/pkg/engine"
+	"github.com/goclaw/goclaw/pkg/eventbus"
 	grpcpkg "github.com/goclaw/goclaw/pkg/grpc"
 	grpchandlers "github.com/goclaw/goclaw/pkg/grpc/handlers"
 	pb "github.com/goclaw/goclaw/pkg/grpc/pb/v1"
@@ -166,7 +167,22 @@ func main() {
 		streamingRegistry = grpcstreaming.NewSubscriberRegistry()
 		streamObserver = grpcstreaming.NewWorkflowStreamObserver(streamingRegistry)
 	}
-	runtimeBroadcaster := newRuntimeEventBroadcaster(eventBroadcaster, streamObserver)
+	var canonicalEventPublisher *asyncLifecyclePublisher
+	if cfg.Cluster.Enabled {
+		nodeID := strings.TrimSpace(cfg.Cluster.NodeID)
+		if nodeID == "" {
+			nodeID = "node-1"
+		}
+		bus := eventbus.NewMemoryBus()
+		publisher, publishErr := eventbus.NewPublisher(nodeID, bus, eventbus.DefaultRetryConfig(), metricsManager)
+		if publishErr != nil {
+			log.Error("Failed to initialize canonical event publisher", "error", publishErr)
+			os.Exit(1)
+		}
+		canonicalEventPublisher = newAsyncLifecyclePublisher(publisher, log, 1024)
+		defer canonicalEventPublisher.Close()
+	}
+	runtimeBroadcaster := newRuntimeEventBroadcaster(eventBroadcaster, streamObserver, canonicalEventPublisher)
 	wsHandler := handlers.NewWebSocketHandler(log, handlers.WebSocketConfig{
 		AllowedOrigins: cfg.Server.CORS.AllowedOrigins,
 		MaxConnections: cfg.UI.MaxWebSocketConnections,
@@ -602,89 +618,6 @@ func summarizeTracingEndpoint(endpoint string) string {
 		raw = raw[:idx]
 	}
 	return raw
-}
-
-type runtimeEventBroadcaster struct {
-	web      *events.Broadcaster
-	observer *grpcstreaming.WorkflowStreamObserver
-}
-
-func newRuntimeEventBroadcaster(web *events.Broadcaster, observer *grpcstreaming.WorkflowStreamObserver) *runtimeEventBroadcaster {
-	return &runtimeEventBroadcaster{
-		web:      web,
-		observer: observer,
-	}
-}
-
-func (b *runtimeEventBroadcaster) BroadcastWorkflowStateChanged(workflowID, name, oldState, newState string, updatedAt time.Time) {
-	if b.web != nil {
-		b.web.BroadcastWorkflowStateChanged(workflowID, name, oldState, newState, updatedAt)
-	}
-	if b.observer != nil {
-		b.observer.OnWorkflowEvent(engine.WorkflowEvent{
-			WorkflowID: workflowID,
-			EventType:  mapWorkflowEventType(newState),
-			Status:     strings.ToUpper(newState),
-			Message:    "workflow state changed",
-			Timestamp:  updatedAt.Unix(),
-		})
-	}
-}
-
-func (b *runtimeEventBroadcaster) BroadcastTaskStateChanged(
-	workflowID, taskID, taskName, oldState, newState, errorMessage string,
-	result any,
-	updatedAt time.Time,
-) {
-	if b.web != nil {
-		b.web.BroadcastTaskStateChanged(workflowID, taskID, taskName, oldState, newState, errorMessage, result, updatedAt)
-	}
-	if b.observer != nil {
-		message := "task state changed"
-		if errorMessage != "" {
-			message = errorMessage
-		}
-		b.observer.OnTaskEvent(engine.TaskEvent{
-			WorkflowID: workflowID,
-			TaskID:     taskID,
-			EventType:  mapTaskEventType(newState),
-			Status:     strings.ToUpper(newState),
-			Message:    message,
-			Timestamp:  updatedAt.Unix(),
-		})
-	}
-}
-
-func mapWorkflowEventType(state string) engine.WorkflowEventType {
-	switch strings.ToLower(state) {
-	case "pending":
-		return engine.WorkflowEventSubmitted
-	case "running":
-		return engine.WorkflowEventStarted
-	case "completed":
-		return engine.WorkflowEventCompleted
-	case "failed":
-		return engine.WorkflowEventFailed
-	case "cancelled":
-		return engine.WorkflowEventCancelled
-	default:
-		return engine.WorkflowEventStarted
-	}
-}
-
-func mapTaskEventType(state string) engine.TaskEventType {
-	switch strings.ToLower(state) {
-	case "running":
-		return engine.TaskEventStarted
-	case "completed":
-		return engine.TaskEventCompleted
-	case "failed":
-		return engine.TaskEventFailed
-	case "cancelled":
-		return engine.TaskEventCancelled
-	default:
-		return engine.TaskEventProgress
-	}
 }
 
 func setupShutdownSignals() chan os.Signal {

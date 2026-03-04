@@ -1,8 +1,8 @@
 ## 1. Runtime Canonical Publish Wiring
 
-- [ ] 1.1 Add composite runtime broadcaster path that keeps local broadcast behavior and publishes canonical workflow/task lifecycle events via `eventbus.Publisher`
-- [ ] 1.2 Wire canonical publication from persisted workflow/task transition hooks in distributed mode without blocking persistence completion
-- [ ] 1.3 Add runtime tests that assert persisted transitions trigger canonical workflow/task publish and preserve local subscriber delivery
+- [x] 1.1 Add composite runtime broadcaster path that keeps local broadcast behavior and publishes canonical workflow/task lifecycle events via `eventbus.Publisher`
+- [x] 1.2 Wire canonical publication from persisted workflow/task transition hooks in distributed mode without blocking persistence completion
+- [x] 1.3 Add runtime tests that assert persisted transitions trigger canonical workflow/task publish and preserve local subscriber delivery
 
 ## 2. Streaming Bridge Startup and Typed Translation
 
