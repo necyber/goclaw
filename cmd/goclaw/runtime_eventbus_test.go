@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -18,6 +19,31 @@ type alwaysFailTransport struct{}
 func (alwaysFailTransport) Publish(context.Context, string, []byte) error {
 	return errors.New("simulated transport failure")
 }
+
+type flakyRuntimeTransport struct {
+	bus       *eventbus.MemoryBus
+	failCount atomic.Int32
+}
+
+func (t *flakyRuntimeTransport) Publish(ctx context.Context, subject string, payload []byte) error {
+	if t.failCount.Load() > 0 {
+		t.failCount.Add(-1)
+		return errors.New("simulated outage")
+	}
+	return t.bus.Publish(ctx, subject, payload)
+}
+
+type runtimeTelemetryProbe struct {
+	retries    atomic.Int32
+	outages    atomic.Int32
+	recoveries atomic.Int32
+}
+
+func (p *runtimeTelemetryProbe) RecordPublish(string)        {}
+func (p *runtimeTelemetryProbe) RecordRetry()                { p.retries.Add(1) }
+func (p *runtimeTelemetryProbe) SetDegradedMode(active bool) { _ = active }
+func (p *runtimeTelemetryProbe) RecordOutage()               { p.outages.Add(1) }
+func (p *runtimeTelemetryProbe) RecordRecovery()             { p.recoveries.Add(1) }
 
 func TestRuntimeEventBroadcaster_BroadcastsLocalAndCanonicalEvents(t *testing.T) {
 	web := events.NewBroadcaster()
@@ -88,6 +114,73 @@ func TestRuntimeEventBroadcaster_CanonicalPublishIsNonBlocking(t *testing.T) {
 	broadcaster.BroadcastWorkflowStateChanged("wf-nonblock", "demo", "pending", "running", time.Now().UTC())
 	if elapsed := time.Since(start); elapsed > 50*time.Millisecond {
 		t.Fatalf("BroadcastWorkflowStateChanged() blocked for %v", elapsed)
+	}
+}
+
+func TestRuntimeEventBroadcaster_PublishFailureDegradesAndRecovers(t *testing.T) {
+	bus := eventbus.NewMemoryBus()
+	busSub, err := bus.Subscribe(eventbus.SubjectPrefix+".>", 16)
+	if err != nil {
+		t.Fatalf("Subscribe() error = %v", err)
+	}
+	defer busSub.Close()
+
+	transport := &flakyRuntimeTransport{bus: bus}
+	transport.failCount.Store(3)
+	telemetry := &runtimeTelemetryProbe{}
+	publisher, err := eventbus.NewPublisher("node-a", transport, eventbus.RetryConfig{
+		MaxRetries:     1,
+		InitialBackoff: 5 * time.Millisecond,
+		MaxBackoff:     5 * time.Millisecond,
+		BackoffFactor:  1,
+	}, telemetry)
+	if err != nil {
+		t.Fatalf("NewPublisher() error = %v", err)
+	}
+
+	web := events.NewBroadcaster()
+	webSub := web.Subscribe(4)
+	defer web.Unsubscribe(webSub)
+
+	asyncPublisher := newAsyncLifecyclePublisher(publisher, nil, 8)
+	defer asyncPublisher.Close()
+	broadcaster := newRuntimeEventBroadcaster(web, nil, asyncPublisher)
+
+	// Outage path: local broadcast should still be immediate while canonical publish degrades.
+	start := time.Now()
+	broadcaster.BroadcastWorkflowStateChanged("wf-degraded", "wf", "pending", "running", time.Now().UTC())
+	waitWebEvent(t, webSub, "workflow.state_changed")
+	if elapsed := time.Since(start); elapsed > 100*time.Millisecond {
+		t.Fatalf("local broadcast blocked by canonical publish path, elapsed=%v", elapsed)
+	}
+
+	deadline := time.Now().Add(time.Second)
+	for !publisher.Degraded() && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if !publisher.Degraded() {
+		t.Fatal("expected publisher degraded mode during transport outage")
+	}
+
+	// Recovery path: next publish should clear degraded mode and reach bus.
+	transport.failCount.Store(0)
+	broadcaster.BroadcastWorkflowStateChanged("wf-degraded", "wf", "running", "completed", time.Now().UTC())
+	waitEnvelope(t, busSub.C())
+
+	deadline = time.Now().Add(time.Second)
+	for publisher.Degraded() && time.Now().Before(deadline) {
+		time.Sleep(10 * time.Millisecond)
+	}
+	if publisher.Degraded() {
+		t.Fatal("expected publisher to recover from degraded mode")
+	}
+	if telemetry.retries.Load() == 0 || telemetry.outages.Load() == 0 || telemetry.recoveries.Load() == 0 {
+		t.Fatalf(
+			"expected retry/outage/recovery telemetry increments, got retries=%d outages=%d recoveries=%d",
+			telemetry.retries.Load(),
+			telemetry.outages.Load(),
+			telemetry.recoveries.Load(),
+		)
 	}
 }
 

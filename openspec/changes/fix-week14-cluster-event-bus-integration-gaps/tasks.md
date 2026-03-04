@@ -12,9 +12,9 @@
 
 ## 3. NATS Degraded-Mode Semantics
 
-- [ ] 3.1 Ensure publish failures follow bounded retry and degraded-mode telemetry policy while execution continues locally
-- [ ] 3.2 Ensure recovery path clears degraded indicators and resumes canonical publication after transport restoration
-- [ ] 3.3 Add tests for transient publish failure, retry behavior, and degraded-to-recovered transitions
+- [x] 3.1 Ensure publish failures follow bounded retry and degraded-mode telemetry policy while execution continues locally
+- [x] 3.2 Ensure recovery path clears degraded indicators and resumes canonical publication after transport restoration
+- [x] 3.3 Add tests for transient publish failure, retry behavior, and degraded-to-recovered transitions
 
 ## 4. Coordination Backend Guardrails
 
