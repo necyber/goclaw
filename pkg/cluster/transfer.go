@@ -64,7 +64,7 @@ func (m *OwnershipTransferManager) QueueWork(shardKey, workloadID string, payloa
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if _, exists := m.completed[workloadID]; exists {
+	if _, exists := m.completed[transferDedupeKey(shardKey, workloadID)]; exists {
 		return nil
 	}
 	m.queued[shardKey] = append(m.queued[shardKey], QueuedWork{ID: workloadID, Payload: payload})
@@ -82,7 +82,7 @@ func (m *OwnershipTransferManager) StartInFlight(shardKey, workloadID string, ow
 	if token := m.activeToken[shardKey]; token > 0 && token != ownerToken {
 		return ErrFencingTokenInvalid
 	}
-	if _, done := m.completed[workloadID]; done {
+	if _, done := m.completed[transferDedupeKey(shardKey, workloadID)]; done {
 		return nil
 	}
 
@@ -105,7 +105,8 @@ func (m *OwnershipTransferManager) CompleteInFlight(shardKey, workloadID string,
 
 	m.mu.Lock()
 	defer m.mu.Unlock()
-	if _, alreadyDone := m.completed[workloadID]; alreadyDone {
+	key := transferDedupeKey(shardKey, workloadID)
+	if _, alreadyDone := m.completed[key]; alreadyDone {
 		return false, nil
 	}
 	if token := m.activeToken[shardKey]; token > 0 && token != ownerToken {
@@ -118,7 +119,7 @@ func (m *OwnershipTransferManager) CompleteInFlight(shardKey, workloadID string,
 			delete(m.inFlight, shardKey)
 		}
 	}
-	m.completed[workloadID] = struct{}{}
+	m.completed[key] = struct{}{}
 	return true, nil
 }
 
@@ -159,4 +160,8 @@ func (m *OwnershipTransferManager) TransferShard(shardKey string, newOwnerToken 
 		Queued:        queued,
 		InFlightIDs:   inFlightIDs,
 	}
+}
+
+func transferDedupeKey(shardKey, workloadID string) string {
+	return shardKey + "\x00" + workloadID
 }

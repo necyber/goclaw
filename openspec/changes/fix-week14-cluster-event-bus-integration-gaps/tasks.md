@@ -24,9 +24,9 @@
 
 ## 5. Shard-Scoped Transfer Idempotency
 
-- [ ] 5.1 Change transfer duplicate suppression/completion keying from global `workloadID` to `(shardKey, workloadID)`
-- [ ] 5.2 Update ownership transfer flow to preserve one-terminal-outcome guarantees with shard-scoped dedupe semantics
-- [ ] 5.3 Add tests proving same workload IDs on different shards do not collide while same-shard duplicates remain suppressed
+- [x] 5.1 Change transfer duplicate suppression/completion keying from global `workloadID` to `(shardKey, workloadID)`
+- [x] 5.2 Update ownership transfer flow to preserve one-terminal-outcome guarantees with shard-scoped dedupe semantics
+- [x] 5.3 Add tests proving same workload IDs on different shards do not collide while same-shard duplicates remain suppressed
 
 ## 6. End-to-End Regression Coverage
 
